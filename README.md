@@ -22,21 +22,21 @@ Add APE to your local path in .bashrc (make sure to change ~/Path/to/APE/ accord
 
 ## Install dependencies
 
-- Install the latest DEVELOPER version of RMG (which has Arkane). It is recommended to follow RMG’s [Developer installation by source using Anaconda](http://reactionmechanismgenerator.github.io/RMG-Py/users/rmg/installation/index.html#for-developers-installation-by-source-using-anaconda-environment) instructions. Make sure to add RMG-Py to your PATH and PYTHONPATH variables as explained in RMG’s documentation.
+- Install the latest DEVELOPER version of RMG (which has Arkane). It is recommended to follow RMG’s [Developer installation by source using Anaconda](http://reactionmechanismgenerator.github.io/RMG-Py/users/rmg/installation/index.html#for-developers-installation-by-source-using-anaconda-environment) instructions. Make sure to add RMG-Py to your PATH and PYTHONPATH variables as explained in RMG’s documentation. 
 
-- Clone [pysisyphus](https://github.com/eljost/pysisyphus) in a separate folder and add it to your PYTHONPATH just as well.
+- Clone [ARC](https://reactionmechanismgenerator.github.io/ARC/installation.html) and [pysisyphus](https://github.com/eljost/pysisyphus) in a separate folder and add it to your PYTHONPATH just as well.
+
+  `git clone https://github.com/ReactionMechanismGenerator/ARC.git`
+  
+  `export PYTHONPATH=$PYTHONPATH:~/Path/to/ARC/`
 
   `git clone https://github.com/eljost/pysisyphus.git`
+  
+  `export PYTHONPATH=$PYTHONPATH:~/Path/to/pysisyphus/`
 
 - Create an Anaconda environment for APE:
 
   `conda env create -f environment.yml`
-  
-- Modify environment variables. Add APE to the `PYTHONPATH` to ensure that you can access modules from any folder. Modify your ~/.bashrc file by adding the following line:
-
-  `export APE="your_folder/APE`
-  
-  `export PYTHONPATH=$APE:PYTHONPATH`
   
 - Finally either close and reopen your terminal to refresh your environment variables, or type the following command
 
