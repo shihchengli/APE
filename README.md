@@ -52,7 +52,7 @@ To run APE, make sure to first activate the APE environment
 
 - Basic run
 
-  `python <path_to_the_APE_folder>/APE.py freq_output.q.out -p <UMN or UMVT (default)>`
+  `python <path_to_the_APE_folder>/APE.py freq_output.q.out -p <UMN or UMVT (default)> > thermo_result`
 
 - Using the API
   ```markdown
