@@ -9,6 +9,7 @@ Currently, APE can only estimate the thermodynamic property of a given molecule.
 **This software is still work in progress to develop more functions.**
 
 ## Clone and setup path
+
 Befor installing APE, download [Anacinda](anaconda.com/download/) and [Git](https://git-scm.com/downloads).
 
 Install the latest version of APE by cloning the source code via Git.
@@ -50,16 +51,18 @@ Add APE to your local path in .bashrc (make sure to change ~/Path/to/APE/ accord
 To run APE, make sure to first activate the APE environment
 
 - Basic run
+
   `python <path_to_the_APE_folder>/APE.py freq_output.q.out -p <UMN or UMVT (default)>`
 
 - Using the API
+  ```markdown
 
-  `from ape.main import APE`
+  from ape.main import APE
   
-  `ape = APE(input_file, name=None, project_directory=None, protocol=None, multiplicity=None, charge = None, external_symmetry=None, level_of_theory=None, basis=None, ncpus=None)`
+  ape = APE(input_file, name=None, project_directory=None, protocol=None, multiplicity=None, charge = None, external_symmetry=None, level_of_theory=None, basis=None, ncpus=None)
   
-  `ape.execute()`
-
+  ape.execute()
+  ```
 ## How to give feedback
   
 If you are having issues, please post to our <a href="https://github.com/shihchengli/APE/issues">Issues</a> page. We will do our best to assist.
