@@ -38,7 +38,7 @@ Add APE to your local path in .bashrc (make sure to change ~/Path/to/APE/ accord
 
   `conda env create -f environment.yml`
   
-- Finally either close and reopen your terminal to refresh your environment variables, or type the following command
+- Finally either close and reopen your terminal to refresh your environment variables, or type the following command.
 
   `source ~/.bashrc`
 
@@ -48,7 +48,7 @@ Add APE to your local path in .bashrc (make sure to change ~/Path/to/APE/ accord
 
 ## How to run a job
 
-To run APE, make sure to first activate the APE environment
+To run APE, make sure to first activate the APE environment.
 
 - Basic run
 
