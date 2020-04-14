@@ -54,16 +54,14 @@ class HinderedRotor(object):
 
         for i in vib_freq:
             match_freq = 0
-            while True:
-                for j in projectd_vib_freq:
-                    if math.isclose(i,j,abs_tol=1) is True:
-                        match_freq += 1
-                if match_freq is 0:
-                    projected_out_freq = i
-                    break
-                if i == vib_freq[-1] and j == projectd_vib_freq[-1]:
-                    raise ConvergeError('Can\'t find the frequency of the hindered rotor whose scan is {scan}'.format(scan=scan))
-            break
+            for j in projectd_vib_freq:
+                if math.isclose(i,j,abs_tol=1) is True:
+                    match_freq += 1
+            if match_freq is 0:
+                projected_out_freq = i
+                break
+            if i == vib_freq[-1] and j == projectd_vib_freq[-1]:
+                raise ConvergeError('Can\'t find the frequency of the hindered rotor whose scan is {scan}'.format(scan=scan))
         
         print('The frequency of the hindered rotor whose scan is {scan} is {freq} cm-1'\
             .format(scan=scan, freq=projected_out_freq))
