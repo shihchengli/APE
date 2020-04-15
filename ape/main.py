@@ -142,10 +142,7 @@ class APE(object):
 
         displaced_geometries_dict = {}
         for xi in x_dict:
-            xyz = ''
-            for i in range(self.natom):
-                xyz += '{:s}       {:.10f}     {:.10f}     {:.10f}'.format(self.symbols[i],x_dict[xi][3*i],x_dict[xi][3*i+1],x_dict[xi][3*i+2])
-                if i != self.natom-1: xyz += '\n'
+            xyz = getXYZ(self.symbols, x_dict[xi])
             displaced_geometries_dict[xi] = xyz
         return displaced_geometries_dict
 
