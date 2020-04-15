@@ -14,6 +14,7 @@ def parse_command_line_arguments(command_line_args=None):
     parser = argparse.ArgumentParser(description='Automated Property Estimator (APE)')
     parser.add_argument('file', metavar='FILE', type=str, nargs=1,
                         help='a file describing the job to execute')
+    parser.add_argument('-n', type=int, help='number of CPUs to run quantum calculation')
     parser.add_argument('-p', type=str, help='the sampling protocol(UMN or UMVT) chossen (default: UMVT)')
     parser.add_argument('-i', type=str, help='the imaginary bonds for QMMM calculation')
 
@@ -26,6 +27,7 @@ def main():
     """ The main APE executable function"""
     args = parse_command_line_arguments()
     input_file = args.file
+    ncpus = args.n
     protocol = args.p
     project_directory = os.path.abspath(os.path.dirname(args.file))
     if not protocol:
@@ -44,7 +46,7 @@ def main():
             atom1, atom2 = bond.split('-')
             imaginary_bonds.append([int(atom1), int(atom2)])
 
-    ape_object = APE(input_file = input_file, project_directory=project_directory, protocol=protocol, imaginary_bonds=imaginary_bonds)
+    ape_object = APE(input_file = input_file, ncpus=ncpus, project_directory=project_directory, protocol=protocol, imaginary_bonds=imaginary_bonds)
     ape_object.execute()
 
 ################################################################################
