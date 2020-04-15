@@ -175,7 +175,7 @@ class QChemLog(Log):
 
         fixed_molecule_string = ''
 
-        n_atoms = len(self.get_QM_ATOMS()) + len(self.get_ISOTOPES())
+        n_atoms = len(self.get_QM_ATOMS())
         with open(self.path, 'r') as f:
             line = f.readline()
             while line != '':
@@ -197,7 +197,7 @@ class QChemLog(Log):
         """
         QM_USER_CONNECT = []
 
-        n_atoms = len(self.get_QM_ATOMS()) + len(self.get_ISOTOPES())
+        n_atoms = len(self.get_QM_ATOMS())
         with open(self.path, 'r') as f:
             line = f.readline()
             while line != '':

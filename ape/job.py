@@ -31,6 +31,10 @@ class Job(object):
         Write a software-specific, job-specific input file.
         Save the file locally and also upload it to the server.
         """
+        is_QM_MM_INTERFACE = False
+        if is_QM_MM_INTERFACE:
+            fine_string = fine_zeolite 
+        else: fine_string = fine
         if self.jobtype in {'opt', 'ts', 'sp'}:
             script = input_script.format(jobtype=self.jobtype, level_of_theory=self.level_of_theory, basis=self.basis,\
             fine=fine, charge=self.charge, multiplicity=self.multiplicity, xyz=self.xyz)
@@ -57,6 +61,23 @@ fine = """\n   max_scf_cycles   250
    geom_opt_dmax   80
    pop_mulliken false
    XC_GRID 000075000302"""
+
+fine_zeolite = """\n   geom_opt_coords   0
+   max_scf_cycles   250
+   geom_opt_max_cycles   1500
+   QM_MM_INTERFACE   Zeolite
+   force_field   charmm27
+   user_connect   TRUE
+   symmetry   off
+   sym_ignore   TRUE
+   print_input   true
+   qmmm_print   false
+   qm_mm   TRUE
+   qmmm_full_hessian   FALSE
+   AIMD_FIXED_ATOMS 1422
+   geom_opt_dmax   80
+   pop_mulliken false
+   isotopes true"""
 
 input_script = """$rem
    JOBTYPE  {jobtype}

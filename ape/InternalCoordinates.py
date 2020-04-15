@@ -32,7 +32,7 @@ def getXYZ(atoms, cart_coords):
     natom = len(atoms)
     xyz = ''
     for i in range(natom):
-        xyz += '{}\t{}\t\t{}\t\t{}'.format(atoms[i],cart_coords[3*i],cart_coords[3*i+1],cart_coords[3*i+2])
+        xyz += '{:s}       {:.10f}     {:.10f}     {:.10f}'.format(atoms[i],cart_coords[3*i],cart_coords[3*i+1],cart_coords[3*i+2])
         if i != natom-1: xyz += '\n'
     return xyz
 
@@ -54,9 +54,12 @@ def get_bond_indices(atoms, cart_coords):
     bond_indices = np.array(sorted(bond_indices))
     return bond_indices
 
-def get_RedundantCoords(atoms, cart_coords, rotors_dict=None):
+def get_RedundantCoords(atoms, cart_coords, rotors_dict=None, imaginary_bond=None):
     internal = RedundantCoords(atoms, cart_coords)
     bond_indices = get_bond_indices(atoms, cart_coords)
+    imaginary_bond = np.array([[2, 11]])
+    if imaginary_bond is not None:
+        bond_indices = np.append(bond_indices,imaginary_bond,axis=0)
     def set_primitive_indices():
         internal.bond_indices = bond_indices
         internal.bending_indices = list()

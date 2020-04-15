@@ -22,10 +22,10 @@ import rmgpy.constants as constants
 
 from arkane.common import symbol_by_number
 from arkane.statmech import StatMechJob, determine_rotor_symmetry, is_linear
-from arkane.ess import QChemLog
 
 from arc.species.species import ARCSpecies
 
+from ape.qchem import QChemLog
 from ape.job import Job, record_script
 from ape.torsion import HinderedRotor
 from ape.InternalCoordinates import get_RedundantCoords, getXYZ
@@ -56,28 +56,57 @@ class APE(object):
         Log = QChemLog(self.input_file)
         self.hessian = Log.load_force_constant_matrix()
         coordinates, number, mass = Log.load_geometry()
-        self.symbols = [symbol_by_number[i] for i in number]
         self.conformer, unscaled_frequencies = Log.load_conformer()
-        self.cart_coords = coordinates.reshape(-1,)
         if self.name is None:
             self.name = self.input_file.split('/')[-1].split('.')[0]
-        self.natom = Log.get_number_of_atoms()
-        self.xyz = getXYZ(self.symbols, self.cart_coords)
-        self.ARCSpecies = ARCSpecies(label=self.name,xyz=self.xyz)
-        self.conformer.coordinates = (coordinates, "angstroms")
-        self.conformer.number = number
-        self.conformer.mass = (mass, "amu")
-        self.linearity = is_linear(self.conformer.coordinates.value)
-        self.e_elect = Log.load_energy()
-        self.zpe = Log.load_zero_point_energy()
-        e0 = self.e_elect + self.zpe
-        self.conformer.E0 = (e0, "J/mol")
-        if self.ncpus is None:
-            self.ncpus = self.ARCSpecies.number_of_heavy_atoms        
         if self.multiplicity is None:
-            self.multiplicity = self.ARCSpecies.multiplicity
+            self.multiplicity = Log.multiplicity
+            #self.multiplicity = self.ARCSpecies.multiplicity
         if self.charge is None:
-           self.charge = 0
+            self.charge = Log.charge
+            #self.charge = 0
+
+        self.is_QM_MM_INTERFACE = Log.is_QM_MM_INTERFACE()
+        if self.is_QM_MM_INTERFACE:
+            self.QM_ATOMS = Log.get_QM_ATOMS()
+            self.ISOTOPES = Log.get_ISOTOPES()
+            self.force_field_params = Log.get_force_field_params()
+            self.opt = Log.get_opt()
+            self.fixed_molecule_string = Log.get_fixed_molecule()
+            self.QM_USER_CONNECT = Log.get_QM_USER_CONNECT()
+            self.QM_mass = Log.QM_mass
+            self.QM_coord = Log.QM_coord
+            self.natom =  len(self.QM_ATOMS) + len(self.ISOTOPES)
+            self.symbols = Log.QM_atom
+            self.cart_coords = self.QM_coord.reshape(-1,)
+            self.conformer.coordinates = (self.QM_coord, "angstroms")
+            self.conformer.mass = (self.QM_mass, "amu")
+            xyz = ''
+            for i in range(len(self.QM_ATOMS)):
+                if self.QM_USER_CONNECT[i].endswith('0  0  0  0'):
+                    xyz += '{}\t{}\t\t{}\t\t{}'.format(self.symbols[i],self.cart_coords[3*i],self.cart_coords[3*i+1],self.cart_coords[3*i+2])
+                    if i != self.natom-1: xyz += '\n'
+            self.xyz = xyz
+            self.ARCSpecies = ARCSpecies(label=self.name,xyz=self.xyz)
+            if self.ncpus is None:
+                self.ncpus = 8 # default cpu for QM/MM calculation
+        else:
+            self.natom = Log.get_number_of_atoms()
+            self.symbols = [symbol_by_number[i] for i in number]
+            self.cart_coords = coordinates.reshape(-1,)
+            self.conformer.coordinates = (coordinates, "angstroms")
+            self.conformer.mass = (mass, "amu")            
+            self.xyz = getXYZ(self.symbols, self.cart_coords)
+            self.ARCSpecies = ARCSpecies(label=self.name,xyz=self.xyz)
+            if self.ncpus is None:
+                self.ncpus = self.ARCSpecies.number_of_heavy_atoms            
+            # Below is information for thermodynamic caculation
+            self.linearity = is_linear(self.conformer.coordinates.value)
+            self.e_elect = Log.load_energy()
+            self.zpe = Log.load_zero_point_energy()
+            e0 = self.e_elect + self.zpe
+            self.conformer.E0 = (e0, "J/mol")
+
         # Determine hindered rotors information
         if self.protocol == 'UMVT':
             self.rotors_dict = self.get_rotors_dict()
@@ -85,8 +114,13 @@ class APE(object):
         else:
             self.rotors_dict = []
             self.n_rotors = 0
-        self.nmode = 3 * self.natom - (5 if self.linearity else 6) 
-        self.n_vib = 3 * self.natom - (5 if self.linearity else 6) - self.n_rotors
+
+        if self.is_QM_MM_INTERFACE:
+            self.nmode = 3 * len(Log.get_QM_ATOMS())
+            self.n_vib = 3 * len(Log.get_QM_ATOMS()) - self.n_rotors
+        else:        
+            self.nmode = 3 * self.natom - (5 if self.linearity else 6) 
+            self.n_vib = 3 * self.natom - (5 if self.linearity else 6) - self.n_rotors
     
     def get_rotors_dict(self):
         rotors_dict = {}
@@ -142,15 +176,21 @@ class APE(object):
 
         displaced_geometries_dict = {}
         for xi in x_dict:
-            xyz = ''
+            '''xyz = ''
             for i in range(self.natom):
                 xyz += '{:s}       {:.10f}     {:.10f}     {:.10f}'.format(self.symbols[i],x_dict[xi][3*i],x_dict[xi][3*i+1],x_dict[xi][3*i+2])
-                if i != self.natom-1: xyz += '\n'
+                if i != self.natom-1: xyz += '\n'''
+            if self.is_QM_MM_INTERFACE:
+                nHcap = len(self.ISOTOPES)
+                xyz = getXYZ(self.symbols[:-nHcap], x_dict[xi])
+            else:
+                xyz = getXYZ(self.symbols, x_dict[xi])
             displaced_geometries_dict[xi] = xyz
         return displaced_geometries_dict
 
     def get_e_elect(self, xyz, path, file_name):
         cpus = self.ncpus
+        file_name = 'output' #test
         job = Job(xyz, path, file_name,jobtype='sp', cpus=cpus, charge=self.charge, multiplicity=self.multiplicity, level_of_theory=self.level_of_theory, basis=self.basis)
         job.write_input_file()
         job.submit()
@@ -168,8 +208,11 @@ class APE(object):
         if not os.path.exists(path):
             os.makedirs(path)
         if self.protocol == 'UMVT' and self.n_rotors != 0:
-            rotor = HinderedRotor(self.symbols, self.cart_coords, self.hessian, self.rotors_dict, self.conformer.mass.value_si, self.n_vib)
-            projected_hessian = rotor.projectd_hessian()
+            n_vib = self.n_vib
+            if self.is_QM_MM_INTERFACE:
+                n_vib -= 6 # due to frustrated translation and rotation 
+            rotor = HinderedRotor(self.symbols, self.cart_coords, self.hessian, self.rotors_dict, self.conformer.mass.value_si, n_vib)
+            projected_hessian = rotor.projectd_hessian()          
             vib_freq, unweighted_v = SolvEig(projected_hessian, self.conformer.mass.value_si, self.n_vib)
             print('Frequencies(cm-1) from projected Hessian:',vib_freq)
             
@@ -182,7 +225,7 @@ class APE(object):
                 scan = self.rotors_dict[i+1]['scan']
                 scan_res = 10
                 step_size = math.pi / (180/scan_res)
-                #print('Sampling Mode ', (i+1))
+                print('Sampling Mode ', (i+1))
                 rotors_dict = self.rotors_dict
                 internal = get_RedundantCoords(self.symbols, self.cart_coords, rotors_dict)
                 scan_indices = internal.B_indices[-self.n_rotors:]
@@ -206,7 +249,8 @@ class APE(object):
                     if e_elec - min_elect > thresh:
                         break
                 v_list = [i * (constants.E_h * constants.Na) for i in energy_dict[i+1].values()] # in J/mol
-                symmetry_number = determine_rotor_symmetry(v_list, self.name, scan)
+                #symmetry_number = determine_rotor_symmetry(v_list, self.name, scan)
+                symmetry_number = 3
                 mode_dict[i+1]['symmetry_number'] = symmetry_number
         
         elif self.protocol == 'UMN':
@@ -223,7 +267,7 @@ class APE(object):
             magnitude = np.linalg.norm(unweighted_v[i-self.n_rotors])
             reduced_mass = magnitude ** -2 / constants.amu # in amu
             step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (vib_freq[i-self.n_rotors] * 2 * math.pi * constants.c * 100)) * 10 ** 10 # in angstrom
-            #print('Sampling Mode ', (i+1))
+            print('Sampling Mode ', (i+1))
             displaced_geometries_dict = self.get_displaced_geometries_dict(vector=unweighted_v[i-self.n_rotors], step_size=step_size)
             mode_dict[i+1]['mode'] = 'vib'
             mode_dict[i+1]['M'] = reduced_mass # in amu
