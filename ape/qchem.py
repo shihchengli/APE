@@ -86,7 +86,7 @@ class QChemLog(Log):
                 if '$QM_ATOMS' in line.upper():
                     line = f.readline()
                     while '$end' not in line and line != '\n':
-                        QM_atoms.append(int(line.strip()))
+                        QM_atoms.append(line.strip())
                         line = f.readline()
                 line = f.readline()
             
@@ -207,7 +207,7 @@ class QChemLog(Log):
                         line = f.readline()
                     for i in range(n_atoms):
                         _, _, _, _, MM_atom_type, Bond_1, Bond_2, Bond_3, Bond_4 = line.split()
-                        USER_CONNECT = ' {}  {}  {}  {}  {}'.format(MM_atom_type, Bond_1, Bond_2, Bond_3, Bond_4)
+                        USER_CONNECT = '{}  {}  {}  {}  {}'.format(MM_atom_type, Bond_1, Bond_2, Bond_3, Bond_4)
                         QM_USER_CONNECT.append(USER_CONNECT)
                         line = f.readline()
                     break
@@ -329,19 +329,12 @@ class QChemLog(Log):
         if self.is_QM_MM_INTERFACE():
             QM_mass = []
             for i in self.get_QM_ATOMS():
-                QM_mass.append(mass[i-1])
+                QM_mass.append(mass[int(i)-1])
             ISOTOPES = self.get_ISOTOPES()
             for i in sorted(ISOTOPES.keys()):
                 QM_mass.append(ISOTOPES[i])
                 #QM_mass.append(get_element_mass('H')[0])
             self.QM_mass = np.array(QM_mass, np.float64)
-            
-            '''QM_coord = []
-            for i in self.get_QM_ATOMS():
-                QM_coord.append(coord[i-1])
-            for i in sorted(ISOTOPES.keys()):
-                QM_coord.append(coord[i-1])
-            self.QM_coord = np.array(QM_coord, np.float64)'''
 
             QM_atom = []
             QM_coord = []
@@ -366,16 +359,6 @@ class QChemLog(Log):
                         break
             self.QM_atom = QM_atom
             self.QM_coord = np.array(QM_coord, np.float64)
-
-            '''QM_atom = []
-            for i in reversed(range(len(log))):
-                line = log[i]
-                if 'Standard Nuclear Orientation' in line:
-                    for line in log[i+3:i + len(self.get_QM_ATOMS()) + len(self.get_ISOTOPES())+3]:
-                        data = line.split()
-                        QM_atom.append(data[1])
-                    break
-            self.QM_atom = QM_atom'''
         
         return coord, number, mass
 

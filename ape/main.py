@@ -191,8 +191,20 @@ class APE(object):
     def get_e_elect(self, xyz, path, file_name):
         cpus = self.ncpus
         file_name = 'output' #test
-        job = Job(xyz, path, file_name,jobtype='sp', cpus=cpus, charge=self.charge, multiplicity=self.multiplicity, level_of_theory=self.level_of_theory, basis=self.basis)
+        if self.is_QM_MM_INTERFACE:
+            self.QM_USER_CONNECT
+            self.fixed_molecule_string
+            QMMM_xyz_string = ''
+            for i, xyz in enumerate(xyz.split('\n')):
+                QMMM_xyz_string += " ".join([xyz, self.QM_USER_CONNECT[i]]) + '\n'
+                #QMMM_xyz_string += '\n'
+                #if i != len(self.QM_ATOMS)-1: QMMM_xyz_string += '\n'
+            QMMM_xyz_string += self.fixed_molecule_string
+            job = Job(QMMM_xyz_string, path, file_name,jobtype='sp', cpus=cpus, charge=self.charge, multiplicity=self.multiplicity, level_of_theory=self.level_of_theory, basis=self.basis, QM_atoms=self.QM_ATOMS, force_field_params=self.force_field_params, opt=self.opt)
+        else:
+            job = Job(xyz, path, file_name,jobtype='sp', cpus=cpus, charge=self.charge, multiplicity=self.multiplicity, level_of_theory=self.level_of_theory, basis=self.basis)
         job.write_input_file()
+        raise
         job.submit()
         output_file_path = os.path.join(path, '{}.q.out'.format(file_name))
         e_elect = QChemLog(output_file_path).load_energy() / (constants.E_h * constants.Na) # in Hartree/particle

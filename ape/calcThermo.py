@@ -176,6 +176,36 @@ class ThermoJob(object):
             print("Enthalpy H(%f K)-H(0 K) (kcal/mol): %.10f" % (T, conformer.get_enthalpy(T)/4184))
             print("Total entropy (cal/mol/K): %.10f" % (S_trans+S_rot+S_vib))
             print("Total Cv (cal/mol/K): %.10f" % (conformer.get_heat_capacity(T) / 4.184))
+    
+    def calcQMMMThermo(self):
+        T = self.T
+        P = self.P
+
+        print("Calculate internal E, S")
+        E0 = 0
+        E_int = 0
+        S_int = 0
+        #F_int = 0
+        #Q_int = 1
+        Cv_int = 0
+
+        for mode in sorted(self.mode_dict.keys()):
+            print("\n\t********** Mode ",mode," **********\n\n")
+            v, e0, E, S, F, Q, Cv = self.SolvEig(mode)
+            E0 += e0
+            E_int += E
+            S_int += S
+            #F_int += F
+            #Q_int *= Q
+            Cv_int += Cv
+
+        print("\n\t********** Final results **********\n\n")
+        print("Temperature (K): ",T)
+        print("Pressure (Pa): ",P)
+        print("Zero point vibrational energy (kcal/mol): %.10f" % (E0))
+        print("Internal (rot+vib) energy (kcal/mol): %.10f" % (E_int))
+        print("Internal (tor+vib) entropy (cal/mol/K): %.10f" % (S_int))
+        print("Internal (tor+vib) Cv (cal/mol/K): %.10f" % (Cv_int))
 
 ################################################################################
 
@@ -189,4 +219,5 @@ if __name__ == '__main__':
     mode_dict, energy_dict = from_sampling_result(csv_path)
     polynomial_dict = cubic_spline_interpolations(energy_dict,mode_dict)
     thermo = ThermoJob(conformer, polynomial_dict, mode_dict, energy_dict,T=298.15,P=100000)
-    thermo.calcThermo(print_HOhf_result=True, zpe_of_Hohf=ape.zpe)
+    thermo.calcQMMMThermo()
+    #thermo.calcThermo(print_HOhf_result=True, zpe_of_Hohf=ape.zpe)

@@ -3,7 +3,7 @@ import os
 import subprocess
 
 class Job(object):
-    def __init__(self, xyz, path, file_name, jobtype, cpus, charge=None, multiplicity=None, level_of_theory=None, basis=None):
+    def __init__(self, xyz, path, file_name, jobtype, cpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, QM_atoms=None, force_field_params=None, opt=None):
         self.xyz = xyz
         self.path = path
         self.jobtype = jobtype
@@ -12,6 +12,14 @@ class Job(object):
         self.multiplicity = multiplicity
         self.level_of_theory = level_of_theory
         self.basis = basis
+        self.is_QM_MM_INTERFACE = False
+
+        # QMMM parameter
+        if QM_atoms is not None:
+            self.is_QM_MM_INTERFACE = True
+            self.QM_atoms = QM_atoms
+            self.force_field_params = force_field_params
+            self.opt = opt
 
         if self.cpus > 8:
             self.cpus = 8
@@ -22,7 +30,10 @@ class Job(object):
         if self.level_of_theory is None:
             self.level_of_theory = 'omegaB97X-D'
         if self.basis is None:
-            self.basis = '6-311+G(2df,2pd)'
+            if self.is_QM_MM_INTERFACE:
+                self.basis = '6-311++G(3df,3pd)\n   basis2   6-31G*'
+            else:
+                self.basis = '6-311+G(2df,2pd)'
         self.input_path = os.path.join(self.path, 'input.qcin')
         self.output_path = os.path.join(self.path, '{}.q.out'.format(file_name))
 
@@ -31,13 +42,20 @@ class Job(object):
         Write a software-specific, job-specific input file.
         Save the file locally and also upload it to the server.
         """
-        is_QM_MM_INTERFACE = False
-        if is_QM_MM_INTERFACE:
-            fine_string = fine_zeolite 
-        else: fine_string = fine
+        if self.is_QM_MM_INTERFACE:
+            fine_string = fine_zeolite
+            QM_atoms = '\n$QM_ATOMS\n' + '\n'.join(self.QM_atoms) + '\n$end\n'
+            force_field_params = '\n$force_field_params\n' + self.force_field_params + '$end\n'
+            opt = '\n$opt\n' + self.opt + '$end\n'
+        else:
+            fine_string = fine
+            QM_atoms = ''
+            force_field_params = ''
+            opt = ''
+
         if self.jobtype in {'opt', 'ts', 'sp'}:
             script = input_script.format(jobtype=self.jobtype, level_of_theory=self.level_of_theory, basis=self.basis,\
-            fine=fine, charge=self.charge, multiplicity=self.multiplicity, xyz=self.xyz)
+            fine=fine_string, QM_atoms=QM_atoms, force_field_params=force_field_params, opt=opt, charge=self.charge, multiplicity=self.multiplicity, xyz=self.xyz)
         f = open(self.input_path, 'w')
         f.write(script)
         f.close()
@@ -73,21 +91,22 @@ fine_zeolite = """\n   geom_opt_coords   0
    print_input   true
    qmmm_print   false
    qm_mm   TRUE
-   qmmm_full_hessian   FALSE
+   thresh 14
+   scf_convergence 7   
    AIMD_FIXED_ATOMS 1422
    geom_opt_dmax   80
-   pop_mulliken false
-   isotopes true"""
+   pop_mulliken false"""
 
 input_script = """$rem
    JOBTYPE  {jobtype}
    EXCHANGE   {level_of_theory}
    BASIS   {basis}{fine}
 $end
-
+{QM_atoms}{force_field_params}{opt}
 $molecule
 {charge} {multiplicity}
 {xyz}
+$end
 """
 
 #creat a format can be read by VMD software
