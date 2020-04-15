@@ -67,6 +67,7 @@ $end
 $molecule
 {charge} {multiplicity}
 {xyz}
+$end
 """
 
 #creat a format can be read by VMD software
