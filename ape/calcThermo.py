@@ -219,5 +219,4 @@ if __name__ == '__main__':
     mode_dict, energy_dict = from_sampling_result(csv_path)
     polynomial_dict = cubic_spline_interpolations(energy_dict,mode_dict)
     thermo = ThermoJob(conformer, polynomial_dict, mode_dict, energy_dict,T=298.15,P=100000)
-    thermo.calcQMMMThermo()
-    #thermo.calcThermo(print_HOhf_result=True, zpe_of_Hohf=ape.zpe)
+    thermo.calcThermo(print_HOhf_result=True, zpe_of_Hohf=ape.zpe)

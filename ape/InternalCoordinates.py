@@ -54,12 +54,17 @@ def get_bond_indices(atoms, cart_coords):
     bond_indices = np.array(sorted(bond_indices))
     return bond_indices
 
-def get_RedundantCoords(atoms, cart_coords, rotors_dict=None, imaginary_bond=None):
+def get_RedundantCoords(atoms, cart_coords, rotors_dict=None, imaginary_bonds=None):
     internal = RedundantCoords(atoms, cart_coords)
     bond_indices = get_bond_indices(atoms, cart_coords)
-    imaginary_bond = np.array([[2, 11]])
-    if imaginary_bond is not None:
-        bond_indices = np.append(bond_indices,imaginary_bond,axis=0)
+    
+    new_imaginary_bonds = []
+    if imaginary_bonds is not None:
+        for bond in imaginary_bonds:
+            atom1, atom2 = bond
+            new_imaginary_bonds.append([atom1-1, atom2-1]) # the index order in the pysisyphus package starts from 0
+        bond_indices = np.append(bond_indices,new_imaginary_bonds,axis=0)
+
     def set_primitive_indices():
         internal.bond_indices = bond_indices
         internal.bending_indices = list()

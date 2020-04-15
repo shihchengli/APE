@@ -3,7 +3,7 @@ import os
 import subprocess
 
 class Job(object):
-    def __init__(self, xyz, path, file_name, jobtype, cpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, QM_atoms=None, force_field_params=None, opt=None):
+    def __init__(self, xyz, path, file_name, jobtype, cpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, QM_atoms=None, force_field_params=None, opt=None, number_of_fixed_atoms=None):
         self.xyz = xyz
         self.path = path
         self.jobtype = jobtype
@@ -13,6 +13,7 @@ class Job(object):
         self.level_of_theory = level_of_theory
         self.basis = basis
         self.is_QM_MM_INTERFACE = False
+        self.number_of_fixed_atoms = number_of_fixed_atoms
 
         # QMMM parameter
         if QM_atoms is not None:
@@ -21,8 +22,6 @@ class Job(object):
             self.force_field_params = force_field_params
             self.opt = opt
 
-        if self.cpus > 8:
-            self.cpus = 8
         if self.charge is None:
             self.charge = 0
         if self.multiplicity is None:
@@ -34,6 +33,7 @@ class Job(object):
                 self.basis = '6-311++G(3df,3pd)\n   basis2   6-31G*'
             else:
                 self.basis = '6-311+G(2df,2pd)'
+
         self.input_path = os.path.join(self.path, 'input.qcin')
         self.output_path = os.path.join(self.path, '{}.q.out'.format(file_name))
 
@@ -43,7 +43,7 @@ class Job(object):
         Save the file locally and also upload it to the server.
         """
         if self.is_QM_MM_INTERFACE:
-            fine_string = fine_zeolite
+            fine_string = fine_zeolite.format(AIMD_FIXED_ATOMS=self.number_of_fixed_atoms)
             QM_atoms = '\n$QM_ATOMS\n' + '\n'.join(self.QM_atoms) + '\n$end\n'
             force_field_params = '\n$force_field_params\n' + self.force_field_params + '$end\n'
             opt = '\n$opt\n' + self.opt + '$end\n'
@@ -93,7 +93,7 @@ fine_zeolite = """\n   geom_opt_coords   0
    qm_mm   TRUE
    thresh 14
    scf_convergence 7   
-   AIMD_FIXED_ATOMS 1422
+   AIMD_FIXED_ATOMS {AIMD_FIXED_ATOMS}
    geom_opt_dmax   80
    pop_mulliken false"""
 

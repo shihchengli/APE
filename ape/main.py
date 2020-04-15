@@ -31,6 +31,7 @@ from ape.torsion import HinderedRotor
 from ape.InternalCoordinates import get_RedundantCoords, getXYZ
 from ape.FitPES import cubic_spline_interpolations
 from ape.calcThermo import ThermoJob
+from ape.exceptions import InputError
 
 
 class APE(object):
@@ -39,7 +40,7 @@ class APE(object):
     """
 
     def __init__(self,input_file, name=None, project_directory=None, protocol=None, multiplicity=None, charge = None,\
-     external_symmetry=None, level_of_theory=None, basis=None, ncpus=None):
+     external_symmetry=None, level_of_theory=None, basis=None, ncpus=None, imaginary_bonds=None):
         self.input_file = input_file
         self.name = name
         self.project_directory = project_directory if project_directory is not None\
@@ -51,6 +52,7 @@ class APE(object):
         self.level_of_theory = level_of_theory
         self.basis = basis
         self.ncpus = ncpus
+        self.imaginary_bonds = imaginary_bonds
 
     def parse(self):
         Log = QChemLog(self.input_file)
@@ -68,7 +70,10 @@ class APE(object):
 
         self.is_QM_MM_INTERFACE = Log.is_QM_MM_INTERFACE()
         if self.is_QM_MM_INTERFACE:
+            if self.imaginary_bonds is None:
+                raise InputError('Lack of specified imaginary bonds to describe frustrated translation and rotation in QMMM system.')
             self.QM_ATOMS = Log.get_QM_ATOMS()
+            self.number_of_fixed_atoms = Log.get_number_of_atoms() - len(Log.get_QM_ATOMS())
             self.ISOTOPES = Log.get_ISOTOPES()
             self.force_field_params = Log.get_force_field_params()
             self.opt = Log.get_opt()
@@ -99,7 +104,8 @@ class APE(object):
             self.xyz = getXYZ(self.symbols, self.cart_coords)
             self.ARCSpecies = ARCSpecies(label=self.name,xyz=self.xyz)
             if self.ncpus is None:
-                self.ncpus = self.ARCSpecies.number_of_heavy_atoms            
+                self.ncpus = self.ARCSpecies.number_of_heavy_atoms
+                if self.ncpus > 8: self.ncpus = 8
             # Below is information for thermodynamic caculation
             self.linearity = is_linear(self.conformer.coordinates.value)
             self.e_elect = Log.load_energy()
@@ -138,14 +144,14 @@ class APE(object):
     
     def get_displaced_geometries_dict(self, vector, step_size, limit=15, torsion_ind=None):
         if torsion_ind is None:
-            internal = get_RedundantCoords(self.symbols, self.cart_coords)
+            internal = get_RedundantCoords(self.symbols, self.cart_coords, imaginary_bonds=self.imaginary_bonds)
             magnitude = np.linalg.norm(vector)
             normalizes_vector = vector/magnitude
             qj = np.matmul(internal.B, normalizes_vector)
             x_dict = {0:self.cart_coords}
 
             positive_samples = range(limit)
-            internal = get_RedundantCoords(self.symbols, self.cart_coords)
+            internal = get_RedundantCoords(self.symbols, self.cart_coords, imaginary_bonds=self.imaginary_bonds)
             for sample in positive_samples:
                 #print('direction = 1')
                 #print('ngrid =',sample+1)
@@ -153,14 +159,14 @@ class APE(object):
             
             negative_samples = list(range(-limit+1, 1))
             negative_samples.reverse()
-            internal = get_RedundantCoords(self.symbols, self.cart_coords)
+            internal = get_RedundantCoords(self.symbols, self.cart_coords, imaginary_bonds=self.imaginary_bonds)
             for sample in negative_samples:
                 #print('direction = -1')
                 #print('ngrid =',-(sample-1))            
                 x_dict[sample-1] = x_dict[sample] + internal.transform_int_step((-qj*step_size).reshape(-1,))
         else:
             rotors_dict = self.rotors_dict
-            internal = get_RedundantCoords(self.symbols, self.cart_coords, rotors_dict)
+            internal = get_RedundantCoords(self.symbols, self.cart_coords, rotors_dict, imaginary_bonds=self.imaginary_bonds)
             B = internal.B
             Bt_inv = np.linalg.pinv(B.dot(B.T)).dot(B)
             nrow = B.shape[0]
@@ -176,10 +182,6 @@ class APE(object):
 
         displaced_geometries_dict = {}
         for xi in x_dict:
-            '''xyz = ''
-            for i in range(self.natom):
-                xyz += '{:s}       {:.10f}     {:.10f}     {:.10f}'.format(self.symbols[i],x_dict[xi][3*i],x_dict[xi][3*i+1],x_dict[xi][3*i+2])
-                if i != self.natom-1: xyz += '\n'''
             if self.is_QM_MM_INTERFACE:
                 nHcap = len(self.ISOTOPES)
                 xyz = getXYZ(self.symbols[:-nHcap], x_dict[xi])
@@ -189,22 +191,15 @@ class APE(object):
         return displaced_geometries_dict
 
     def get_e_elect(self, xyz, path, file_name):
-        cpus = self.ncpus
-        file_name = 'output' #test
         if self.is_QM_MM_INTERFACE:
-            self.QM_USER_CONNECT
-            self.fixed_molecule_string
             QMMM_xyz_string = ''
             for i, xyz in enumerate(xyz.split('\n')):
                 QMMM_xyz_string += " ".join([xyz, self.QM_USER_CONNECT[i]]) + '\n'
-                #QMMM_xyz_string += '\n'
-                #if i != len(self.QM_ATOMS)-1: QMMM_xyz_string += '\n'
             QMMM_xyz_string += self.fixed_molecule_string
-            job = Job(QMMM_xyz_string, path, file_name,jobtype='sp', cpus=cpus, charge=self.charge, multiplicity=self.multiplicity, level_of_theory=self.level_of_theory, basis=self.basis, QM_atoms=self.QM_ATOMS, force_field_params=self.force_field_params, opt=self.opt)
+            job = Job(QMMM_xyz_string, path, file_name,jobtype='sp', cpus=self.ncpus, charge=self.charge, multiplicity=self.multiplicity, level_of_theory=self.level_of_theory, basis=self.basis, QM_atoms=self.QM_ATOMS, force_field_params=self.force_field_params, opt=self.opt, number_of_fixed_atoms=self.number_of_fixed_atoms)
         else:
             job = Job(xyz, path, file_name,jobtype='sp', cpus=cpus, charge=self.charge, multiplicity=self.multiplicity, level_of_theory=self.level_of_theory, basis=self.basis)
         job.write_input_file()
-        raise
         job.submit()
         output_file_path = os.path.join(path, '{}.q.out'.format(file_name))
         e_elect = QChemLog(output_file_path).load_energy() / (constants.E_h * constants.Na) # in Hartree/particle
@@ -223,7 +218,7 @@ class APE(object):
             n_vib = self.n_vib
             if self.is_QM_MM_INTERFACE:
                 n_vib -= 6 # due to frustrated translation and rotation 
-            rotor = HinderedRotor(self.symbols, self.cart_coords, self.hessian, self.rotors_dict, self.conformer.mass.value_si, n_vib)
+            rotor = HinderedRotor(self.symbols, self.cart_coords, self.hessian, self.rotors_dict, self.conformer.mass.value_si, n_vib, self.imaginary_bonds)
             projected_hessian = rotor.projectd_hessian()          
             vib_freq, unweighted_v = SolvEig(projected_hessian, self.conformer.mass.value_si, self.n_vib)
             print('Frequencies(cm-1) from projected Hessian:',vib_freq)
@@ -237,9 +232,9 @@ class APE(object):
                 scan = self.rotors_dict[i+1]['scan']
                 scan_res = 10
                 step_size = math.pi / (180/scan_res)
-                print('Sampling Mode ', (i+1))
+                #print('Sampling Mode ', (i+1))
                 rotors_dict = self.rotors_dict
-                internal = get_RedundantCoords(self.symbols, self.cart_coords, rotors_dict)
+                internal = get_RedundantCoords(self.symbols, self.cart_coords, rotors_dict, imaginary_bonds=self.imaginary_bonds)
                 scan_indices = internal.B_indices[-self.n_rotors:]
                 torsion_ind = len(internal.B_indices) - self.n_rotors + scan_indices.index([ind-1 for ind in scan])
                 displaced_geometries_dict = self.get_displaced_geometries_dict(vector=unweighted_v[i-self.n_rotors], step_size=step_size, torsion_ind=torsion_ind)
@@ -261,8 +256,7 @@ class APE(object):
                     if e_elec - min_elect > thresh:
                         break
                 v_list = [i * (constants.E_h * constants.Na) for i in energy_dict[i+1].values()] # in J/mol
-                #symmetry_number = determine_rotor_symmetry(v_list, self.name, scan)
-                symmetry_number = 3
+                symmetry_number = determine_rotor_symmetry(v_list, self.name, scan)
                 mode_dict[i+1]['symmetry_number'] = symmetry_number
         
         elif self.protocol == 'UMN':
@@ -279,7 +273,7 @@ class APE(object):
             magnitude = np.linalg.norm(unweighted_v[i-self.n_rotors])
             reduced_mass = magnitude ** -2 / constants.amu # in amu
             step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (vib_freq[i-self.n_rotors] * 2 * math.pi * constants.c * 100)) * 10 ** 10 # in angstrom
-            print('Sampling Mode ', (i+1))
+            #print('Sampling Mode ', (i+1))
             displaced_geometries_dict = self.get_displaced_geometries_dict(vector=unweighted_v[i-self.n_rotors], step_size=step_size)
             mode_dict[i+1]['mode'] = 'vib'
             mode_dict[i+1]['M'] = reduced_mass # in amu
@@ -346,7 +340,7 @@ class APE(object):
             #print('Have saved the sampling result in {path}'.format(path=csv_path))
     
     def write_sampling_displaced_geometries(self, path, energy_dict, xyz_dict):
-        #creat a format can be read by VMD software
+        # creat a format can be read by VMD software
         for i in range(self.nmode):
             txt_path = os.path.join(path, 'mode_{}.txt'.format(i+1))
             with open(txt_path, 'w') as f:
@@ -361,10 +355,13 @@ class APE(object):
         """
         self.parse()
         xyz_dict, energy_dict, mode_dict = self.sampling()
-        #Solve SE of 1-D PES and calculate E S G Cp
+        # Solve SE of 1-D PES and calculate E S G Cp
         polynomial_dict = cubic_spline_interpolations(energy_dict,mode_dict)
         thermo = ThermoJob(self.conformer, polynomial_dict, mode_dict, energy_dict, T=298.15, P=100000)
-        thermo.calcThermo(print_HOhf_result=True, zpe_of_Hohf=self.zpe)
+        if self.is_QM_MM_INTERFACE:
+            thermo.calcQMMMThermo()
+        else:
+            thermo.calcThermo(print_HOhf_result=True, zpe_of_Hohf=self.zpe)
         
 
 ###################################################################################

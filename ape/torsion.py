@@ -8,16 +8,17 @@ from ape.exceptions import ConvergeError
 
 class HinderedRotor(object):
 
-    def __init__(self, symbols, cart_coords, hessian, rotors_dict, mass=None, n_vib=None):
+    def __init__(self, symbols, cart_coords, hessian, rotors_dict, mass=None, n_vib=None, imaginary_bonds=None):
         self.symbols = symbols
         self.cart_coords = cart_coords
         self.hessian = hessian
         self.rotors_dict = rotors_dict
         self.mass = mass
         self.n_vib = n_vib
+        self.imaginary_bonds = imaginary_bonds
 
     def projectd_hessian(self):
-        internal = get_RedundantCoords(self.symbols, self.cart_coords, self.rotors_dict)
+        internal = get_RedundantCoords(self.symbols, self.cart_coords, self.rotors_dict, imaginary_bonds=self.imaginary_bonds)
         B = internal.B
         B_inv = internal.B_inv
         Bt_inv = internal.Bt_inv
@@ -35,7 +36,7 @@ class HinderedRotor(object):
         whose scan is provided by user.
         """
         from ape import main
-        internal = get_RedundantCoords(self.symbols, self.cart_coords)
+        internal = get_RedundantCoords(self.symbols, self.cart_coords, imaginary_bonds=self.imaginary_bonds)
         n_rotors = len(self.rotors_dict)
         B = internal.B[:-n_rotors]
         rotors_dict = self.rotors_dict
