@@ -14,11 +14,8 @@ def parse_command_line_arguments(command_line_args=None):
     parser = argparse.ArgumentParser(description='Automated Property Estimator (APE)')
     parser.add_argument('file', metavar='FILE', type=str, nargs=1,
                         help='a file describing the job to execute')
-
-
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument('-p', type=str, help='the sampling protocol(UMN or UMVT) chossen (default: UMVT)')
-    group.add_argument('-i', type=str, help='the imaginary bonds for QMMM calculation')
+    parser.add_argument('-p', type=str, help='the sampling protocol(UMN or UMVT) chossen (default: UMVT)')
+    parser.add_argument('-i', type=str, help='the imaginary bonds for QMMM calculation')
 
     args = parser.parse_args(command_line_args)
     args.file = args.file[0]
