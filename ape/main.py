@@ -198,7 +198,7 @@ class APE(object):
             QMMM_xyz_string += self.fixed_molecule_string
             job = Job(QMMM_xyz_string, path, file_name,jobtype='sp', cpus=self.ncpus, charge=self.charge, multiplicity=self.multiplicity, level_of_theory=self.level_of_theory, basis=self.basis, QM_atoms=self.QM_ATOMS, force_field_params=self.force_field_params, opt=self.opt, number_of_fixed_atoms=self.number_of_fixed_atoms)
         else:
-            job = Job(xyz, path, file_name,jobtype='sp', cpus=cpus, charge=self.charge, multiplicity=self.multiplicity, level_of_theory=self.level_of_theory, basis=self.basis)
+            job = Job(xyz, path, file_name,jobtype='sp', cpus=self.ncpus, charge=self.charge, multiplicity=self.multiplicity, level_of_theory=self.level_of_theory, basis=self.basis)
         job.write_input_file()
         job.submit()
         output_file_path = os.path.join(path, '{}.q.out'.format(file_name))

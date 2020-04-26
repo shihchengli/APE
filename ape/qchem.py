@@ -43,12 +43,13 @@ from rmgpy.statmech import IdealGasTranslation, NonlinearRotor, LinearRotor, Har
 
 from arkane.common import check_conformer_energy, get_element_mass
 from arkane.exceptions import LogError
-from arkane.ess.log import Log
+from arkane.ess.adapter import ESSAdapter
+from arkane.ess.factory import register_ess_adapter
 
 ################################################################################
 
 
-class QChemLog(Log):
+class QChemLog(ESSAdapter):
     """
     Represent an output file from QChem. The attribute `path` refers to the
     location on disk of the QChem output file of interest. Methods are provided
@@ -57,7 +58,7 @@ class QChemLog(Log):
     """
 
     def __init__(self, path):
-        super(QChemLog, self).__init__(path)
+        self.path = path
 
     def is_QM_MM_INTERFACE(self):
         """
@@ -568,10 +569,4 @@ class QChemLog(Log):
         """Not implemented for QChem"""
         raise NotImplementedError('The load_scan_frozen_atoms method is not implemented for QChem Logs')
 
-    def get_D1_diagnostic(self):
-        """Not implemented for QChem"""
-        raise NotImplementedError('The get_D1_diagnostic method is not implemented for QChem Logs')
-
-    def get_T1_diagnostic(self):
-        """Not implemented for QChem"""
-        raise NotImplementedError('The get_T1_diagnostic method is not implemented for QChem Logs')
+register_ess_adapter("QChemLog", QChemLog)
