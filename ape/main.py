@@ -75,6 +75,7 @@ class APE(object):
             self.QM_ATOMS = Log.get_QM_ATOMS()
             self.number_of_fixed_atoms = Log.get_number_of_atoms() - len(Log.get_QM_ATOMS())
             self.ISOTOPES = Log.get_ISOTOPES()
+            self.nHcap = len(self.ISOTOPES)
             self.force_field_params = Log.get_force_field_params()
             self.opt = Log.get_opt()
             self.fixed_molecule_string = Log.get_fixed_molecule()
@@ -152,6 +153,8 @@ class APE(object):
 
             positive_samples = range(limit)
             internal = get_RedundantCoords(self.symbols, self.cart_coords, imaginary_bonds=self.imaginary_bonds)
+            if self.is_QM_MM_INTERFACE:
+                internal.nHcap = self.nHcap
             for sample in positive_samples:
                 #print('direction = 1')
                 #print('ngrid =',sample+1)
@@ -160,6 +163,8 @@ class APE(object):
             negative_samples = list(range(-limit+1, 1))
             negative_samples.reverse()
             internal = get_RedundantCoords(self.symbols, self.cart_coords, imaginary_bonds=self.imaginary_bonds)
+            if self.is_QM_MM_INTERFACE:
+                internal.nHcap = self.nHcap
             for sample in negative_samples:
                 #print('direction = -1')
                 #print('ngrid =',-(sample-1))            
@@ -175,6 +180,8 @@ class APE(object):
             x_dict = {0:self.cart_coords}
             limit = int(2*np.pi/step_size)
             positive_samples = range(limit)
+            if self.is_QM_MM_INTERFACE:
+                internal.nHcap = self.nHcap
             for sample in positive_samples:
                 #print('direction = 1')
                 #print('ngrid =',sample+1)
@@ -182,11 +189,7 @@ class APE(object):
 
         displaced_geometries_dict = {}
         for xi in x_dict:
-            if self.is_QM_MM_INTERFACE:
-                nHcap = len(self.ISOTOPES)
-                xyz = getXYZ(self.symbols[:-nHcap], x_dict[xi])
-            else:
-                xyz = getXYZ(self.symbols, x_dict[xi])
+            xyz = getXYZ(self.symbols, x_dict[xi])
             displaced_geometries_dict[xi] = xyz
         return displaced_geometries_dict
 
@@ -195,6 +198,8 @@ class APE(object):
             QMMM_xyz_string = ''
             for i, xyz in enumerate(xyz.split('\n')):
                 QMMM_xyz_string += " ".join([xyz, self.QM_USER_CONNECT[i]]) + '\n'
+                if i == len(self.QM_ATOMS)-1:
+                    break
             QMMM_xyz_string += self.fixed_molecule_string
             job = Job(QMMM_xyz_string, path, file_name,jobtype='sp', cpus=self.ncpus, charge=self.charge, multiplicity=self.multiplicity, level_of_theory=self.level_of_theory, basis=self.basis, QM_atoms=self.QM_ATOMS, force_field_params=self.force_field_params, opt=self.opt, number_of_fixed_atoms=self.number_of_fixed_atoms)
         else:

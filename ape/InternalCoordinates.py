@@ -152,6 +152,7 @@ class RedundantCoords:
         self._prim_internals = self.calculate(self.cart_coords)
         self._prim_coords = np.array([pc.val for pc in self._prim_internals])
 
+        self.nHcap = None #Shih-Cheng Li
 
     def log(self, message):
         logger = logging.getLogger("internal_coords")
@@ -771,6 +772,8 @@ class RedundantCoords:
         nloop = 25
         for i in range(nloop):
             cart_step = Bt_inv_prim.T.dot(remaining_int_step)
+            if self.nHcap is not None:
+                cart_step[-(self.nHcap*3):] = 0 # to creat the QMMM boundary in QMMM system # Shih-Cheng Li
             # Recalculate exact Bt_inv every cycle. Costly.
             # cart_step = self.Bt_inv.T.dot(remaining_int_step)
             cart_rms = np.sqrt(np.mean(cart_step**2))
