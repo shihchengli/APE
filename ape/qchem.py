@@ -89,6 +89,7 @@ class QChemLog(ESSAdapter):
                     while '$end' not in line and line != '\n':
                         QM_atoms.append(line.strip())
                         line = f.readline()
+                    break
                 line = f.readline()
             
         return QM_atoms
@@ -122,6 +123,7 @@ class QChemLog(ESSAdapter):
                             mass = float(data[1])
                             ISOTOPES[atom_number] = mass
                             line = f.readline()
+                        break
                 line = f.readline()
 
         return ISOTOPES
@@ -158,6 +160,7 @@ class QChemLog(ESSAdapter):
                     while '$end' not in line:
                         opt += line
                         line = f.readline()
+                    break
                 line = f.readline()
             
         return opt
@@ -188,6 +191,7 @@ class QChemLog(ESSAdapter):
                     while '$end' not in line and line != '\n':
                         fixed_molecule_string += line
                         line = f.readline()
+                    break
                 line = f.readline()
 
         return fixed_molecule_string
