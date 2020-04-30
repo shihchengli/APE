@@ -28,6 +28,7 @@ from arc.species.species import ARCSpecies
 from ape.qchem import QChemLog
 from ape.job import Job, record_script
 from ape.torsion import HinderedRotor
+from ape.sampling import sampling_along_torsion, sampling_along_vibration
 from ape.InternalCoordinates import get_RedundantCoords, getXYZ
 from ape.FitPES import cubic_spline_interpolations
 from ape.calcThermo import ThermoJob
@@ -40,7 +41,7 @@ class APE(object):
     """
 
     def __init__(self,input_file, name=None, project_directory=None, protocol=None, multiplicity=None, charge = None,\
-     external_symmetry=None, level_of_theory=None, basis=None, ncpus=None, imaginary_bonds=None):
+     external_symmetry=None, level_of_theory=None, basis=None, ncpus=None, imaginary_bonds=None, parallel=False):
         self.input_file = input_file
         self.name = name
         self.project_directory = project_directory if project_directory is not None\
@@ -53,6 +54,7 @@ class APE(object):
         self.basis = basis
         self.ncpus = ncpus
         self.imaginary_bonds = imaginary_bonds
+        self.parallel = parallel
 
     def parse(self):
         Log = QChemLog(self.input_file)
@@ -128,6 +130,11 @@ class APE(object):
         else:        
             self.nmode = 3 * self.natom - (5 if self.linearity else 6) 
             self.n_vib = 3 * self.natom - (5 if self.linearity else 6) - self.n_rotors
+
+        # Create RedundantCoords object
+        self.internal = get_RedundantCoords(self.symbols, self.cart_coords, self.rotors_dict, self.imaginary_bonds)
+        if self.is_QM_MM_INTERFACE:
+            self.internal.nHcap = self.nHcap
     
     def get_rotors_dict(self):
         rotors_dict = {}
@@ -142,75 +149,8 @@ class APE(object):
             rotors_dict[i+1]['top'] = top
             rotors_dict[i+1]['scan'] = scan
         return rotors_dict
-    
-    def get_displaced_geometries_dict(self, vector, step_size, limit=15, torsion_ind=None):
-        if torsion_ind is None:
-            internal = get_RedundantCoords(self.symbols, self.cart_coords, imaginary_bonds=self.imaginary_bonds)
-            magnitude = np.linalg.norm(vector)
-            normalizes_vector = vector/magnitude
-            qj = np.matmul(internal.B, normalizes_vector)
-            x_dict = {0:self.cart_coords}
 
-            positive_samples = range(limit)
-            internal = get_RedundantCoords(self.symbols, self.cart_coords, imaginary_bonds=self.imaginary_bonds)
-            if self.is_QM_MM_INTERFACE:
-                internal.nHcap = self.nHcap
-            for sample in positive_samples:
-                #print('direction = 1')
-                #print('ngrid =',sample+1)
-                x_dict[sample+1] = x_dict[sample] + internal.transform_int_step((qj*step_size).reshape(-1,))
-            
-            negative_samples = list(range(-limit+1, 1))
-            negative_samples.reverse()
-            internal = get_RedundantCoords(self.symbols, self.cart_coords, imaginary_bonds=self.imaginary_bonds)
-            if self.is_QM_MM_INTERFACE:
-                internal.nHcap = self.nHcap
-            for sample in negative_samples:
-                #print('direction = -1')
-                #print('ngrid =',-(sample-1))            
-                x_dict[sample-1] = x_dict[sample] + internal.transform_int_step((-qj*step_size).reshape(-1,))
-        else:
-            rotors_dict = self.rotors_dict
-            internal = get_RedundantCoords(self.symbols, self.cart_coords, rotors_dict, imaginary_bonds=self.imaginary_bonds)
-            B = internal.B
-            Bt_inv = np.linalg.pinv(B.dot(B.T)).dot(B)
-            nrow = B.shape[0]
-            qk = np.zeros(nrow, dtype=int)
-            qk[torsion_ind] = 1
-            x_dict = {0:self.cart_coords}
-            limit = int(2*np.pi/step_size)
-            positive_samples = range(limit)
-            if self.is_QM_MM_INTERFACE:
-                internal.nHcap = self.nHcap
-            for sample in positive_samples:
-                #print('direction = 1')
-                #print('ngrid =',sample+1)
-                x_dict[sample+1] = x_dict[sample] + internal.transform_int_step((qk*step_size).reshape(-1,))
-
-        displaced_geometries_dict = {}
-        for xi in x_dict:
-            xyz = getXYZ(self.symbols, x_dict[xi])
-            displaced_geometries_dict[xi] = xyz
-        return displaced_geometries_dict
-
-    def get_e_elect(self, xyz, path, file_name):
-        if self.is_QM_MM_INTERFACE:
-            QMMM_xyz_string = ''
-            for i, xyz in enumerate(xyz.split('\n')):
-                QMMM_xyz_string += " ".join([xyz, self.QM_USER_CONNECT[i]]) + '\n'
-                if i == len(self.QM_ATOMS)-1:
-                    break
-            QMMM_xyz_string += self.fixed_molecule_string
-            job = Job(QMMM_xyz_string, path, file_name,jobtype='sp', cpus=self.ncpus, charge=self.charge, multiplicity=self.multiplicity, level_of_theory=self.level_of_theory, basis=self.basis, QM_atoms=self.QM_ATOMS, force_field_params=self.force_field_params, opt=self.opt, number_of_fixed_atoms=self.number_of_fixed_atoms)
-        else:
-            job = Job(xyz, path, file_name,jobtype='sp', cpus=self.ncpus, charge=self.charge, multiplicity=self.multiplicity, level_of_theory=self.level_of_theory, basis=self.basis)
-        job.write_input_file()
-        job.submit()
-        output_file_path = os.path.join(path, '{}.q.out'.format(file_name))
-        e_elect = QChemLog(output_file_path).load_energy() / (constants.E_h * constants.Na) # in Hartree/particle
-        return e_elect
-
-    def sampling(self, thresh=0.05, save_result=True):
+    def sampling(self, thresh=0.05, save_result=True, scan_res=10):
         xyz_dict = {}
         energy_dict = {}
         mode_dict = {}
@@ -224,91 +164,43 @@ class APE(object):
             if self.is_QM_MM_INTERFACE:
                 n_vib -= 6 # due to frustrated translation and rotation 
             rotor = HinderedRotor(self.symbols, self.cart_coords, self.hessian, self.rotors_dict, self.conformer.mass.value_si, n_vib, self.imaginary_bonds)
-            projected_hessian = rotor.projectd_hessian()          
+            projected_hessian = rotor.projectd_hessian()        
             vib_freq, unweighted_v = SolvEig(projected_hessian, self.conformer.mass.value_si, self.n_vib)
             print('Frequencies(cm-1) from projected Hessian:',vib_freq)
             
             for i in range(self.n_rotors):
-                xyz_dict[i+1] = {}
-                energy_dict[i+1] = {}
-                mode_dict[i+1] = {}
-                pivots = self.rotors_dict[i+1]['pivots']
-                top = self.rotors_dict[i+1]['top']
-                scan = self.rotors_dict[i+1]['scan']
-                scan_res = 10
-                step_size = math.pi / (180/scan_res)
-                #print('Sampling Mode ', (i+1))
-                rotors_dict = self.rotors_dict
-                internal = get_RedundantCoords(self.symbols, self.cart_coords, rotors_dict, imaginary_bonds=self.imaginary_bonds)
-                scan_indices = internal.B_indices[-self.n_rotors:]
-                torsion_ind = len(internal.B_indices) - self.n_rotors + scan_indices.index([ind-1 for ind in scan])
-                displaced_geometries_dict = self.get_displaced_geometries_dict(vector=unweighted_v[i-self.n_rotors], step_size=step_size, torsion_ind=torsion_ind)
-                mode_dict[i+1]['mode'] = 'tors'
-                mode_dict[i+1]['M'] = self.conformer.get_internal_reduced_moment_of_inertia(pivots,top) * constants.Na * 1e23 # in amu*angstrom^2
-                mode_dict[i+1]['K'] = (rotor.get_projected_out_freq(scan) * (2 * math.pi * constants.c * 100)) ** 2 # in 1/s^2
-                mode_dict[i+1]['step_size'] = step_size # in radian                
-                limit = int(360/scan_res)
-                positive_samples = range(limit+1)
-                for sample in positive_samples:
-                    xyz = displaced_geometries_dict[sample]
-                    file_name = 'tors_{}_{}'.format(i+1,sample)
-                    e_elec = self.get_e_elect(xyz, path, file_name)
-                    xyz_dict[i+1][sample] = xyz
-                    if sample == 0:
-                        energy_dict[i+1][sample] = 0
-                        min_elect = e_elec
-                    else: energy_dict[i+1][sample] = e_elec - min_elect
-                    if e_elec - min_elect > thresh:
-                        break
-                v_list = [i * (constants.E_h * constants.Na) for i in energy_dict[i+1].values()] # in J/mol
-                symmetry_number = determine_rotor_symmetry(v_list, self.name, scan)
-                mode_dict[i+1]['symmetry_number'] = symmetry_number
+                mode = i+1
+                if self.is_QM_MM_INTERFACE:
+                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, rotor, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, \
+                    self.is_QM_MM_INTERFACE, self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
+                else:
+                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, rotor, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis)
+                xyz_dict[mode] = XyzDictOfEachMode
+                energy_dict[mode] = EnergyDictOfEachMode
+                mode_dict[mode] = ModeDictOfEachMode
         
         elif self.protocol == 'UMN':
-            hessian = self.hessian
-            mass = self.conformer.mass.value_si
-            vib_freq, unweighted_v = SolvEig(hessian, mass, self.n_vib)
+            vib_freq, unweighted_v = SolvEig(self.hessian, self.conformer.mass.value_si, self.n_vib)
             print('Vibrational frequencies of normal modes: ',vib_freq)
 
         for i in range(self.nmode):
             if i in range(self.n_rotors): continue
-            xyz_dict[i+1] = {}
-            energy_dict[i+1] = {}
-            mode_dict[i+1] = {}
-            magnitude = np.linalg.norm(unweighted_v[i-self.n_rotors])
+            mode = i+1
+            vector=unweighted_v[i-self.n_rotors]
+            freq = vib_freq[i-self.n_rotors]
+            magnitude = np.linalg.norm(vector)
             reduced_mass = magnitude ** -2 / constants.amu # in amu
-            step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (vib_freq[i-self.n_rotors] * 2 * math.pi * constants.c * 100)) * 10 ** 10 # in angstrom
-            #print('Sampling Mode ', (i+1))
-            displaced_geometries_dict = self.get_displaced_geometries_dict(vector=unweighted_v[i-self.n_rotors], step_size=step_size)
-            mode_dict[i+1]['mode'] = 'vib'
-            mode_dict[i+1]['M'] = reduced_mass # in amu
-            mode_dict[i+1]['K'] = (vib_freq[i-self.n_rotors] * (2 * math.pi * constants.c * 100)) ** 2 # in 1/s^2
-            mode_dict[i+1]['step_size'] = step_size # in angstrom
-            limit = (len(displaced_geometries_dict)-1)//2
-            positive_samples = range(limit+1)
-            for sample in positive_samples:
-                xyz = displaced_geometries_dict[sample]
-                file_name = 'vib_{}_{}'.format(i+1,sample)
-                e_elec = self.get_e_elect(xyz, path, file_name)
-                xyz_dict[i+1][sample] = xyz
-                if sample == 0:
-                    energy_dict[i+1][sample] = 0
-                    min_elect = e_elec
-                else: energy_dict[i+1][sample] = e_elec - min_elect
-                if e_elec - min_elect > thresh:
-                    break
-            negative_samples = list(range(-limit+1, 1))
-            negative_samples.reverse()
-            for sample in negative_samples:
-                sample -= 1
-                xyz = displaced_geometries_dict[sample]
-                file_name = 'vib_{}_{}'.format(i+1,sample)
-                e_elec = self.get_e_elect(xyz, path, file_name)
-                xyz_dict[i+1][sample] = xyz
-                energy_dict[i+1][sample] = e_elec - min_elect
-                if e_elec - min_elect > thresh:
-                    break
-        proc = subprocess.Popen(['rm {path}'.format(path=os.path.join(path,'input.qcin'))],shell=True)
+            step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (freq * 2 * math.pi * constants.c * 100)) * 10 ** 10 # in angstrom
+            normalizes_vector = vector/magnitude
+            qj = np.matmul(self.internal.B, normalizes_vector)
+            if self.is_QM_MM_INTERFACE:
+                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, self.rotors_dict, step_size, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, \
+                self.is_QM_MM_INTERFACE, self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms, max_nloop=15)
+            else:
+                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, self.rotors_dict, step_size, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, max_nloop=15)
+            xyz_dict[mode] = XyzDictOfEachMode
+            energy_dict[mode] = EnergyDictOfEachMode
+            mode_dict[mode] = ModeDictOfEachMode
 
         if save_result:
             path = self.project_directory

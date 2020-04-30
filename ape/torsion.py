@@ -59,6 +59,10 @@ class HinderedRotor(object):
                 if math.isclose(i,j,abs_tol=1) is True:
                     match_freq += 1
             if match_freq is 0:
+                index = vib_freq.tolist().index(i)
+                vector = unweighted_v[index]
+                magnitude = np.linalg.norm(vector)
+                reduced_mass = magnitude ** -2 / 1.660538921e-27 # in amu
                 projected_out_freq = i
                 break
             if i == vib_freq[-1] and j == projectd_vib_freq[-1]:
@@ -67,4 +71,4 @@ class HinderedRotor(object):
         print('The frequency of the hindered rotor whose scan is {scan} is {freq} cm-1'\
             .format(scan=scan, freq=projected_out_freq))
     
-        return projected_out_freq
+        return projected_out_freq, reduced_mass

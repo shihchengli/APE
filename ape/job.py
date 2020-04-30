@@ -3,11 +3,11 @@ import os
 import subprocess
 
 class Job(object):
-    def __init__(self, xyz, path, file_name, jobtype, cpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, QM_atoms=None, force_field_params=None, opt=None, number_of_fixed_atoms=None):
+    def __init__(self, xyz, path, file_name, jobtype, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, QM_atoms=None, force_field_params=None, opt=None, number_of_fixed_atoms=None):
         self.xyz = xyz
         self.path = path
         self.jobtype = jobtype
-        self.cpus = cpus
+        self.ncpus = ncpus
         self.charge = charge
         self.multiplicity = multiplicity
         self.level_of_theory = level_of_theory
@@ -34,7 +34,7 @@ class Job(object):
             else:
                 self.basis = '6-311+G(2df,2pd)'
 
-        self.input_path = os.path.join(self.path, 'input.qcin')
+        self.input_path = os.path.join(self.path, '{}.qcin'.format(file_name))
         self.output_path = os.path.join(self.path, '{}.q.out'.format(file_name))
 
     def write_input_file(self):
@@ -65,8 +65,9 @@ class Job(object):
             print('{} exists, so this calculation is passed !'.format(self.output_path))
             pass
         else:
-            proc = subprocess.Popen(['qchem -nt {cpus} {input_path} {output_path}'.format(cpus=self.cpus,input_path=self.input_path,output_path=self.output_path)],shell=True)
+            proc = subprocess.Popen(['qchem -nt {cpus} {input_path} {output_path}'.format(cpus=self.ncpus,input_path=self.input_path,output_path=self.output_path)],shell=True)
             proc.wait()
+            proc = subprocess.Popen(['rm {input_path}'.format(input_path=self.input_path)],shell=True)
 
 
 ###################################################################################

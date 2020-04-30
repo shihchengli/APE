@@ -15,8 +15,9 @@ def parse_command_line_arguments(command_line_args=None):
     parser.add_argument('file', metavar='FILE', type=str, nargs=1,
                         help='a file describing the job to execute')
     parser.add_argument('-n', type=int, help='number of CPUs to run quantum calculation')
-    parser.add_argument('-p', type=str, help='the sampling protocol(UMN or UMVT) chossen (default: UMVT)')
+    parser.add_argument('-p', type=str, default='UMVT', help='the sampling protocol(UMN or UMVT) chossen (default: UMVT)')
     parser.add_argument('-i', type=str, help='the imaginary bonds for QMMM calculation')
+    parser.add_argument('-parallel', type=bool, default=False, help='run parallel jobs (default: False)')
 
     args = parser.parse_args(command_line_args)
     args.file = args.file[0]
@@ -30,12 +31,10 @@ def main():
     ncpus = args.n
     protocol = args.p
     project_directory = os.path.abspath(os.path.dirname(args.file))
-    if not protocol:
-        protocol = 'UMVT'
-        print('This calculation will use UMVT as sampling protocol')
-    elif protocol == 'UMN' or protocol == 'UMVT':
-        print('This calculation will use {} as sampling protocol'.format(protocol))
-    
+    parallel = args.parallel
+    print('This calculation will use {} as sampling protocol'.format(protocol))
+    if parallel: print('This calculation will run in parallel.')
+    else: print('This calculation will run in serial.')
     # imaginary bonds for QMMM calculation
     # atom indices starts from 1
     imaginary_bonds = args.i
@@ -46,7 +45,7 @@ def main():
             atom1, atom2 = bond.split('-')
             imaginary_bonds.append([int(atom1), int(atom2)])
 
-    ape_object = APE(input_file = input_file, ncpus=ncpus, project_directory=project_directory, protocol=protocol, imaginary_bonds=imaginary_bonds)
+    ape_object = APE(input_file = input_file, ncpus=ncpus, project_directory=project_directory, protocol=protocol, imaginary_bonds=imaginary_bonds, parallel=parallel)
     ape_object.execute()
 
 ################################################################################
