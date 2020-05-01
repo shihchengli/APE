@@ -8,7 +8,7 @@ import os
 import copy
 import numpy as np
 import rmgpy.constants as constants
-from ape.job import Job
+from ape.job.job import Job
 from ape.qchem import QChemLog
 from ape.InternalCoordinates import get_RedundantCoords, getXYZ
 
@@ -68,8 +68,8 @@ is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_
     if Fail_in_torsion_sampling is False:
         v_list = [i * (constants.E_h * constants.Na) for i in EnergyDictOfEachMode.values()] # in J/mol
         name = 'tors_{}'.format(mode)
-        #symmetry_number = determine_rotor_symmetry(v_list, name, scan)
-        symmetry_number = 3
+        symmetry_number = determine_rotor_symmetry(v_list, name, scan)
+        #symmetry_number = 3
         ModeDictOfEachMode['symmetry_number'] = symmetry_number
     return XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode
 
@@ -134,7 +134,7 @@ is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_
 
 def get_e_elect(xyz, path, file_name, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, is_QM_MM_INTERFACE=None, \
 QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None):
-    file_name = 'output'
+    #file_name = 'output'
     if is_QM_MM_INTERFACE:
         QMMM_xyz_string = ''
         for i, xyz in enumerate(xyz.split('\n')):
@@ -148,7 +148,7 @@ QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, fixed_molecule_str
     else:
         job = Job(xyz, path, file_name,jobtype='sp', ncpus=ncpus, charge=charge, multiplicity=multiplicity, \
         level_of_theory=level_of_theory, basis=basis)
-    #job.write_input_file()
+    job.write_input_file()
     job.submit()
     output_file_path = os.path.join(path, '{}.q.out'.format(file_name))
     e_elect = QChemLog(output_file_path).load_energy() / (constants.E_h * constants.Na) # in Hartree/particle

@@ -3,23 +3,15 @@
 """
 Submit scripts
 """
-
-#!/usr/bin/bash
-
-#PBS -l select=1:ncpus=8:mpiprocs=1:ompthreads=8
-#PBS -P MST108470
-#PBS -q cf40
-#PBS -j oe
-
 submit_scripts = {
-    'ape': """#!/usr/bin/bash
+    'parallel_ape': """#!/usr/bin/bash
 
-#PBS -l select=1:ncpus={cpus}:mpiprocs=1:ompthreads={cpus}
+#PBS -l select=1:ncpus={ncpus}:mpiprocs=1:ompthreads={ncpus}
 #PBS -P MST108470
 #PBS -q cf40
 #PBS -j oe
 
-cd /home/r08524007/qchem
+cd $ape_path/parallel_ape/
 
 echo "=========================================================="
 echo "Starting on : $(date)"
@@ -33,6 +25,6 @@ source /home/u1987198/group-sw/bashrc_qchem
 export QCSCRATCH=/tmp/ypli/$PBS_JOBID
 mkdir -p $QCSCRATCH
 
-python APE.py -nt {cpus}  {input} {output}
+python Parallel_APE.py {input_file} -nt {ncpus} -p {protocol} -m {sampling_mode} {imaginary_bonds}
 
-rm -r $QCSCRATCH"""
+rm -r $QCSCRATCH"""}

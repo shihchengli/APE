@@ -2,6 +2,8 @@
 import os
 import subprocess
 
+from ape.job.inputs import fine, fine_zeolite, input_script
+
 class Job(object):
     def __init__(self, xyz, path, file_name, jobtype, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, QM_atoms=None, force_field_params=None, opt=None, number_of_fixed_atoms=None):
         self.xyz = xyz
@@ -57,6 +59,7 @@ class Job(object):
             script = input_script.format(jobtype=self.jobtype, level_of_theory=self.level_of_theory, basis=self.basis,\
             fine=fine_string, QM_atoms=QM_atoms, force_field_params=force_field_params, opt=opt, charge=self.charge, multiplicity=self.multiplicity, xyz=self.xyz)
         f = open(self.input_path, 'w')
+        print('self.input_path :',self.input_path)
         f.write(script)
         f.close()
     
@@ -67,51 +70,4 @@ class Job(object):
         else:
             proc = subprocess.Popen(['qchem -nt {cpus} {input_path} {output_path}'.format(cpus=self.ncpus,input_path=self.input_path,output_path=self.output_path)],shell=True)
             proc.wait()
-            proc = subprocess.Popen(['rm {input_path}'.format(input_path=self.input_path)],shell=True)
-
-
-###################################################################################
-fine = """\n   max_scf_cycles   250
-   geom_opt_max_cycles   1500
-   basis2 6-31G*
-   scf_algorithm rca_diis
-   SYM_IGNORE  TRUE
-   print_input   true
-   geom_opt_dmax   80
-   pop_mulliken false
-   XC_GRID 000075000302"""
-
-fine_zeolite = """\n   geom_opt_coords   0
-   max_scf_cycles   250
-   geom_opt_max_cycles   1500
-   QM_MM_INTERFACE   Zeolite
-   force_field   charmm27
-   user_connect   TRUE
-   symmetry   off
-   sym_ignore   TRUE
-   print_input   true
-   qmmm_print   false
-   qm_mm   TRUE
-   thresh 14
-   scf_convergence 7   
-   AIMD_FIXED_ATOMS {AIMD_FIXED_ATOMS}
-   geom_opt_dmax   80
-   pop_mulliken false"""
-
-input_script = """$rem
-   JOBTYPE  {jobtype}
-   EXCHANGE   {level_of_theory}
-   BASIS   {basis}{fine}
-$end
-{QM_atoms}{force_field_params}{opt}
-$molecule
-{charge} {multiplicity}
-{xyz}
-$end
-"""
-
-#creat a format can be read by VMD software
-record_script ='''{natom}
-# Point {sample} Energy = {e_elect}
-{xyz}
-'''
+            subprocess.Popen(['rm {input_path}'.format(input_path=self.input_path)],shell=True)

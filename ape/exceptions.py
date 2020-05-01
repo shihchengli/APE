@@ -10,7 +10,10 @@ class ConvergeError(Exception):
     pass
 
 class InputError(Exception):
+    pass
+
+class JobError(Exception):
     """
-    An exception raised when doing QMMM calculation without specifing imaginary bonds to describe frustrated translation and rotation.
+    An exception class for exceptional behavior that occurs while working with jobs.
     """
     pass

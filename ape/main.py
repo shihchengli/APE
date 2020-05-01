@@ -4,7 +4,7 @@
 
 """
 APE's main module.
-To run APE through its API, first, first get a freq output file from Qchem, then call the .execute. For example:
+To run APE through its API, first get a freq output file from Qchem, then call the .execute. For example:
 
     ape = APE(input_file)
     ape.execute()
@@ -13,20 +13,16 @@ To run APE through its API, first, first get a freq output file from Qchem, then
 
 import os
 import csv
-import math
 import numpy as np
-import subprocess
-import copy
 
 import rmgpy.constants as constants
 
 from arkane.common import symbol_by_number
-from arkane.statmech import StatMechJob, determine_rotor_symmetry, is_linear
+from arkane.statmech import is_linear
 
 from arc.species.species import ARCSpecies
 
 from ape.qchem import QChemLog
-from ape.job import Job, record_script
 from ape.torsion import HinderedRotor
 from ape.sampling import sampling_along_torsion, sampling_along_vibration
 from ape.InternalCoordinates import get_RedundantCoords, getXYZ
@@ -41,7 +37,7 @@ class APE(object):
     """
 
     def __init__(self,input_file, name=None, project_directory=None, protocol=None, multiplicity=None, charge = None,\
-     external_symmetry=None, level_of_theory=None, basis=None, ncpus=None, imaginary_bonds=None, parallel=False):
+     external_symmetry=None, level_of_theory=None, basis=None, ncpus=None, imaginary_bonds=None):
         self.input_file = input_file
         self.name = name
         self.project_directory = project_directory if project_directory is not None\
@@ -54,7 +50,6 @@ class APE(object):
         self.basis = basis
         self.ncpus = ncpus
         self.imaginary_bonds = imaginary_bonds
-        self.parallel = parallel
 
     def parse(self):
         Log = QChemLog(self.input_file)
@@ -63,6 +58,8 @@ class APE(object):
         self.conformer, unscaled_frequencies = Log.load_conformer()
         if self.name is None:
             self.name = self.input_file.split('/')[-1].split('.')[0]
+        if self.protocol is None:
+            self.protocol = 'UMVT'
         if self.multiplicity is None:
             self.multiplicity = Log.multiplicity
             #self.multiplicity = self.ARCSpecies.multiplicity
@@ -190,7 +187,7 @@ class APE(object):
             freq = vib_freq[i-self.n_rotors]
             magnitude = np.linalg.norm(vector)
             reduced_mass = magnitude ** -2 / constants.amu # in amu
-            step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (freq * 2 * math.pi * constants.c * 100)) * 10 ** 10 # in angstrom
+            step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (freq * 2 * np.pi * constants.c * 100)) * 10 ** 10 # in angstrom
             normalizes_vector = vector/magnitude
             qj = np.matmul(self.internal.B, normalizes_vector)
             if self.is_QM_MM_INTERFACE:
@@ -203,8 +200,10 @@ class APE(object):
             mode_dict[mode] = ModeDictOfEachMode
 
         if save_result:
-            path = self.project_directory
-            self.write_samping_result_to_csv_file(path, mode_dict, energy_dict)
+            csv_path = os.path.join(self.project_directory, 'samping_result.csv')
+            if os.path.exists(csv_path):
+                os.remove(csv_path)
+            self.write_samping_result_to_csv_file(csv_path, mode_dict, energy_dict)
 
             path = os.path.join(path, 'plot')
             if not os.path.exists(path):
@@ -213,27 +212,25 @@ class APE(object):
 
         return xyz_dict, energy_dict, mode_dict
 
-    def write_samping_result_to_csv_file(self, path, mode_dict, energy_dict):
-        csv_path = os.path.join(path, 'samping_result.csv')
-        with open(csv_path, 'w') as f:
+    def write_samping_result_to_csv_file(self, csv_path, mode_dict, energy_dict):
+        with open(csv_path, 'a') as f:
             writer = csv.writer(f)
-            for i in range(self.nmode):
-                if mode_dict[i+1]['mode'] == 'tors':
+            for mode in mode_dict.keys():
+                if mode_dict[mode]['mode'] == 'tors':
                     is_tors = True
-                    name = 'mode_{}_tors'.format(i+1)
+                    name = 'mode_{}_tors'.format(mode)
                 else:
                     is_tors = False
-                    name = 'mode_{}_vib'.format(i+1)
-                writer = csv.writer(f)
+                    name = 'mode_{}_vib'.format(mode)
                 writer.writerow([name])
                 if is_tors:
-                    writer.writerow(['symmetry_number', mode_dict[i+1]['symmetry_number']])
-                writer.writerow(['M', mode_dict[i+1]['M']])
-                writer.writerow(['K', mode_dict[i+1]['K']])
-                writer.writerow(['step_size', mode_dict[i+1]['step_size']])
+                    writer.writerow(['symmetry_number', mode_dict[mode]['symmetry_number']])
+                writer.writerow(['M', mode_dict[mode]['M']])
+                writer.writerow(['K', mode_dict[mode]['K']])
+                writer.writerow(['step_size', mode_dict[mode]['step_size']])
                 writer.writerow(['sample', 'total energy(HARTREE)'])
-                for sample in sorted(energy_dict[i+1].keys()):
-                    writer.writerow([sample, energy_dict[i+1][sample]])
+                for sample in sorted(energy_dict[mode].keys()):
+                    writer.writerow([sample, energy_dict[mode][sample]])
             f.close()
             #print('Have saved the sampling result in {path}'.format(path=csv_path))
     
@@ -270,7 +267,13 @@ def SolvEig(hessian, mass, n_vib):
     inv_sq_mass_mat = np.linalg.inv(mass_mat**0.5)
     mass_weighted_hessian = inv_sq_mass_mat.dot(hessian).dot(inv_sq_mass_mat)
     eig, v = np.linalg.eigh(mass_weighted_hessian)
-    vib_freq = np.sqrt(eig[-n_vib:]) / (2 * math.pi * constants.c * 100) # in cm^-1
+    vib_freq = np.sqrt(eig[-n_vib:]) / (2 * np.pi * constants.c * 100) # in cm^-1
     unweighted_v = np.matmul(inv_sq_mass_mat,v).T[-n_vib:]
     return vib_freq, unweighted_v
+
+#creat a format can be read by VMD software
+record_script ='''{natom}
+# Point {sample} Energy = {e_elect}
+{xyz}
+'''
 
