@@ -218,11 +218,12 @@ class APE(object):
         with open(csv_path, 'w') as f:
             writer = csv.writer(f)
             for i in range(self.nmode):
-                is_tors = False
-                if i in range(self.n_rotors): 
-                    name = 'mode_{}_tors'.format(i+1)
+                if mode_dict[i+1]['mode'] == 'tors':
                     is_tors = True
-                else: name = 'mode_{}_vib'.format(i+1)
+                    name = 'mode_{}_tors'.format(i+1)
+                else:
+                    is_tors = False
+                    name = 'mode_{}_vib'.format(i+1)
                 writer = csv.writer(f)
                 writer.writerow([name])
                 if is_tors:
