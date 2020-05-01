@@ -29,8 +29,8 @@ class Parallel_APE(APE):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.csv_path = os.path.join(self.project_directory, 'samping_result.csv')
-        if os.path.exists(csv_path):
-            os.remove(csv_path)
+        if os.path.exists(self.csv_path):
+            os.remove(self.csv_path)
 
     def sampling(self, thresh=0.05, save_result=True, scan_res=10, sampling_mode=None):
         if sampling_mode is None:
