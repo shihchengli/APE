@@ -236,11 +236,11 @@ class APE(object):
     
     def write_sampling_displaced_geometries(self, path, energy_dict, xyz_dict):
         # creat a format can be read by VMD software
-        for i in range(self.nmode):
-            txt_path = os.path.join(path, 'mode_{}.txt'.format(i+1))
+        for mode in energy_dict.keys():
+            txt_path = os.path.join(path, 'mode_{}.txt'.format(mode))
             with open(txt_path, 'w') as f:
-                for sample in sorted(energy_dict[i+1].keys()): 
-                    content = record_script.format(natom=self.natom, sample=sample, e_elect=energy_dict[i+1][sample], xyz=xyz_dict[i+1][sample])
+                for sample in sorted(energy_dict[mode].keys()): 
+                    content = record_script.format(natom=self.natom, sample=sample, e_elect=energy_dict[mode][sample], xyz=xyz_dict[mode][sample])
                     f.write(content)
                 f.close()
 

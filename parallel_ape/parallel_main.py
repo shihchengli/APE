@@ -33,7 +33,11 @@ class Parallel_APE(APE):
             os.remove(self.csv_path)
 
     def sampling(self, thresh=0.05, save_result=True, scan_res=10, sampling_mode=None):
-        if sampling_mode is None:
+        xyz_dict = {}
+        energy_dict = {}
+        mode_dict = {}
+        mode = sampling_mode
+        if mode is None:
             raise InputError('No specified sampling mode in parallel APE. Please assign one specific sampling mode number')
         if not os.path.exists(self.project_directory):
             os.makedirs(self.project_directory)
@@ -49,24 +53,25 @@ class Parallel_APE(APE):
             vib_freq, unweighted_v = SolvEig(projected_hessian, self.conformer.mass.value_si, self.n_vib)
             print('Frequencies(cm-1) from projected Hessian:',vib_freq)
             
-            if sampling_mode in range(self.n_rotors):
+            if mode-1 in range(self.n_rotors):
                 if self.is_QM_MM_INTERFACE:
-                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_torsion(self.symbols, self.cart_coords, sampling_mode, self.internal, self.conformer, rotor, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, \
+                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, rotor, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, \
                     self.is_QM_MM_INTERFACE, self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
                 else:
-                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_torsion(self.symbols, self.cart_coords, sampling_mode, self.internal, self.conformer, rotor, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis)
+                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, rotor, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis)
         
         elif self.protocol == 'UMN':
             vib_freq, unweighted_v = SolvEig(self.hessian, self.conformer.mass.value_si, self.n_vib)
             print('Vibrational frequencies of normal modes: ',vib_freq)
         
-        if sampling_mode in range(self.nmode)[self.n_rotors:]:
+        if mode-1 in range(self.nmode)[self.n_rotors:]:
             vector=unweighted_v[sampling_mode-1-self.n_rotors]
             freq = vib_freq[sampling_mode-1-self.n_rotors]
             magnitude = np.linalg.norm(vector)
             reduced_mass = magnitude ** -2 / constants.amu # in amu
-            step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (freq * 2 * math.pi * constants.c * 100)) * 10 ** 10 # in angstrom
+            step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (freq * 2 * np.pi * constants.c * 100)) * 10 ** 10 # in angstrom
             normalizes_vector = vector/magnitude
+            qj = np.matmul(self.internal.B, normalizes_vector)
             if self.is_QM_MM_INTERFACE:
                 XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, self.rotors_dict, step_size, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, \
                 self.is_QM_MM_INTERFACE, self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms, max_nloop=15)
@@ -155,7 +160,7 @@ class Parallel_APE(APE):
         """
         self.parse()
         self.run()
-        xyz_dict, energy_dict, mode_dict = from_sampling_result(csv_path=self.csv_path)
+        mode_dict, energy_dict = from_sampling_result(csv_path=self.csv_path)
         # Solve SE of 1-D PES and calculate E S G Cp
         polynomial_dict = cubic_spline_interpolations(energy_dict,mode_dict)
         thermo = ThermoJob(self.conformer, polynomial_dict, mode_dict, energy_dict, T=298.15, P=100000)
