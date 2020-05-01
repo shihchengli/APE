@@ -7,7 +7,7 @@ Parallel_APE
 import argparse
 import os
 
-from parallel_APE.parallel_main import Parallel_APE
+from parallel_ape.parallel_main import Parallel_APE
 
 def parse_command_line_arguments(command_line_args=None):
     
@@ -34,6 +34,7 @@ def main():
     mode = args.mode
     # imaginary bonds for QMMM calculation
     # atom indices starts from 1
+    imaginary_bonds = args.i
     if args.i is not None:
         imaginary_bonds_string = imaginary_bonds.strip('[').strip(']')
         imaginary_bonds = []
@@ -43,6 +44,7 @@ def main():
 
 
     ape_object = Parallel_APE(input_file = input_file, ncpus=ncpus, project_directory=project_directory, protocol=protocol, imaginary_bonds=imaginary_bonds)
+    ape_object.parse()
     ape_object.sampling(sampling_mode=mode)
 
 ################################################################################

@@ -16,7 +16,7 @@ import subprocess
 
 import rmgpy.constants as constants
 
-from ape.main import APE
+from ape.main import APE, SolvEig
 from ape.torsion import HinderedRotor
 from ape.sampling import sampling_along_torsion, sampling_along_vibration
 from ape.FitPES import from_sampling_result,cubic_spline_interpolations
@@ -51,10 +51,10 @@ class Parallel_APE(APE):
             
             if sampling_mode in range(self.n_rotors):
                 if self.is_QM_MM_INTERFACE:
-                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, rotor, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, \
+                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_torsion(self.symbols, self.cart_coords, sampling_mode, self.internal, self.conformer, rotor, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, \
                     self.is_QM_MM_INTERFACE, self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
                 else:
-                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, rotor, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis)
+                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_torsion(self.symbols, self.cart_coords, sampling_mode, self.internal, self.conformer, rotor, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis)
         
         elif self.protocol == 'UMN':
             vib_freq, unweighted_v = SolvEig(self.hessian, self.conformer.mass.value_si, self.n_vib)

@@ -3,6 +3,7 @@ import math
 import numpy as np
 import pybel
 
+from ape import main
 from ape.InternalCoordinates import get_RedundantCoords
 from ape.exceptions import ConvergeError
 
@@ -35,7 +36,6 @@ class HinderedRotor(object):
         Calculate the vibrational frequency in the unit of cm^-1 of the internal rotation
         whose scan is provided by user.
         """
-        from ape import main
         internal = get_RedundantCoords(self.symbols, self.cart_coords, imaginary_bonds=self.imaginary_bonds)
         n_rotors = len(self.rotors_dict)
         B = internal.B[:-n_rotors]
