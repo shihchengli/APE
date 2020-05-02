@@ -138,7 +138,7 @@ class Parallel_APE(APE):
                         mode = sorted(job_status_dict.keys()).index(job_id) + 1
                         path = os.path.join(self.project_directory, 'plot', 'mode_{}.txt'.format(mode))
                         if not os.path.exists(path):
-                            job_status == 'errored'
+                            job_status = 'errored'
                     job_status_dict[job_id] = job_status
                     # update jobs-tracking csv file
                     self.write_job_status_csv(csv_job_status_path, job_status_dict)
