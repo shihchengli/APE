@@ -11,6 +11,7 @@ To run APE in parallel through its API, first get a freq output file from Qchem,
 
 import os
 import csv
+import time
 import numpy as np
 import subprocess
 
@@ -129,6 +130,7 @@ class Parallel_APE(APE):
         # Possible status: `done`, `running`, `queue`, `errored`
         Job_finished = False
         while not Job_finished:
+            time.sleep(60) # check jobs status every minute
             for job_id in job_status_dict.keys():
                 job_status = check_job_status(job_id)
                 if job_status_dict[job_id] != job_status:
