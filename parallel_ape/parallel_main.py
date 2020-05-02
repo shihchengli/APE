@@ -154,7 +154,7 @@ class Parallel_APE(APE):
     def write_job_status_csv(self, csv_path, job_status_dict):
         with open(csv_path, 'w') as f:
             writer = csv.writer(f)
-            writer.writerow(['mdoe','Job_id', 'status'])
+            writer.writerow(['mode','Job_id', 'status'])
             for i, ID in enumerate(sorted(job_status_dict.keys())):
                 mode = i+1
                 status = job_status_dict[ID]
