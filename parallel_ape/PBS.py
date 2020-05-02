@@ -43,7 +43,9 @@ def check_job_status(job_id):
     else:
         return 'done'
     status = status_line.split()[9]
-    if status.lower() in ['r', 'c']:
+    if status.lower() in ['c']:
+        return 'done
+    if status.lower() in ['r']:
         return 'running'
     elif status.lower() in ['q']:
         return 'queue'
