@@ -14,6 +14,7 @@ To run APE through its API, first get a freq output file from Qchem, then call t
 import os
 import csv
 import numpy as np
+from time import gmtime, strftime
 
 import rmgpy.constants as constants
 
@@ -242,6 +243,11 @@ class APE(object):
                 for sample in sorted(energy_dict[mode].keys()): 
                     content = record_script.format(natom=self.natom, sample=sample, e_elect=energy_dict[mode][sample], xyz=xyz_dict[mode][sample])
                     f.write(content)
+                current_time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+                f.write('\n    This sampling was finished on:   {time}'.format(time=current_time))
+                f.write("""\n=------------------------------------------------------------------------------=""")
+                f.write("""\nSampling finished.""")
+                f.write("""\n=------------------------------------------------------------------------------=""")
                 f.close()
 
     def execute(self):
