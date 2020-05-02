@@ -147,7 +147,7 @@ class Parallel_APE(APE):
                         delete_job(ID)
                     raise JobError('An error appers in {job_id} job'.format(job_id=job_id))
             job_status_set = set(job_status_dict.values())
-            if len(job_status_set) == 1 and  job_status_set[0] == 'done':
+            if len(job_status_set) == 1 and  job_status_set == 'done':
                 Job_finished = True
         #subprocess.Popen(['rm -rf {job_path}'.format(job_path=job_path)],shell=True) # delete the job folder
 
