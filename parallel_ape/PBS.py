@@ -22,6 +22,7 @@ def send_command_to_server(command, remote_path=''):
         os.chdir(remote_path)
     
     proc = subprocess.Popen(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc.wait()
     stdout, stderr = [], []
     os.chdir(wd)
 
