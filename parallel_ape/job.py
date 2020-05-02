@@ -15,12 +15,12 @@ class ParallelJob(object):
         """
         Write the Job's submit script.
         """
-        self.submit = submit_scripts['parallel_ape'].format(input_file=self.input_file, ncpus=self.ncpus, protocol=self.protocol, imaginary_bonds=self.imaginary_bonds, sampling_mode=sampling_mode)
+        submit = submit_scripts['parallel_ape'].format(input_file=self.input_file, ncpus=self.ncpus, protocol=self.protocol, imaginary_bonds=self.imaginary_bonds, sampling_mode=sampling_mode)
         
         if not os.path.isdir(self.job_path):
             os.makedirs(self.job_path)
         with  open(os.path.join(self.job_path, submit_filename), 'w') as f:
-            f.write(self.submit)
+            f.write(submit)
     
     def submit(self, submit_filename):
         job_status, job_id = submit_job(submit_filename, remote_path=self.job_path)
