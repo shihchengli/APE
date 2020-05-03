@@ -147,7 +147,7 @@ class Parallel_APE(APE):
                         delete_job(ID)
                     raise JobError('An error appears in {job_id} job'.format(job_id=job_id))
             job_status_set = set(job_status_dict.values())
-            if len(job_status_set) == 1 and  job_status_set == 'done':
+            if len(job_status_set) == 1 and  job_status_set == {'done'}:
                 Job_finished = True
         #shutil.rmtree(job_dir) # delete the job folder
 
