@@ -11,7 +11,7 @@ submit_scripts = {
 #PBS -q cf40
 #PBS -j oe
 
-cd $ape_path/parallel_ape/
+cd {job_path}
 
 echo "=========================================================="
 echo "Starting on : $(date)"
@@ -26,6 +26,6 @@ export QCSCRATCH=/tmp/ypli/$PBS_JOBID
 mkdir -p $QCSCRATCH
 
 conda activate ape_env
-python Parallel_APE.py {input_file} -n {ncpus} -p {protocol} -mode {sampling_mode} {imaginary_bonds}
+python $ape_path/parallel_ape/Parallel_APE.py {input_file} -n {ncpus} -p {protocol} -mode {sampling_mode} {imaginary_bonds}
 
 rm -r $QCSCRATCH"""}

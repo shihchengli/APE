@@ -15,7 +15,7 @@ class ParallelJob(object):
         """
         Write the Job's submit script.
         """
-        submit = submit_scripts['parallel_ape'].format(input_file=self.input_file, ncpus=self.ncpus, protocol=self.protocol, imaginary_bonds=self.imaginary_bonds, sampling_mode=sampling_mode)
+        submit = submit_scripts['parallel_ape'].format(job_path=self.job_path, input_file=self.input_file, ncpus=self.ncpus, protocol=self.protocol, imaginary_bonds=self.imaginary_bonds, sampling_mode=sampling_mode)
         
         if not os.path.isdir(self.job_path):
             os.makedirs(self.job_path)

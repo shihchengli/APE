@@ -12,6 +12,7 @@ To run APE in parallel through its API, first get a freq output file from Qchem,
 import os
 import csv
 import time
+import shutil
 import numpy as np
 import subprocess
 
@@ -95,9 +96,9 @@ class Parallel_APE(APE):
     def run(self):
         if not os.path.exists(self.project_directory):
             os.makedirs(self.project_directory)
-        job_path = os.path.join(self.project_directory,'job')
-        if not os.path.exists(job_path):
-            os.makedirs(job_path)
+        job_dir = os.path.join(self.project_directory,'job')
+        if not os.path.exists(job_dir):
+            os.makedirs(job_dir)
         job_status_dict = {}
 
         freq_output = self.input_file
@@ -109,11 +110,12 @@ class Parallel_APE(APE):
                 imaginary_bonds_string += str(bond[0]) + '-' + str(bond[1])
                 if i != len(self.imaginary_bonds) - 1:
                     imaginary_bonds_string += ','
-
-        job = ParallelJob(job_path=job_path,input_file=freq_output,ncpus=ncpus,protocol=protocol,imaginary_bonds=imaginary_bonds_string)               
+           
         for i in range(self.nmode):
             mode = i +1
             submit_filename = 'mode_{}.q.job'.format(mode)
+            job_path = os.path.join(job_dir,'mode_{}'.format(mode))
+            job = ParallelJob(job_path=job_path,input_file=freq_output,ncpus=ncpus,protocol=protocol,imaginary_bonds=imaginary_bonds_string)
             job.write_submit_file(submit_filename, sampling_mode=mode)
             job_status, job_id = job.submit(submit_filename)
             job_status_dict[job_id] = job_status
@@ -149,7 +151,7 @@ class Parallel_APE(APE):
             job_status_set = set(job_status_dict.values())
             if len(job_status_set) == 1 and  job_status_set == 'done':
                 Job_finished = True
-        #subprocess.Popen(['rm -rf {job_path}'.format(job_path=job_path)],shell=True) # delete the job folder
+        #shutil.rmtree(job_dir) # delete the job folder
 
     def write_job_status_csv(self, csv_path, job_status_dict):
         with open(csv_path, 'w') as f:
