@@ -31,8 +31,6 @@ class Parallel_APE(APE):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.csv_path = os.path.join(self.project_directory, 'samping_result.csv')
-        if os.path.exists(self.csv_path):
-            os.remove(self.csv_path)
 
     def sampling(self, thresh=0.05, save_result=True, scan_res=10, sampling_mode=None):
         xyz_dict = {}
@@ -167,6 +165,8 @@ class Parallel_APE(APE):
         """
         Execute APE in parallel.
         """
+        if os.path.exists(self.csv_path):
+            os.remove(self.csv_path)
         self.parse()
         self.run()
         mode_dict, energy_dict = from_sampling_result(csv_path=self.csv_path)
