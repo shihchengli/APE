@@ -8,6 +8,7 @@ import os
 import copy
 import numpy as np
 import rmgpy.constants as constants
+from arkane.statmech import determine_rotor_symmetry
 from ape.job.job import Job
 from ape.qchem import QChemLog
 from ape.InternalCoordinates import get_RedundantCoords, getXYZ
