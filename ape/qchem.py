@@ -60,6 +60,16 @@ class QChemLog(ESSAdapter):
     def __init__(self, path):
         self.path = path
 
+    def job_is_finished(self):
+        with open(self.path, 'r') as f:
+            line = f.readline()
+            while line != '':
+                # This marks the end of the thermochemistry section
+                if 'Thank you very much for using Q-Chem.' in line:
+                    return True
+                line = f.readline()
+        return False
+
     def is_QM_MM_INTERFACE(self):
         """
         Return the bool value.

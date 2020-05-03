@@ -2,6 +2,7 @@
 import os
 import subprocess
 
+from ape.qchem import QChemLog
 from ape.job.inputs import fine, fine_zeolite, input_script
 
 class Job(object):
@@ -64,9 +65,12 @@ class Job(object):
         f.close()
     
     def submit(self):
+        success = False
         if os.path.exists(self.output_path):
+            log = QChemLog(self.output_path)
+            success = log.job_is_finished()
+        if success:
             print('{} exists, so this calculation is passed !'.format(self.output_path))
-            pass
         else:
             proc = subprocess.Popen(['qchem -nt {cpus} {input_path} {output_path}'.format(cpus=self.ncpus,input_path=self.input_path,output_path=self.output_path)],shell=True)
             proc.wait()
