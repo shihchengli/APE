@@ -110,7 +110,7 @@ class Parallel_APE(APE):
                     imaginary_bonds_string += ','
            
         for i in range(self.nmode):
-            mode = i +1
+            mode = i + 1
             submit_filename = 'mode_{}.q.job'.format(mode)
             job_path = os.path.join(job_dir,'mode_{}'.format(mode))
             job = ParallelJob(job_path=job_path,input_file=freq_output,ncpus=ncpus,protocol=protocol,imaginary_bonds=imaginary_bonds_string)
@@ -145,7 +145,7 @@ class Parallel_APE(APE):
                 if job_status == 'errored':
                     for ID in job_status_dict.keys():
                         delete_job(ID)
-                    raise JobError('An error appers in {job_id} job'.format(job_id=job_id))
+                    raise JobError('An error appears in {job_id} job'.format(job_id=job_id))
             job_status_set = set(job_status_dict.values())
             if len(job_status_set) == 1 and  job_status_set == 'done':
                 Job_finished = True
@@ -154,7 +154,7 @@ class Parallel_APE(APE):
     def write_job_status_csv(self, csv_path, job_status_dict):
         with open(csv_path, 'w') as f:
             writer = csv.writer(f)
-            writer.writerow(['mode','Job_id', 'status'])
+            writer.writerow(['mode', 'Job_id', 'status'])
             for i, ID in enumerate(sorted(job_status_dict.keys())):
                 mode = i+1
                 status = job_status_dict[ID]
