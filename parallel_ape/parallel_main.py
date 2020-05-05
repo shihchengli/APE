@@ -72,6 +72,12 @@ class Parallel_APE(APE):
             step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (freq * 2 * np.pi * constants.c * 100)) * 10 ** 10 # in angstrom
             normalizes_vector = vector/magnitude
             qj = np.matmul(self.internal.B, normalizes_vector)
+            P = np.ones(self.internal.B.shape[0],dtype=int)
+            n_rotors = len(self.rotors_dict)
+            if n_rotors != 0:
+                P[-n_rotors:] = 0
+            P = np.diag(P)
+            qj = P.dot(qj).reshape(-1,)
             if self.is_QM_MM_INTERFACE:
                 XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, self.rotors_dict, step_size, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, \
                 self.is_QM_MM_INTERFACE, self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
