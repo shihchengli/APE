@@ -177,7 +177,7 @@ class ThermoJob(object):
             print("Total entropy (cal/mol/K): %.10f" % (S_trans+S_rot+S_vib))
             print("Total Cv (cal/mol/K): %.10f" % (conformer.get_heat_capacity(T) / 4.184))
     
-    def calcQMMMThermo(self):
+    def calcQMMMThermo(self, print_HOhf_result=False):
         T = self.T
         P = self.P
 
@@ -206,6 +206,10 @@ class ThermoJob(object):
         print("Internal (rot+vib) energy (kcal/mol): %.10f" % (E_int))
         print("Internal (tor+vib) entropy (cal/mol/K): %.10f" % (S_int))
         print("Internal (tor+vib) Cv (cal/mol/K): %.10f" % (Cv_int))
+        if print_HOhf_result:
+            print("\n")
+            print("\n\t********** HOhf results **********\n\n")
+            print("Vibrational entropy (cal/mol/K): %.10f" % (S_vib))
 
 ################################################################################
 
