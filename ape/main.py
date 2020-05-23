@@ -211,7 +211,7 @@ class APE(object):
                 os.remove(csv_path)
             self.write_samping_result_to_csv_file(csv_path, mode_dict, energy_dict)
 
-            path = os.path.join(path, 'plot')
+            path = os.path.join(self.project_directory, 'plot')
             if not os.path.exists(path):
                 os.makedirs(path)
             self.write_sampling_displaced_geometries(path, energy_dict, xyz_dict)
