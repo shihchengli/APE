@@ -747,6 +747,12 @@ class RedundantCoords:
         # calculate it 'manually' here.
         Bt_inv_prim = np.linalg.pinv(B_prim.dot(B_prim.T)).dot(B_prim)
 
+        # A bug need be fixed
+        bond, bend, dihedrals = self.prim_indices
+        for target_bend in target_internals[len(bond):-len(dihedrals)]:
+            if target_bend > np.pi:
+                raise Exception('A sampling bending angel is over 180 degrees in this mode !')
+
         last_rms = 9999
         prev_internals = cur_internals
         self.backtransform_failed = True
