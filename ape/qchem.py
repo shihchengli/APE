@@ -514,7 +514,7 @@ class QChemLog(ESSAdapter):
         zpe = None
         with open(self.path, 'r') as f:
             for line in f:
-                if 'Zero point vibrational energy' in line:
+                if 'Zero point vibrational energy:' in line:
                     zpe = float(line.split()[4]) * 4184  # QChem's ZPE is in kcal/mol, convert to J/mol
                     logging.debug('ZPE is {}'.format(str(zpe)))
         if zpe is not None:
