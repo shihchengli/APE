@@ -134,8 +134,6 @@ class RedundantCoords:
         self.dihedral_indices = list()
         self.hydrogen_bond_indices = list()
 
-        self.prev_internal_diffs = None #Shih-Cheng Li
-
         if prim_indices is None:
             self.set_primitive_indices(self.define_prims)
         else:
@@ -726,22 +724,6 @@ class RedundantCoords:
         internal_diffs = np.array(new_internals - prev_internals)
         bond, bend, dihedrals = self.prim_indices
 
-        #Shih-Cheng Li
-        if self.prev_internal_diffs is not None:
-            prev_bends_diffs = self.prev_internal_diffs[len(bond):-(len(dihedrals))]
-            prev_bends = prev_internals[len(bond):-(len(dihedrals))]
-            new_bends = new_internals[len(bond):-(len(dihedrals))]
-            bend_diffs = np.array(new_bends - prev_bends)
-            sign_bend_diffs = np.sign(prev_bends_diffs) * np.sign(bend_diffs)
-            for i, sign in enumerate(sign_bend_diffs):
-                if sign == -1:
-                    if prev_bends[i] > self.RAD_175 and abs(bend_diffs[i]) > np.pi/90:
-                        new_bends[i] = 2*np.pi - new_bends[i]
-                    if prev_bends[i] < self.RAD_5 and abs(bend_diffs[i]) > np.pi/90:
-                        new_bends[i] = -new_bends[i]
-            new_internals[len(bond):-(len(dihedrals))] = new_bends
-        #Shih-Cheng Li
-
         dihedral_diffs = internal_diffs[-len(dihedrals):]
         # Find differences that are shifted by 2*pi
         shifted_by_2pi = np.abs(np.abs(dihedral_diffs) - 2*np.pi) < np.pi/2
@@ -800,7 +782,7 @@ class RedundantCoords:
                          f"from cycle {best_cycle_ind}."
                 )
                 cur_cart_coords, new_internals = best_cycle
-                break
+                #break
             else:
                 raise Exception("Internal-cartesian back-transformation already "
                                 "failed in the first step. Aborting!"
@@ -816,7 +798,6 @@ class RedundantCoords:
         self.log("")
         prev_cart_coords = self.cart_coords
         self.cart_coords = cur_cart_coords
-        self.prev_internal_diffs = np.array(new_internals - cur_internals)
         return cur_cart_coords - prev_cart_coords
     
     def get_active_set(self, B, thresh=1e-6):
