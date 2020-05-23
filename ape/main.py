@@ -38,7 +38,7 @@ class APE(object):
     """
 
     def __init__(self,input_file, name=None, project_directory=None, protocol=None, multiplicity=None, charge = None,\
-     external_symmetry=None, level_of_theory=None, basis=None, ncpus=None, imaginary_bonds=None):
+    level_of_theory=None, basis=None, ncpus=None, imaginary_bonds=None):
         self.input_file = input_file
         self.name = name
         self.project_directory = project_directory if project_directory is not None\
@@ -46,7 +46,6 @@ class APE(object):
         self.protocol = protocol
         self.multiplicity = multiplicity
         self.charge = charge
-        self.external_symmetry = external_symmetry
         self.level_of_theory = level_of_theory
         self.basis = basis
         self.ncpus = ncpus

@@ -79,10 +79,10 @@ class Parallel_APE(APE):
             P = np.diag(P)
             qj = P.dot(qj).reshape(-1,)
             if self.is_QM_MM_INTERFACE:
-                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, self.rotors_dict, step_size, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, \
+                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, step_size, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, \
                 self.is_QM_MM_INTERFACE, self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
             else:
-                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, self.rotors_dict, step_size, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis)
+                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, step_size, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis)
         xyz_dict[mode] = XyzDictOfEachMode
         energy_dict[mode] = EnergyDictOfEachMode
         mode_dict[mode] = ModeDictOfEachMode
