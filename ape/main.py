@@ -24,7 +24,7 @@ from arkane.statmech import is_linear
 from arc.species.species import ARCSpecies
 
 from ape.qchem import QChemLog
-from ape.torsion import HinderedRotor
+from ape.torsion import HinderedRotor, SolvEig
 from ape.sampling import sampling_along_torsion, sampling_along_vibration
 from ape.InternalCoordinates import get_RedundantCoords, getXYZ
 from ape.FitPES import cubic_spline_interpolations
@@ -269,18 +269,6 @@ class APE(object):
         else:
             thermo.calcThermo(print_HOhf_result=True, zpe_of_Hohf=self.zpe)
         
-
-###################################################################################
-def SolvEig(hessian, mass, n_vib):
-    # Generate mass-weighted force constant matrix
-    mass_3N_array = np.array([i for i in mass for j in range(3)])
-    mass_mat = np.diag(mass_3N_array)
-    inv_sq_mass_mat = np.linalg.inv(mass_mat**0.5)
-    mass_weighted_hessian = inv_sq_mass_mat.dot(hessian).dot(inv_sq_mass_mat)
-    eig, v = np.linalg.eigh(mass_weighted_hessian)
-    vib_freq = np.sqrt(eig[-n_vib:]) / (2 * np.pi * constants.c * 100) # in cm^-1
-    unweighted_v = np.matmul(inv_sq_mass_mat,v).T[-n_vib:]
-    return vib_freq, unweighted_v
 
 #creat a format can be read by VMD software
 record_script ='''{natom}

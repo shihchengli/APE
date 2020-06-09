@@ -18,8 +18,8 @@ import subprocess
 
 import rmgpy.constants as constants
 
-from ape.main import APE, SolvEig
-from ape.torsion import HinderedRotor
+from ape.main import APE
+from ape.torsion import HinderedRotor, SolvEig
 from ape.sampling import sampling_along_torsion, sampling_along_vibration
 from ape.FitPES import from_sampling_result,cubic_spline_interpolations
 from ape.calcThermo import ThermoJob

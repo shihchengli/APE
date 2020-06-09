@@ -3,7 +3,6 @@ import math
 import numpy as np
 import pybel
 
-from ape import main
 from ape.InternalCoordinates import get_RedundantCoords
 from ape.exceptions import ConvergeError
 
@@ -48,10 +47,10 @@ class HinderedRotor(object):
         B_inv = np.linalg.pinv(B)
         Bt_inv = B_inv.T
         hessian = B.T.dot(Bt_inv).dot(self.hessian).dot(B_inv).dot(B)
-        vib_freq, unweighted_v = main.SolvEig(hessian, self.mass, self.n_vib+1)
+        vib_freq, unweighted_v = SolvEig(hessian, self.mass, self.n_vib+1)
 
         projectd_hessian = self.projectd_hessian()
-        projectd_vib_freq, projectd_unweighted_v = main.SolvEig(projectd_hessian, self.mass, self.n_vib+1)
+        projectd_vib_freq, projectd_unweighted_v = SolvEig(projectd_hessian, self.mass, self.n_vib+1)
 
         for i in vib_freq:
             match_freq = 0
@@ -72,3 +71,15 @@ class HinderedRotor(object):
             .format(scan=scan, freq=projected_out_freq))
     
         return projected_out_freq, reduced_mass
+
+###################################################################################
+def SolvEig(hessian, mass, n_vib):
+    # Generate mass-weighted force constant matrix
+    mass_3N_array = np.array([i for i in mass for j in range(3)])
+    mass_mat = np.diag(mass_3N_array)
+    inv_sq_mass_mat = np.linalg.inv(mass_mat**0.5)
+    mass_weighted_hessian = inv_sq_mass_mat.dot(hessian).dot(inv_sq_mass_mat)
+    eig, v = np.linalg.eigh(mass_weighted_hessian)
+    vib_freq = np.sqrt(eig[-n_vib:]) / (2 * np.pi * constants.c * 100) # in cm^-1
+    unweighted_v = np.matmul(inv_sq_mass_mat,v).T[-n_vib:]
+    return vib_freq, unweighted_v
