@@ -77,17 +77,17 @@ def get_RedundantCoords(atoms, cart_coords, rotors_dict=None, imaginary_bonds=No
                             rotors_dict[i]['pivots'][1]-1])
                             for i in rotors_dict]
             
+            scan_indices_set = set()
+            for i in rotors_dict:
+                scan = rotors_dict[i]['scan']
+                scan_indices_set.add((scan[0]-1,scan[1]-1,scan[2]-1,scan[3]-1))
+            
             new_dihedral_indices = []
             for ind in dihedral_indices:
                 if set(ind[1:3]) not in pivots_list:
                     new_dihedral_indices.append(ind)
             
-            scan_indices = []
-            for i in rotors_dict:
-                scan = rotors_dict[i]['scan']
-                scan_indices = [scan[0]-1,scan[1]-1,scan[2]-1,scan[3]-1]
-                new_dihedral_indices.append(scan_indices)
-
+            new_dihedral_indices.extend(list(scan_indices_set))
             internal.dihedral_indices = np.array(new_dihedral_indices)
 
     set_primitive_indices()
@@ -151,6 +151,7 @@ class RedundantCoords:
         self._prim_coords = np.array([pc.val for pc in self._prim_internals])
 
         self.nHcap = None #Shih-Cheng Li
+        self.shift_pi = list() #Shih-Cheng Li
 
     def log(self, message):
         logger = logging.getLogger("internal_coords")
@@ -733,31 +734,39 @@ class RedundantCoords:
         new_internals[-len(dihedrals):] = new_dihedrals
         return new_internals
 
-    def transform_int_step(self, step, cart_rms_thresh=1e-6):
+    def transform_int_step(self, step, cart_rms_thresh=1e-15):
         """This is always done in primitive internal coordinates so care
         has to be taken that the supplied step is given in primitive internal
         coordinates."""
 
+        bond, bend, dihedrals = self.prim_indices
+        #for i in set(self.shift_pi):
+        #        step[len(bond)+i] *= -1
+
         remaining_int_step = step
+        prev_cart_coords = copy.deepcopy(self.cart_coords)
         cur_cart_coords = self.cart_coords.copy()
         cur_internals = self.prim_coords
         target_internals = cur_internals + step
+
+        target_bends = target_internals[len(bond):-(len(dihedrals))]
+        for i, target_bend in enumerate(target_bends):
+            if target_bend > np.pi:
+                #target_bends[i] = 2*np.pi - target_bends[i]
+                #self.shift_pi.append(i)
+                # A bug need to be fixed
+                raise Exception('A sampling bending angel is over 180 degrees in this mode !')
+
         B_prim = self.B_prim
         # Bt_inv may be overriden in other coordiante systems so we
         # calculate it 'manually' here.
         Bt_inv_prim = np.linalg.pinv(B_prim.dot(B_prim.T)).dot(B_prim)
 
-        # A bug need be fixed
-        bond, bend, dihedrals = self.prim_indices
-        for target_bend in target_internals[len(bond):-len(dihedrals)]:
-            if target_bend > np.pi:
-                raise Exception('A sampling bending angel is over 180 degrees in this mode !')
-
         last_rms = 9999
         prev_internals = cur_internals
         self.backtransform_failed = True
         self.prev_cross = None
-        nloop = 25
+        nloop = 1000
         for i in range(nloop):
             cart_step = Bt_inv_prim.T.dot(remaining_int_step)
             if self.nHcap is not None:
@@ -779,16 +788,17 @@ class RedundantCoords:
             if (cart_rms < last_rms):
                 # Store results of the conversion cycle for laster use, if
                 # the internal-cartesian-transformation goes bad.
-                best_cycle = (cur_cart_coords.copy(), new_internals.copy())
+                best_cycle = (copy.deepcopy(cur_cart_coords), copy.deepcopy(new_internals.copy()))
                 best_cycle_ind = i
+                best_cart_rms = cart_rms
+                ratio = 1
             elif i != 0:
-                # If the conversion somehow fails we return the step
-                # saved above.
-                self.log( "Internal to cartesian failed! Using from step "
-                         f"from cycle {best_cycle_ind}."
-                )
                 cur_cart_coords, new_internals = best_cycle
-                #break
+                cart_rms = best_cart_rms
+                remaining_int_step = target_internals - new_internals
+                # Reduce the moving step to avoid failing
+                ratio *= 2
+                remaining_int_step /= ratio
             else:
                 raise Exception("Internal-cartesian back-transformation already "
                                 "failed in the first step. Aborting!"
@@ -802,7 +812,6 @@ class RedundantCoords:
                 break
             self._prim_coords = np.array(new_internals)
         self.log("")
-        prev_cart_coords = self.cart_coords
         self.cart_coords = cur_cart_coords
         return cur_cart_coords - prev_cart_coords
     
