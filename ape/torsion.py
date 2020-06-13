@@ -2,7 +2,7 @@
 import math
 import numpy as np
 import pybel
-
+import rmgpy.constants as constants
 from ape.InternalCoordinates import get_RedundantCoords
 from ape.exceptions import ConvergeError
 
