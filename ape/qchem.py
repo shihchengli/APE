@@ -449,7 +449,8 @@ class QChemLog(ESSAdapter):
                                 mass = float(mass)
                                 translation = IdealGasTranslation(mass=(mass, "amu"))
                                 # modes.append(translation)
-                                mmass.append(translation)
+                                # mmass.append(translation)
+                                mmass = [translation]
 
                         # Read moments of inertia for external rotational modes, given in atomic units
                         elif 'Eigenvalues --' in line:
