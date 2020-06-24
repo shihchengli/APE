@@ -92,9 +92,13 @@ class APE(object):
                     xyz += '{}\t{}\t\t{}\t\t{}'.format(self.symbols[i],self.cart_coords[3*i],self.cart_coords[3*i+1],self.cart_coords[3*i+2])
                     if i != self.natom-1: xyz += '\n'
             self.xyz = xyz
-            self.ARCSpecies = ARCSpecies(label=self.name,xyz=self.xyz)
+            if self.xyz == '':
+                self.ARCSpecies = None
+            else:
+                self.ARCSpecies = ARCSpecies(label=self.name,xyz=self.xyz)
             if self.ncpus is None:
                 self.ncpus = 8 # default cpu for QM/MM calculation
+            self.zpe = Log.load_zero_point_energy()
         else:
             self.natom = Log.get_number_of_atoms()
             self.symbols = [symbol_by_number[i] for i in number]
@@ -110,8 +114,8 @@ class APE(object):
             self.linearity = is_linear(self.conformer.coordinates.value)
             self.e_elect = Log.load_energy()
             self.zpe = Log.load_zero_point_energy()
-            e0 = self.e_elect + self.zpe
-            self.conformer.E0 = (e0, "J/mol")
+            # e0 = self.e_elect + self.zpe
+            # self.conformer.E0 = (e0, "J/mol")
 
         # Determine hindered rotors information
         if self.protocol == 'UMVT':
@@ -136,6 +140,8 @@ class APE(object):
     def get_rotors_dict(self):
         rotors_dict = {}
         species = self.ARCSpecies
+        if species is None:
+            return rotors_dict
         species.determine_rotors()
         for i in species.rotors_dict:
             rotors_dict[i+1] = {}
