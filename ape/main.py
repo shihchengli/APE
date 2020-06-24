@@ -275,4 +275,3 @@ record_script ='''{natom}
 # Point {sample} Energy = {e_elect}
 {xyz}
 '''
-
