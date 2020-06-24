@@ -32,7 +32,7 @@ def getXYZ(atoms, cart_coords):
     natom = len(atoms)
     xyz = ''
     for i in range(natom):
-        xyz += '{}\t{}\t\t{}\t\t{}'.format(atoms[i],cart_coords[3*i],cart_coords[3*i+1],cart_coords[3*i+2])
+        xyz += '{:s}       {:.10f}     {:.10f}     {:.10f}'.format(atoms[i],cart_coords[3*i],cart_coords[3*i+1],cart_coords[3*i+2])
         if i != natom-1: xyz += '\n'
     return xyz
 
@@ -54,9 +54,17 @@ def get_bond_indices(atoms, cart_coords):
     bond_indices = np.array(sorted(bond_indices))
     return bond_indices
 
-def get_RedundantCoords(atoms, cart_coords, rotors_dict=None):
+def get_RedundantCoords(atoms, cart_coords, rotors_dict=None, imaginary_bonds=None):
     internal = RedundantCoords(atoms, cart_coords)
     bond_indices = get_bond_indices(atoms, cart_coords)
+    
+    new_imaginary_bonds = []
+    if imaginary_bonds is not None:
+        for bond in imaginary_bonds:
+            atom1, atom2 = bond
+            new_imaginary_bonds.append([atom1-1, atom2-1]) # the index order in the pysisyphus package starts from 0
+        bond_indices = np.append(bond_indices,new_imaginary_bonds,axis=0)
+
     def set_primitive_indices():
         internal.bond_indices = bond_indices
         internal.bending_indices = list()
@@ -69,17 +77,17 @@ def get_RedundantCoords(atoms, cart_coords, rotors_dict=None):
                             rotors_dict[i]['pivots'][1]-1])
                             for i in rotors_dict]
             
+            scan_indices_set = set()
+            for i in rotors_dict:
+                scan = rotors_dict[i]['scan']
+                scan_indices_set.add((scan[0]-1,scan[1]-1,scan[2]-1,scan[3]-1))
+            
             new_dihedral_indices = []
             for ind in dihedral_indices:
                 if set(ind[1:3]) not in pivots_list:
                     new_dihedral_indices.append(ind)
             
-            scan_indices = []
-            for i in rotors_dict:
-                scan = rotors_dict[i]['scan']
-                scan_indices = [scan[0]-1,scan[1]-1,scan[2]-1,scan[3]-1]
-                new_dihedral_indices.append(scan_indices)
-
+            new_dihedral_indices.extend(list(scan_indices_set))
             internal.dihedral_indices = np.array(new_dihedral_indices)
 
     set_primitive_indices()
@@ -126,8 +134,6 @@ class RedundantCoords:
         self.dihedral_indices = list()
         self.hydrogen_bond_indices = list()
 
-        self.prev_internal_diffs = None #Shih-Cheng Li
-
         if prim_indices is None:
             self.set_primitive_indices(self.define_prims)
         else:
@@ -144,6 +150,8 @@ class RedundantCoords:
         self._prim_internals = self.calculate(self.cart_coords)
         self._prim_coords = np.array([pc.val for pc in self._prim_internals])
 
+        self.nHcap = None #Shih-Cheng Li
+        self.shift_pi = list() #Shih-Cheng Li
 
     def log(self, message):
         logger = logging.getLogger("internal_coords")
@@ -717,22 +725,6 @@ class RedundantCoords:
         internal_diffs = np.array(new_internals - prev_internals)
         bond, bend, dihedrals = self.prim_indices
 
-        #Shih-Cheng Li
-        if self.prev_internal_diffs is not None:
-            prev_bends_diffs = self.prev_internal_diffs[len(bond):-(len(dihedrals))]
-            prev_bends = prev_internals[len(bond):-(len(dihedrals))]
-            new_bends = new_internals[len(bond):-(len(dihedrals))]
-            bend_diffs = np.array(new_bends - prev_bends)
-            sign_bend_diffs = np.sign(prev_bends_diffs) * np.sign(bend_diffs)
-            for i, sign in enumerate(sign_bend_diffs):
-                if sign == -1:
-                    if prev_bends[i] > self.RAD_175 and abs(bend_diffs[i]) > np.pi/90:
-                        new_bends[i] = 2*np.pi - new_bends[i]
-                    if prev_bends[i] < self.RAD_5 and abs(bend_diffs[i]) > np.pi/90:
-                        new_bends[i] = -new_bends[i]
-            new_internals[len(bond):-(len(dihedrals))] = new_bends
-        #Shih-Cheng Li
-
         dihedral_diffs = internal_diffs[-len(dihedrals):]
         # Find differences that are shifted by 2*pi
         shifted_by_2pi = np.abs(np.abs(dihedral_diffs) - 2*np.pi) < np.pi/2
@@ -742,15 +734,29 @@ class RedundantCoords:
         new_internals[-len(dihedrals):] = new_dihedrals
         return new_internals
 
-    def transform_int_step(self, step, cart_rms_thresh=1e-6):
+    def transform_int_step(self, step, cart_rms_thresh=1e-15):
         """This is always done in primitive internal coordinates so care
         has to be taken that the supplied step is given in primitive internal
         coordinates."""
 
+        bond, bend, dihedrals = self.prim_indices
+        #for i in set(self.shift_pi):
+        #        step[len(bond)+i] *= -1
+
         remaining_int_step = step
+        prev_cart_coords = copy.deepcopy(self.cart_coords)
         cur_cart_coords = self.cart_coords.copy()
         cur_internals = self.prim_coords
         target_internals = cur_internals + step
+
+        target_bends = target_internals[len(bond):-(len(dihedrals))]
+        for i, target_bend in enumerate(target_bends):
+            if target_bend > np.pi:
+                #target_bends[i] = 2*np.pi - target_bends[i]
+                #self.shift_pi.append(i)
+                # A bug need to be fixed
+                raise Exception('A sampling bending angel is over 180 degrees in this mode !')
+
         B_prim = self.B_prim
         # Bt_inv may be overriden in other coordiante systems so we
         # calculate it 'manually' here.
@@ -760,9 +766,11 @@ class RedundantCoords:
         prev_internals = cur_internals
         self.backtransform_failed = True
         self.prev_cross = None
-        nloop = 25
+        nloop = 1000
         for i in range(nloop):
             cart_step = Bt_inv_prim.T.dot(remaining_int_step)
+            if self.nHcap is not None:
+                cart_step[-(self.nHcap*3):] = 0 # to creat the QMMM boundary in QMMM system # Shih-Cheng Li
             # Recalculate exact Bt_inv every cycle. Costly.
             # cart_step = self.Bt_inv.T.dot(remaining_int_step)
             cart_rms = np.sqrt(np.mean(cart_step**2))
@@ -780,16 +788,17 @@ class RedundantCoords:
             if (cart_rms < last_rms):
                 # Store results of the conversion cycle for laster use, if
                 # the internal-cartesian-transformation goes bad.
-                best_cycle = (cur_cart_coords.copy(), new_internals.copy())
+                best_cycle = (copy.deepcopy(cur_cart_coords), copy.deepcopy(new_internals.copy()))
                 best_cycle_ind = i
+                best_cart_rms = cart_rms
+                ratio = 1
             elif i != 0:
-                # If the conversion somehow fails we return the step
-                # saved above.
-                self.log( "Internal to cartesian failed! Using from step "
-                         f"from cycle {best_cycle_ind}."
-                )
                 cur_cart_coords, new_internals = best_cycle
-                break
+                cart_rms = best_cart_rms
+                remaining_int_step = target_internals - new_internals
+                # Reduce the moving step to avoid failing
+                ratio *= 2
+                remaining_int_step /= ratio
             else:
                 raise Exception("Internal-cartesian back-transformation already "
                                 "failed in the first step. Aborting!"
@@ -803,9 +812,7 @@ class RedundantCoords:
                 break
             self._prim_coords = np.array(new_internals)
         self.log("")
-        prev_cart_coords = self.cart_coords
         self.cart_coords = cur_cart_coords
-        self.prev_internal_diffs = np.array(new_internals - cur_internals)
         return cur_cart_coords - prev_cart_coords
     
     def get_active_set(self, B, thresh=1e-6):

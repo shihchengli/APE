@@ -2,22 +2,23 @@
 import math
 import numpy as np
 import pybel
-
+import rmgpy.constants as constants
 from ape.InternalCoordinates import get_RedundantCoords
 from ape.exceptions import ConvergeError
 
 class HinderedRotor(object):
 
-    def __init__(self, symbols, cart_coords, hessian, rotors_dict, mass=None, n_vib=None):
+    def __init__(self, symbols, cart_coords, hessian, rotors_dict, mass=None, n_vib=None, imaginary_bonds=None):
         self.symbols = symbols
         self.cart_coords = cart_coords
         self.hessian = hessian
         self.rotors_dict = rotors_dict
         self.mass = mass
         self.n_vib = n_vib
+        self.imaginary_bonds = imaginary_bonds
 
     def projectd_hessian(self):
-        internal = get_RedundantCoords(self.symbols, self.cart_coords, self.rotors_dict)
+        internal = get_RedundantCoords(self.symbols, self.cart_coords, self.rotors_dict, imaginary_bonds=self.imaginary_bonds)
         B = internal.B
         B_inv = internal.B_inv
         Bt_inv = internal.Bt_inv
@@ -34,8 +35,7 @@ class HinderedRotor(object):
         Calculate the vibrational frequency in the unit of cm^-1 of the internal rotation
         whose scan is provided by user.
         """
-        from ape import main
-        internal = get_RedundantCoords(self.symbols, self.cart_coords)
+        internal = get_RedundantCoords(self.symbols, self.cart_coords, imaginary_bonds=self.imaginary_bonds)
         n_rotors = len(self.rotors_dict)
         B = internal.B[:-n_rotors]
         rotors_dict = self.rotors_dict
@@ -47,10 +47,10 @@ class HinderedRotor(object):
         B_inv = np.linalg.pinv(B)
         Bt_inv = B_inv.T
         hessian = B.T.dot(Bt_inv).dot(self.hessian).dot(B_inv).dot(B)
-        vib_freq, unweighted_v = main.SolvEig(hessian, self.mass, self.n_vib+1)
+        vib_freq, unweighted_v = SolvEig(hessian, self.mass, self.n_vib+1)
 
         projectd_hessian = self.projectd_hessian()
-        projectd_vib_freq, projectd_unweighted_v = main.SolvEig(projectd_hessian, self.mass, self.n_vib+1)
+        projectd_vib_freq, projectd_unweighted_v = SolvEig(projectd_hessian, self.mass, self.n_vib+1)
 
         for i in vib_freq:
             match_freq = 0
@@ -58,6 +58,10 @@ class HinderedRotor(object):
                 if math.isclose(i,j,abs_tol=1) is True:
                     match_freq += 1
             if match_freq is 0:
+                index = vib_freq.tolist().index(i)
+                vector = unweighted_v[index]
+                magnitude = np.linalg.norm(vector)
+                reduced_mass = magnitude ** -2 / 1.660538921e-27 # in amu
                 projected_out_freq = i
                 break
             if i == vib_freq[-1] and j == projectd_vib_freq[-1]:
@@ -66,4 +70,16 @@ class HinderedRotor(object):
         print('The frequency of the hindered rotor whose scan is {scan} is {freq} cm-1'\
             .format(scan=scan, freq=projected_out_freq))
     
-        return projected_out_freq
+        return projected_out_freq, reduced_mass
+
+###################################################################################
+def SolvEig(hessian, mass, n_vib):
+    # Generate mass-weighted force constant matrix
+    mass_3N_array = np.array([i for i in mass for j in range(3)])
+    mass_mat = np.diag(mass_3N_array)
+    inv_sq_mass_mat = np.linalg.inv(mass_mat**0.5)
+    mass_weighted_hessian = inv_sq_mass_mat.dot(hessian).dot(inv_sq_mass_mat)
+    eig, v = np.linalg.eigh(mass_weighted_hessian)
+    vib_freq = np.sqrt(eig[-n_vib:]) / (2 * np.pi * constants.c * 100) # in cm^-1
+    unweighted_v = np.matmul(inv_sq_mass_mat,v).T[-n_vib:]
+    return vib_freq, unweighted_v

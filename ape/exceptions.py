@@ -8,3 +8,12 @@ class ConvergeError(Exception):
     An exception raised when the convergence is not met.
     """
     pass
+
+class InputError(Exception):
+    pass
+
+class JobError(Exception):
+    """
+    An exception class for exceptional behavior that occurs while working with jobs.
+    """
+    pass

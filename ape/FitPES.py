@@ -6,28 +6,28 @@ import rmgpy.constants as constants
 
 def from_sampling_result(csv_path):
     """
-    Rebuild mode_dic and energy_dic by importing sampling_result.csv.
+    Rebuild mode_dict and energy_dict by importing sampling_result.csv.
     """
-    mode_dic = {}
-    energy_dic = {}
+    mode_dict = {}
+    energy_dict = {}
     with open(csv_path, 'r') as f:
         reader = csv.reader(f, dialect='excel')
         for row in reader:
             if row[0].split('_')[0] == 'mode':
                 nmode, mode=row[0].split('_')[1:]
                 nmode = int(nmode)
-                mode_dic[nmode] = {}
-                mode_dic[nmode]['mode'] = mode
-                energy_dic[nmode] = {}
-            elif row[0] == 'symmetry_number': mode_dic[nmode]['symmetry_number'] = int(row[1])
-            elif row[0] == 'M': mode_dic[nmode]['M'] = float(row[1])
-            elif row[0] == 'K': mode_dic[nmode]['K'] = float(row[1])
-            elif row[0] == 'step_size': mode_dic[nmode]['step_size'] = float(row[1])
+                mode_dict[nmode] = {}
+                mode_dict[nmode]['mode'] = mode
+                energy_dict[nmode] = {}
+            elif row[0] == 'symmetry_number': mode_dict[nmode]['symmetry_number'] = int(row[1])
+            elif row[0] == 'M': mode_dict[nmode]['M'] = float(row[1])
+            elif row[0] == 'K': mode_dict[nmode]['K'] = float(row[1])
+            elif row[0] == 'step_size': mode_dict[nmode]['step_size'] = float(row[1])
             elif row[0] == 'sample': continue
             else:
                 ind, e_elect = int(row[0]), float(row[1])
-                energy_dic[nmode][ind] = e_elect
-    return mode_dic, energy_dic
+                energy_dict[nmode][ind] = e_elect
+    return mode_dict, energy_dict
 
 def get_is_tors_list(mode_dict):
     """
