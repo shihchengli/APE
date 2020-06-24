@@ -46,20 +46,30 @@ Add APE to your local path in .bashrc (make sure to change ~/Path/to/APE/ accord
 
   `source activate ape_env`
 
+## Add APE aliases to your .bashrc (for convenience)
+
+  ```markdown
+
+  export ape_path=$HOME'/Path/to/APE/'
+  alias ape_env='source activate ape_env'
+  alias ape_dir='cd $ape_path'
+
+  ```
+
 ## How to run a job
 
 To run APE, make sure to first activate the APE environment.
 
 - Basic run
 
-  `python <path_to_the_APE_folder>/APE.py freq_output.q.out -n <ncpus> -p <UMN or UMVT (default)> > thermo_result`
+  `python <path_to_the_APE_folder>/APE.py freq_output.q.out -n <ncpus> -p <UMN or UMVT (default)> -parallel <1 or 0 (default)> > thermo_result`
 
 - Using the API
   ```markdown
 
   from ape.main import APE
   
-  ape = APE(input_file, name=None, project_directory=None, protocol=None, multiplicity=None, charge = None, external_symmetry=None, level_of_theory=None, basis=None, ncpus=None)
+  ape = APE(input_file, name=None, project_directory=None, protocol=None, multiplicity=None, charge = None, external_symmetry=None, level_of_theory=None, basis=None, ncpus=None, imaginary_bonds=None)
   
   ape.execute()
   ```
