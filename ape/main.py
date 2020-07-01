@@ -40,7 +40,7 @@ class APE(object):
     def __init__(self,input_file, name=None, project_directory=None, protocol=None, multiplicity=None, charge = None,\
     level_of_theory=None, basis=None, ncpus=None, imaginary_bonds=None):
         self.input_file = input_file
-        self.name = name
+        self.name = self.input_file.split('/')[-1].split('.')[0] if name is None else name
         self.project_directory = project_directory if project_directory is not None\
             else os.path.abspath(os.path.dirname(input_file))
         self.protocol = protocol
@@ -50,6 +50,7 @@ class APE(object):
         self.basis = basis
         self.ncpus = ncpus
         self.imaginary_bonds = imaginary_bonds
+        self.csv_path = os.path.join(self.project_directory, '{}_samping_result.csv'.format(self.name))
 
     def parse(self):
         Log = QChemLog(self.input_file)
@@ -62,10 +63,10 @@ class APE(object):
             self.protocol = 'UMVT'
         if self.multiplicity is None:
             self.multiplicity = Log.multiplicity
-            #self.multiplicity = self.ARCSpecies.multiplicity
+            # self.multiplicity = self.ARCSpecies.multiplicity
         if self.charge is None:
             self.charge = Log.charge
-            #self.charge = 0
+            # self.charge = 0
 
         self.is_QM_MM_INTERFACE = Log.is_QM_MM_INTERFACE()
         if self.is_QM_MM_INTERFACE:
@@ -112,7 +113,7 @@ class APE(object):
                 if self.ncpus > 8: self.ncpus = 8
             # Below is information for thermodynamic caculation
             self.linearity = is_linear(self.conformer.coordinates.value)
-            self.e_elect = Log.load_energy()
+            # self.e_elect = Log.load_energy()
             self.zpe = Log.load_zero_point_energy()
             # e0 = self.e_elect + self.zpe
             # self.conformer.E0 = (e0, "J/mol")
@@ -159,7 +160,7 @@ class APE(object):
         mode_dict = {}
         if not os.path.exists(self.project_directory):
             os.makedirs(self.project_directory)
-        path = os.path.join(self.project_directory,'output_file')
+        path = os.path.join(self.project_directory, 'output_file', self.name)
         if not os.path.exists(path):
             os.makedirs(path)
         if self.protocol == 'UMVT' and self.n_rotors != 0:
@@ -174,10 +175,10 @@ class APE(object):
             for i in range(self.n_rotors):
                 mode = i+1
                 if self.is_QM_MM_INTERFACE:
-                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, rotor, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, \
+                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, rotor, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, \
                     self.is_QM_MM_INTERFACE, self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
                 else:
-                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, rotor, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis)
+                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, rotor, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis)
                 xyz_dict[mode] = XyzDictOfEachMode
                 energy_dict[mode] = EnergyDictOfEachMode
                 mode_dict[mode] = ModeDictOfEachMode
@@ -203,19 +204,23 @@ class APE(object):
             P = np.diag(P)
             qj = P.dot(qj).reshape(-1,)
             if self.is_QM_MM_INTERFACE:
-                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, step_size, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, \
+                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, step_size, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, \
                 self.is_QM_MM_INTERFACE, self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
             else:
-                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, step_size, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis)
+                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, step_size, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis)
             xyz_dict[mode] = XyzDictOfEachMode
             energy_dict[mode] = EnergyDictOfEachMode
             mode_dict[mode] = ModeDictOfEachMode
 
+        # add the ground-state energy (including zero-point energy) of the conformer
+        self.e_elect = min_elect # in Hartree/particle
+        e0 = self.e_elect * constants.E_h * constants.Na + self.zpe # in J/mol
+        self.conformer.E0 = (e0, "J/mol")
+
         if save_result:
-            csv_path = os.path.join(self.project_directory, 'samping_result.csv')
-            if os.path.exists(csv_path):
-                os.remove(csv_path)
-            self.write_samping_result_to_csv_file(csv_path, mode_dict, energy_dict)
+            if os.path.exists(self.csv_path):
+                os.remove(self.csv_path)
+            self.write_samping_result_to_csv_file(self.csv_path, mode_dict, energy_dict)
 
             path = os.path.join(self.project_directory, 'plot')
             if not os.path.exists(path):
@@ -225,8 +230,14 @@ class APE(object):
         return xyz_dict, energy_dict, mode_dict
 
     def write_samping_result_to_csv_file(self, csv_path, mode_dict, energy_dict):
+        write_min_elect = False
+        if os.path.exists(csv_path) is False:
+            write_min_elect = True
+
         with open(csv_path, 'a') as f:
             writer = csv.writer(f)
+            if write_min_elect:
+                writer.writerow(['min_elect', self.e_elect])
             for mode in mode_dict.keys():
                 if mode_dict[mode]['mode'] == 'tors':
                     is_tors = True
@@ -265,6 +276,8 @@ class APE(object):
         """
         Execute APE.
         """
+        if os.path.exists(self.csv_path):
+            os.remove(self.csv_path)
         self.parse()
         xyz_dict, energy_dict, mode_dict = self.sampling()
         # Solve SE of 1-D PES and calculate E S G Cp

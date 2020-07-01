@@ -19,6 +19,7 @@ def from_sampling_result(csv_path):
                 mode_dict[nmode] = {}
                 mode_dict[nmode]['mode'] = mode
                 energy_dict[nmode] = {}
+            elif row[0] == 'min_elect': min_elect = float(row[1])
             elif row[0] == 'symmetry_number': mode_dict[nmode]['symmetry_number'] = int(row[1])
             elif row[0] == 'M': mode_dict[nmode]['M'] = float(row[1])
             elif row[0] == 'K': mode_dict[nmode]['K'] = float(row[1])
@@ -27,7 +28,7 @@ def from_sampling_result(csv_path):
             else:
                 ind, e_elect = int(row[0]), float(row[1])
                 energy_dict[nmode][ind] = e_elect
-    return mode_dict, energy_dict
+    return mode_dict, energy_dict, min_elect
 
 def get_is_tors_list(mode_dict):
     """
@@ -187,8 +188,8 @@ def plot(polynomial_dict, energy_dict, mode_dict, mode):
 ################################################################################
 
 if __name__ == '__main__':
-    csv_path = '../examples/propane_UMVT/samping_result.csv'
-    mode_dict, energy_dict = from_sampling_result(csv_path)
+    csv_path = '../examples/propane_UMVT/propane_samping_result.csv'
+    mode_dict, energy_dict, _ = from_sampling_result(csv_path)
     polynomial_dict = cubic_spline_interpolations(energy_dict,mode_dict)
     #A MATLAB code to plot the 1-D PES
     plot = plot(polynomial_dict,energy_dict,mode_dict,mode=2)

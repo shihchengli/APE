@@ -5,7 +5,6 @@ from math import factorial as fact
 
 import rmgpy.constants as constants
 
-from ape.FitPES import from_sampling_result, cubic_spline_interpolations
 from ape.HarmonicBasis import IntXHmHnexp
 from ape.FourierBasis import IntXPhimPhin
 

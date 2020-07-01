@@ -72,7 +72,7 @@ is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_
         symmetry_number = determine_rotor_symmetry(v_list, name, scan)
         #symmetry_number = 3
         ModeDictOfEachMode['symmetry_number'] = symmetry_number
-    return XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode
+    return XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect
 
 def sampling_along_vibration(symbols, cart_coords, mode, internal_object, internal_vector, freq, reduced_mass, step_size, path, thresh, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, \
 is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None, max_nloop=999):
@@ -133,7 +133,7 @@ is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_
             print('The energy of the end point is not above the cutoff value {thresh} hartree. Please increase the max_nloop value or increase step_size'.format(thresh=thresh))
             break
         cart_coords += internal.transform_int_step((-qj*step_size).reshape(-1,))
-    return XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode
+    return XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect
 
 def get_e_elect(xyz, path, file_name, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, is_QM_MM_INTERFACE=None, \
 QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None):
