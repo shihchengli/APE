@@ -7,9 +7,9 @@ submit_scripts = {
     'parallel_ape': """#!/usr/bin/bash
 
 #PBS -l select=1:ncpus={ncpus}:mpiprocs=1:ompthreads={ncpus}
-#PBS -P MST108470
-#PBS -q cf40
+#PBS -q workq
 #PBS -j oe
+
 
 cd {job_path}
 
@@ -20,11 +20,12 @@ echo "Current directory : $(pwd)"
 echo "Current job ID : $PBS_JOBID"
 echo "=========================================================="
 
-source /home/u1987198/group-sw/bashrc_qchem
+module load qchem
 
-export QCSCRATCH=/tmp/ypli/$PBS_JOBID
+export QCSCRATCH=/tmp/$PBS_JOBID
 mkdir -p $QCSCRATCH
 
+source ~/tools/anaconda3/etc/profile.d/conda.sh
 conda activate ape_env
 python $ape_path/parallel_ape/Parallel_APE.py {input_file} -n {ncpus} -p {protocol} -mode {sampling_mode} {imaginary_bonds}
 

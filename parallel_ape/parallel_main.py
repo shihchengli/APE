@@ -30,7 +30,6 @@ from parallel_ape.PBS import check_job_status, delete_job
 class Parallel_APE(APE):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.csv_path = os.path.join(self.project_directory, 'samping_result.csv')
 
     def sampling(self, thresh=0.05, save_result=True, scan_res=10, sampling_mode=None):
         xyz_dict = {}
@@ -41,7 +40,7 @@ class Parallel_APE(APE):
             raise InputError('No specified sampling mode in parallel APE. Please assign one specific sampling mode number')
         if not os.path.exists(self.project_directory):
             os.makedirs(self.project_directory)
-        path = os.path.join(self.project_directory,'output_file')
+        path = os.path.join(self.project_directory,'output_file', self.name)
         if not os.path.exists(path):
             os.makedirs(path)
         if self.protocol == 'UMVT' and self.n_rotors != 0:
@@ -55,10 +54,10 @@ class Parallel_APE(APE):
             
             if mode-1 in range(self.n_rotors):
                 if self.is_QM_MM_INTERFACE:
-                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, rotor, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, \
+                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, rotor, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, \
                     self.is_QM_MM_INTERFACE, self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
                 else:
-                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, rotor, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis)
+                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, rotor, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis)
         
         elif self.protocol == 'UMN':
             vib_freq, unweighted_v = SolvEig(self.hessian, self.conformer.mass.value_si, self.n_vib)
@@ -79,13 +78,18 @@ class Parallel_APE(APE):
             P = np.diag(P)
             qj = P.dot(qj).reshape(-1,)
             if self.is_QM_MM_INTERFACE:
-                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, step_size, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, \
+                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, step_size, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, \
                 self.is_QM_MM_INTERFACE, self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
             else:
-                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, step_size, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis)
+                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, step_size, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis)
         xyz_dict[mode] = XyzDictOfEachMode
         energy_dict[mode] = EnergyDictOfEachMode
         mode_dict[mode] = ModeDictOfEachMode
+
+        # add the ground-state energy (including zero-point energy) of the conformer
+        self.e_elect = min_elect # in Hartree/particle
+        e0 = self.e_elect * constants.E_h * constants.Na + self.zpe # in J/mol
+        self.conformer.E0 = (e0, "J/mol")
 
         if save_result:
             self.write_samping_result_to_csv_file(self.csv_path, mode_dict, energy_dict)
@@ -175,7 +179,7 @@ class Parallel_APE(APE):
             os.remove(self.csv_path)
         self.parse()
         self.run()
-        mode_dict, energy_dict = from_sampling_result(csv_path=self.csv_path)
+        mode_dict, energy_dict, _ = from_sampling_result(csv_path=self.csv_path)
         # Solve SE of 1-D PES and calculate E S G Cp
         polynomial_dict = cubic_spline_interpolations(energy_dict,mode_dict)
         thermo = ThermoJob(self.conformer, polynomial_dict, mode_dict, energy_dict, T=298.15, P=100000)
