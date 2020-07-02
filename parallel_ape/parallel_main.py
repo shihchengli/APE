@@ -94,7 +94,7 @@ class Parallel_APE(APE):
         if save_result:
             self.write_samping_result_to_csv_file(self.csv_path, mode_dict, energy_dict)
 
-            path = os.path.join(self.project_directory, 'plot')
+            path = os.path.join(self.project_directory, 'plot', self.name)
             if not os.path.exists(path):
                 os.makedirs(path)
             self.write_sampling_displaced_geometries(path, energy_dict, xyz_dict)
@@ -146,7 +146,7 @@ class Parallel_APE(APE):
                 if job_status_dict[job_id] != job_status:
                     if job_status == 'done':
                         mode = sorted(job_status_dict.keys()).index(job_id) + 1
-                        path = os.path.join(self.project_directory, 'plot', 'mode_{}.txt'.format(mode))
+                        path = os.path.join(self.project_directory, 'plot', self.name, 'mode_{}.txt'.format(mode))
                         if not os.path.exists(path):
                             job_status = 'errored'
                     job_status_dict[job_id] = job_status
