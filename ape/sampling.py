@@ -12,6 +12,7 @@ from arkane.statmech import determine_rotor_symmetry
 from ape.job.job import Job
 from ape.qchem import QChemLog
 from ape.InternalCoordinates import get_RedundantCoords, getXYZ
+from ape.exceptions import SamplingError
 
 def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conformer, rotor, rotors_dict, scan_res, path, thresh, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, \
 is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None):
@@ -75,7 +76,7 @@ is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_
     return XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect
 
 def sampling_along_vibration(symbols, cart_coords, mode, internal_object, internal_vector, freq, reduced_mass, step_size, path, thresh, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, \
-is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None, max_nloop=999):
+is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None, max_nloop=100):
     XyzDictOfEachMode = {}
     EnergyDictOfEachMode = {}
     ModeDictOfEachMode = {}
@@ -99,11 +100,25 @@ is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_
             QM_USER_CONNECT, QM_ATOMS, force_field_params, fixed_molecule_string, opt, number_of_fixed_atoms)
         else:
             e_elec = get_e_elect(xyz, path, file_name, ncpus)
-        XyzDictOfEachMode[sample] = xyz
+        # Take the potential energy of stationary point as reference energy, min_elect
         if sample == 0:
+            XyzDictOfEachMode[0] = xyz
             EnergyDictOfEachMode[sample] = 0
             min_elect = e_elec
-        else: EnergyDictOfEachMode[sample] = e_elec - min_elect
+        # The sampling of UM-N was carried out symmetrically for each mode to the classical turning points
+        elif e_elec - min_elect < EnergyDictOfEachMode[sample-1]:
+            if sample == 1:
+                raise SamplingError('Sampling of mode {} fails. Make sure the directional vector of this normal mode is correct.'.format(mode))
+            else:
+                print('Sampling of mode {} in positive direction is terminated at the classical turning points.')
+                break
+        elif e_elec - min_elect > 10:
+            # Not include the wrong sampling point in sampling 1D-PES
+            print('The potential energy of this point is too large. Sampling of point {} in mode {} might fail.'.format(sample, mode))
+            break
+        else:
+            XyzDictOfEachMode[sample] = xyz
+            EnergyDictOfEachMode[sample] = e_elec - min_elect
         if e_elec - min_elect > thresh:
             break
         sample += 1
@@ -124,8 +139,20 @@ is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_
             QM_USER_CONNECT, QM_ATOMS, force_field_params, fixed_molecule_string, opt, number_of_fixed_atoms)
         else:
             e_elec = get_e_elect(xyz, path, file_name, ncpus)
-        XyzDictOfEachMode[sample] = xyz
-        EnergyDictOfEachMode[sample] = e_elec - min_elect
+        # The sampling of UM-N was carried out symmetrically for each mode to the classical turning points
+        if e_elec - min_elect < EnergyDictOfEachMode[sample+1]:
+            if sample == -1:
+                raise SamplingError('Sampling of mode {} fails. Make sure the directional vector of this normal mode is correct.'.format(mode))
+            else:
+                print('Sampling of mode {} in negative direction is terminated at the classical turning points')
+                break
+        elif e_elec - min_elect > 10:
+            # Not include the wrong sampling point in sampling 1D-PES
+            print('The potential energy of this point is too large. Sampling of point {} in mode {} might fail.'.format(sample, mode))
+            break
+        else:
+            XyzDictOfEachMode[sample] = xyz
+            EnergyDictOfEachMode[sample] = e_elec - min_elect
         if e_elec - min_elect > thresh:
             break
         sample -= 1

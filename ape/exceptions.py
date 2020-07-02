@@ -17,3 +17,9 @@ class JobError(Exception):
     An exception class for exceptional behavior that occurs while working with jobs.
     """
     pass
+
+class SamplingError(Exception):
+    """
+    An exception class for exceptional behavior that occurs while sampling points.
+    """
+    pass   

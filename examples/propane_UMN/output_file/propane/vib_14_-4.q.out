@@ -2,7 +2,7 @@
      A Quantum Leap Into The Future Of Chemistry
 
 
- Q-Chem 5.2 (devel), Q-Chem, Inc., Pleasanton, CA (2019)
+ Q-Chem 5.3 (devel), Q-Chem, Inc., Pleasanton, CA (2020)
 
  Yihan Shao,  Zhengting Gan,  E. Epifanovsky,  A. T. B. Gilbert,  M. Wormit,  
  J. Kussmann,  A. W. Lange,  A. Behn,  Jia Deng,  Xintian Feng,  D. Ghosh,  
@@ -27,22 +27,23 @@
  A. V. Marenich,  T. Markovich,  L. A. Martinez-Martinez,  S. A. Maurer,  
  N. J. Mayhall,  S. C. McKenzie,  J.-M. Mewes,  P. Morgante,  A. F. Morrison,  
  J. W. Mullinax,  K. Nanda,  T. S. Nguyen-Beck,  R. Olivares-Amaya,  
- J. A. Parkhill,  S. K. Paul,  Zheng Pei,  T. M. Perrine,  F. Plasser,  
- P. Pokhilko,  S. Prager,  A. Prociuk,  E. Ramos,  B. Rana,  D. R. Rehn,  
- F. Rob,  M. Scheurer,  M. Schneider,  N. Sergueev,  S. M. Sharada,  
- S. Sharma,  D. W. Small,  T. Stauch,  C. J. Stein,  T. Stein,  Yu-Chuan Su,  
- S. P. Veccham,  A. J. W. Thom,  A. Tkatchenko,  T. Tsuchimochi,  
- N. M. Tubman,  L. Vogt,  M. L. Vidal,  O. Vydrov,  M. A. Watson,  J. Wenzel,  
- M. de Wergifosse,  T. A. Wesolowski,  A. White,  J. Witte,  A. Yamada,  
- Jun Yang,  K. Yao,  S. Yeganeh,  S. R. Yost,  Zhi-Qiang You,  A. Zech,  
- Igor Ying Zhang,  Xing Zhang,  Yan Zhao,  Ying Zhu,  B. R. Brooks,  
- G. K. L. Chan,  C. J. Cramer,  M. S. Gordon,  W. J. Hehre,  A. Klamt,  
- M. W. Schmidt,  C. D. Sherrill,  D. G. Truhlar,  A. Aspuru-Guzik,  R. Baer,  
- A. T. Bell,  N. A. Besley,  Jeng-Da Chai,  A. E. DePrince, III,  
- R. A. DiStasio Jr.,  A. Dreuw,  B. D. Dunietz,  T. R. Furlani,  
- Chao-Ping Hsu,  Yousung Jung,  Jing Kong,  D. S. Lambrecht,  WanZhen Liang,  
- C. Ochsenfeld,  V. A. Rassolov,  L. V. Slipchenko,  J. E. Subotnik,  
- T. Van Voorhis,  J. M. Herbert,  A. I. Krylov,  P. M. W. Gill,  M. Head-Gordon
+ K. J. Oosterbaan,  J. A. Parkhill,  S. K. Paul,  F. Pavosevic,  Zheng Pei,  
+ T. M. Perrine,  F. Plasser,  P. Pokhilko,  S. Prager,  A. Prociuk,  
+ E. Ramos,  B. Rana,  D. R. Rehn,  F. Rob,  M. Scheurer,  M. Schneider,  
+ N. Sergueev,  S. M. Sharada,  S. Sharma,  D. W. Small,  T. Stauch,  
+ C. J. Stein,  T. Stein,  Yu-Chuan Su,  S. P. Veccham,  Zhen Tao,  
+ A. J. W. Thom,  A. Tkatchenko,  T. Tsuchimochi,  N. M. Tubman,  L. Vogt,  
+ M. L. Vidal,  O. Vydrov,  M. A. Watson,  J. Wenzel,  M. de Wergifosse,  
+ T. A. Wesolowski,  A. White,  J. Witte,  A. Yamada,  Jun Yang,  K. Yao,  
+ S. Yeganeh,  S. R. Yost,  Zhi-Qiang You,  A. Zech,  Igor Ying Zhang,  
+ Xing Zhang,  Yan Zhao,  Ying Zhu,  B. R. Brooks,  G. K. L. Chan,  
+ C. J. Cramer,  M. S. Gordon,  W. J. Hehre,  A. Klamt,  M. W. Schmidt,  
+ C. D. Sherrill,  D. G. Truhlar,  A. Aspuru-Guzik,  R. Baer,  A. T. Bell,  
+ N. A. Besley,  Jeng-Da Chai,  A. E. DePrince, III,  R. A. DiStasio Jr.,  
+ A. Dreuw,  B. D. Dunietz,  T. R. Furlani,  Chao-Ping Hsu,  Yousung Jung,  
+ Jing Kong,  D. S. Lambrecht,  WanZhen Liang,  C. Ochsenfeld,  
+ V. A. Rassolov,  L. V. Slipchenko,  J. E. Subotnik,  T. Van Voorhis,  
+ J. M. Herbert,  A. I. Krylov,  P. M. W. Gill,  M. Head-Gordon
 
  Contributors to earlier versions of Q-Chem not listed above: 
  R. D. Adamson,  B. Austin,  J. Baker,  G. J. O. Beran,  K. Brandhorst,  
@@ -64,18 +65,19 @@
  Y. Shao et al., Mol. Phys. 113, 184-215 (2015)
  DOI: 10.1080/00268976.2014.952696
 
- Q-Chem 5.2.2 for Intel X86 EM64T Linux
+ Q-Chem 5.3.0 for Intel X86 EM64T Linux
 
  Parts of Q-Chem use Armadillo 9.800.1 (Horizon Scraper).
  http://arma.sourceforge.net/
 
- Q-Chem begins on Sun Apr 12 06:41:09 2020  
+ Q-Chem begins on Thu Jul  2 05:26:10 2020  
 
-Host: cn0913
+Host: centos77-c1
 0
 
-     Scratch files written to /tmp/ypli/6721341.srvc1/qchem237277//
-Warning:  Did not find "$end" marker in "$molecule" section
+     Scratch files written to /tmp/26650.centos77-h1/qchem78957//
+Processing $rem in /opt/qchem-5.3.0-intel2020u1//config/preferences:
+Processing $rem in /home/shihchengli/.qchemrc:
 
 Checking the input file for inconsistencies... 	...done.
 
@@ -99,35 +101,36 @@ $end
 
 $molecule
 0 1
-C       1.3126061469     0.0000000915     0.3693131831
-C       0.0000012564     0.0000001936     -0.5150378587
-H       1.0801610629     -0.9418025652     0.8585875261
-H       1.0801612824     0.9418027621     0.8585876287
-H       1.9890946541     0.0000001481     -0.4790707889
-C       -1.3126032725     -0.0000000034     0.3693122230
-H       0.0000008274     -0.8707657553     -1.1793775053
-H       0.0000015030     0.8707659227     -1.1793778341
-H       -1.0801641341     -0.9418033225     0.8585882745
-H       -1.9890966564     0.0000001317     -0.4790681944
-H       -1.0801627306     0.9418030625     0.8585883650
+C       1.3126061468     0.0000000907     0.3693122224
+C       0.0000012564     0.0000001975     -0.5150388194
+H       1.0801635185     -0.9418027662     0.8585884065
+H       1.0801637462     0.9418029632     0.8585885115
+H       1.9890976045     0.0000001428     -0.4790701502
+C       -1.3126032726     -0.0000000026     0.3693112623
+H       0.0000008281     -0.8707657529     -1.1793784641
+H       0.0000015022     0.8707659251     -1.1793787968
+H       -1.0801665888     -0.9418035215     0.8585891553
+H       -1.9890996068     0.0000001242     -0.4790675558
+H       -1.0801651950     0.9418032657     0.8585892473
+$end
 --------------------------------------------------------------
  ----------------------------------------------------------------
              Standard Nuclear Orientation (Angstroms)
     I     Atom           X                Y                Z
  ----------------------------------------------------------------
-    1      C       1.3126061469     0.0000000915     0.3693131831
-    2      C       0.0000012564     0.0000001936    -0.5150378587
-    3      H       1.0801610629    -0.9418025652     0.8585875261
-    4      H       1.0801612824     0.9418027621     0.8585876287
-    5      H       1.9890946541     0.0000001481    -0.4790707889
-    6      C      -1.3126032725    -0.0000000034     0.3693122230
-    7      H       0.0000008274    -0.8707657553    -1.1793775053
-    8      H       0.0000015030     0.8707659227    -1.1793778341
-    9      H      -1.0801641341    -0.9418033225     0.8585882745
-   10      H      -1.9890966564     0.0000001317    -0.4790681944
-   11      H      -1.0801627306     0.9418030625     0.8585883650
+    1      C       1.3126061468     0.0000000907     0.3693122224
+    2      C       0.0000012564     0.0000001975    -0.5150388194
+    3      H       1.0801635185    -0.9418027662     0.8585884065
+    4      H       1.0801637462     0.9418029632     0.8585885115
+    5      H       1.9890976045     0.0000001428    -0.4790701502
+    6      C      -1.3126032726    -0.0000000026     0.3693112623
+    7      H       0.0000008281    -0.8707657529    -1.1793784641
+    8      H       0.0000015022     0.8707659251    -1.1793787968
+    9      H      -1.0801665888    -0.9418035215     0.8585891553
+   10      H      -1.9890996068     0.0000001242    -0.4790675558
+   11      H      -1.0801651950     0.9418032657     0.8585892473
  ----------------------------------------------------------------
- Nuclear Repulsion Energy =          82.88284635 hartrees
+ Nuclear Repulsion Energy =          82.88281220 hartrees
  There are       13 alpha and       13 beta electrons
  Requested basis set is 6-311+G(2df,2pd)
  There are 72 shells and 214 basis functions
@@ -139,20 +142,20 @@ H       -1.0801627306     0.9418030625     0.8585883650
                        Distance Matrix (Angstroms)
              C (  1)   C (  2)   H (  3)   H (  4)   H (  5)   C (  6)
    C (  2)  1.582722
-   H (  3)  1.086468  1.985091
-   H (  4)  1.086468  1.985091  1.883605
-   H (  5)  1.085077  1.989419  1.871492  1.871492
-   C (  6)  2.625209  1.582721  2.617576  2.617576  3.408953
-   H (  7)  2.208984  1.095254  2.307616  2.933505  2.281481  2.208982
-   H (  8)  2.208983  1.095254  2.933505  2.307617  2.281481  2.208983
-   H (  9)  2.617582  1.985094  2.160325  2.866178  3.478027  1.086468
-   H ( 10)  3.408958  1.989423  3.478025  3.478025  3.978191  1.085077
-   H ( 11)  2.617580  1.985093  2.866177  2.160324  3.478026  1.086468
+   H (  3)  1.086468  1.985093
+   H (  4)  1.086468  1.985093  1.883606
+   H (  5)  1.085078  1.989422  1.871493  1.871492
+   C (  6)  2.625209  1.582721  2.617579  2.617579  3.408956
+   H (  7)  2.208984  1.095254  2.307619  2.933508  2.281484  2.208982
+   H (  8)  2.208983  1.095254  2.933507  2.307619  2.281484  2.208983
+   H (  9)  2.617584  1.985097  2.160330  2.866182  3.478032  1.086468
+   H ( 10)  3.408960  1.989426  3.478030  3.478030  3.978197  1.085078
+   H ( 11)  2.617583  1.985096  2.866181  2.160329  3.478031  1.086469
              H (  7)   H (  8)   H (  9)   H ( 10)
    H (  8)  1.741532
-   H (  9)  2.307619  2.933508
-   H ( 10)  2.281485  2.281486  1.871491
-   H ( 11)  2.933507  2.307619  1.883606  1.871491
+   H (  9)  2.307622  2.933511
+   H ( 10)  2.281488  2.281489  1.871491
+   H ( 11)  2.933509  2.307622  1.883607  1.871492
  
  A cutoff of  1.0D-09 yielded   2560 shell pairs
  There are     22756 function pairs (     27987 Cartesian)
@@ -192,21 +195,21 @@ H       -1.0801627306     0.9418030625     0.8585883650
  ---------------------------------------
   Cycle       Energy         DIIS Error
  ---------------------------------------
-    1    -119.5906682518      9.90E-02
-    2    -119.0023314460      9.04E-03
-    3    -119.0249593951      2.93E-03
-    4    -119.0376639306      2.01E-03
-    5    -119.0386943339      3.95E-04 Done RCA. Switching to DIIS
-    6    -119.0393735560      2.87E-04
-    7    -119.0394087704      7.31E-06 Convergence criterion met
+    1    -119.5906644922      9.90E-02
+    2    -119.0023327339      9.04E-03
+    3    -119.0249606083      2.93E-03
+    4    -119.0376651285      2.01E-03
+    5    -119.0386955250      3.95E-04 Done RCA. Switching to DIIS
+    6    -119.0393747435      2.87E-04
+    7    -119.0394099575      7.31E-06 Convergence criterion met
  ---------------------------------------
- SCF time:  CPU 23.01 s  wall 7.81 s
- SCF   energy in the small basis set = -119.03940877
- Total energy in the small basis set = -119.03940877
+ SCF time:  CPU 18.90 s  wall 6.74 s
+ SCF   energy in the small basis set = -119.03940996
+ Total energy in the small basis set = -119.03940996
  ----------------------------------------------------
   Cycle       Energy    
  ----------------------------------------------------
-    1     -16.5189934860     -1.65E+01
+    1     -16.5189922412     -1.65E+01
  Long-range K will be added via erf
  Coulomb attenuation parameter = 0.2 bohr**(-1)
  A restricted hybrid HF-DFT SCF calculation will be
@@ -233,16 +236,16 @@ H       -1.0801627306     0.9418030625     0.8585883650
  ---------------------------------------
   Cycle       Energy         DIIS Error
  ---------------------------------------
-    1    -119.0606619827      4.23E-03
-    2    -119.0824373613      7.00E-04 Done RCA. Switching to DIIS
-    3    -119.0834813768      5.11E-04
-    4    -119.0849112314      5.44E-05
-    5    -119.0849282951      2.28E-05
-    6    -119.0849313414      4.07E-06 Convergence criterion met
+    1    -119.0606631007      4.23E-03
+    2    -119.0824384835      7.00E-04 Done RCA. Switching to DIIS
+    3    -119.0834824971      5.11E-04
+    4    -119.0849123464      5.44E-05
+    5    -119.0849294099      2.28E-05
+    6    -119.0849324562      4.07E-06 Convergence criterion met
  ---------------------------------------
- SCF time:  CPU 71.96 s  wall 24.22 s
- SCF   energy in the final basis set = -119.08493134
- Total energy in the final basis set = -119.08493134
+ SCF time:  CPU 51.15 s  wall 17.09 s
+ SCF   energy in the final basis set = -119.08493246
+ Total energy in the final basis set = -119.08493246
  
  --------------------------------------------------------------
  
@@ -270,7 +273,7 @@ H       -1.0801627306     0.9418030625     0.8585883650
   3.0979   3.1080   3.1432   3.2017   3.2080   3.2260   3.2524   3.2599
   3.3045   3.3220   3.3431   3.3572   3.3744   3.3806   3.4131   3.4378
   3.4389   3.4583   3.5162   3.5376   3.5505   3.5650   3.5701   3.5785
-  3.6294   3.6443   3.6821   3.7162   3.7182   3.7630   3.8104   3.8314
+  3.6293   3.6443   3.6821   3.7162   3.7182   3.7630   3.8104   3.8314
   3.8605   3.8912   3.9066   3.9270   3.9367   3.9614   3.9916   4.0120
   4.0661   4.0941   4.1411   4.1428   4.1598   4.1809   4.2147   4.2624
   4.3122   4.3181   4.3347   4.3907   4.4489   4.4575   4.4716   4.5185
@@ -297,19 +300,19 @@ H       -1.0801627306     0.9418030625     0.8585883650
        XXX      -0.0001    XXY      -0.0000    XYY      -0.0000
        YYY      -0.0000    XXZ      -6.7868    XYZ       0.0000
        YYZ      -0.3571    XZZ      -0.0000    YZZ      -0.0000
-       ZZZ      -5.6585
+       ZZZ      -5.6584
     Hexadecapole Moments (Debye-Ang^3)
-      XXXX    -213.2877   XXXY       0.0000   XXYY     -42.4087
-      XYYY      -0.0000   YYYY     -44.3095   XXXZ      -0.0001
+      XXXX    -213.2878   XXXY       0.0000   XXYY     -42.4087
+      XYYY      -0.0000   YYYY     -44.3096   XXXZ      -0.0001
       XXYZ      -0.0000   XYYZ      -0.0000   YYYZ      -0.0000
       XXZZ     -46.1856   XYZZ       0.0000   YYZZ     -18.0019
-      XZZZ      -0.0000   YZZZ      -0.0000   ZZZZ     -75.1230
+      XZZZ      -0.0000   YZZZ      -0.0000   ZZZZ     -75.1231
  -----------------------------------------------------------------
 Archival summary:
-1\1\cn0913\SP\ProcedureUnspecified\BasisUnspecified\38\r0852400\SunApr1206:41:452020SunApr1206:41:452020\0\\#,ProcedureUnspecified,BasisUnspecified,\\0,1\C\H,1,1.09525\H,1,1.09525,2,105.317\C,1,1.58272,2,109.811,3,118.176,0\H,4,1.08508,1,94.599,2,-57.6772,0\H,4,1.08647,1,94.2552,2,61.9518,0\H,4,1.08647,1,94.2551,2,-177.306,0\C,1,1.58272,2,109.811,3,-118.176,0\H,8,1.08508,1,94.5987,2,57.6773,0\H,8,1.08647,1,94.2549,2,-61.9518,0\H,8,1.08647,1,94.2549,2,177.306,0\\\@
+1\1\centos77-c1\SP\ProcedureUnspecified\BasisUnspecified\38\shihchen\ThuJul205:26:372020ThuJul205:26:372020\0\\#,ProcedureUnspecified,BasisUnspecified,\\0,1\C\H,1,1.09525\H,1,1.09525,2,105.317\C,1,1.58272,2,109.811,3,118.176,0\H,4,1.08508,1,94.5992,2,-57.6772,0\H,4,1.08647,1,94.2554,2,61.9518,0\H,4,1.08647,1,94.2553,2,-177.306,0\C,1,1.58272,2,109.811,3,-118.176,0\H,8,1.08508,1,94.5989,2,57.6773,0\H,8,1.08647,1,94.2551,2,-61.9518,0\H,8,1.08647,1,94.2551,2,177.306,0\\\@
 
- Total job time:  35.49s(wall), 99.22s(cpu) 
- Sun Apr 12 06:41:45 2020
+ Total job time:  26.80s(wall), 73.74s(cpu) 
+ Thu Jul  2 05:26:37 2020
 
         *************************************************************
         *                                                           *
