@@ -76,7 +76,7 @@ is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_
             logging.info('Since the torsional barrier of mode {} is higher than {} hartree. \
             This mode will use harmonic basis to construct its hamiltonian matrix.'.format(mode,thresh))
             step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (projected_freq * 2 * np.pi * constants.c * 100)) * 10 ** 10 # in angstrom
-            XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_vibration(symbols, cart_coords, mode, internal, qk, projected_freq, \
+            XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(symbols, cart_coords, mode, internal, qk, projected_freq, \
             reduced_mass, step_size, path, thresh, ncpus, charge, multiplicity, level_of_theory, basis, unrestricted)
             break
         cart_coords += internal.transform_int_step((qk*step_size).reshape(-1,))
