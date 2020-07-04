@@ -62,12 +62,15 @@ class HinderedRotor(object):
                 if math.isclose(i,j,abs_tol=1) is True:
                     match_freq += 1
             if match_freq is 0:
-                index = vib_freq.tolist().index(i)
-                vector = unweighted_v[index]
-                magnitude = np.linalg.norm(vector)
-                reduced_mass = magnitude ** -2 / 1.660538921e-27 # in amu
-                projected_out_freq = i
-                break
+                try:
+                    index = vib_freq.tolist().index(i)
+                    vector = unweighted_v[index]
+                    magnitude = np.linalg.norm(vector)
+                    reduced_mass = magnitude ** -2 / 1.660538921e-27 # in amu
+                    projected_out_freq = i
+                    break
+                except ValueError:
+                    pass
             if i == vib_freq[-1] and j == projectd_vib_freq[-1]:
                 raise ConvergeError('Can\'t find the frequency of the hindered rotor whose scan is {scan}'.format(scan=scan))
         
