@@ -150,7 +150,7 @@ is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_
             e_elec = get_e_elect(xyz, path, file_name, ncpus, charge, multiplicity, level_of_theory, basis, unrestricted, is_QM_MM_INTERFACE, \
             QM_USER_CONNECT, QM_ATOMS, force_field_params, fixed_molecule_string, opt, number_of_fixed_atoms)
         else:
-            e_elec = get_e_elect(xyz, path, file_name, ncpus)
+            e_elec = get_e_elect(xyz, path, file_name, ncpus, charge, multiplicity, level_of_theory, basis, unrestricted)
         # The sampling of UM-N was carried out symmetrically for each mode to the classical turning points
         if e_elec - min_elect < EnergyDictOfEachMode[sample+1]:
             if sample == -1:
