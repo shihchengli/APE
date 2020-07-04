@@ -70,6 +70,25 @@ class QChemLog(ESSAdapter):
                 line = f.readline()
         return False
 
+    def is_unrestricted(self):
+        is_unrestricted = False
+        with open(self.path, 'r') as f:
+            line = f.readline()
+            while line != '':
+                if '$rem' in line:
+                    while '$end' not in line:
+                        if 'UNRESTRICTED' in line.upper():
+                            OPTION = line.split()[1].upper()
+                            if OPTION == 'TRUE':
+                                is_unrestricted = True
+                            else:
+                                ISOTOPES_type = int(OPTION)
+                        line = f.readline()
+                    break
+                line = f.readline()
+
+        return is_unrestricted
+
     def is_QM_MM_INTERFACE(self):
         """
         Return the bool value.
@@ -434,6 +453,7 @@ class QChemLog(ESSAdapter):
                             line = f.readline()
                             # If there is an imaginary frequency, remove it
                             if frequencies[0] < 0.0:
+                                self.imaginary_frequency = (frequencies[0], "cm^-1")
                                 frequencies = frequencies[1:]
 
                             unscaled_frequencies = frequencies

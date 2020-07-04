@@ -34,7 +34,8 @@ fine_zeolite = """\n   geom_opt_coords   0
 input_script = """$rem
    JOBTYPE  {jobtype}
    EXCHANGE   {level_of_theory}
-   BASIS   {basis}{fine}
+   BASIS   {basis}
+   UNRESTRICTED   {unrestricted}{fine}
 $end
 {QM_atoms}{force_field_params}{opt}
 $molecule

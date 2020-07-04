@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-# [1] https://doi.org/10.1021/acs.jctc.5b01177 Thermodynamics of Anharmonic Systems: Uncoupled Mode Approximations for Molecules
-
 """
 APE's main module.
 To run APE through its API, first get a freq output file from Qchem, then call the .execute. For example:
@@ -11,286 +9,189 @@ To run APE through its API, first get a freq output file from Qchem, then call t
 
 """
 
+import argparse
+import logging
 import os
-import csv
-import numpy as np
-from time import gmtime, strftime
+import sys
+import time
 
-import rmgpy.constants as constants
-
-from arkane.common import symbol_by_number
-from arkane.statmech import is_linear
-
-from arc.species.species import ARCSpecies
-
-from ape.qchem import QChemLog
-from ape.torsion import HinderedRotor, SolvEig
-from ape.sampling import sampling_along_torsion, sampling_along_vibration
-from ape.InternalCoordinates import get_RedundantCoords, getXYZ
-from ape.FitPES import cubic_spline_interpolations
-from ape.calcThermo import ThermoJob
-from ape.exceptions import InputError
-
+from ape.input import load_input_file
+from ape.sampling import SamplingJob
+from ape.thermo import ThermoJob
 
 class APE(object):
     """
     The main APE class.
     """
 
-    def __init__(self,input_file, name=None, project_directory=None, protocol=None, multiplicity=None, charge = None,\
-    level_of_theory=None, basis=None, ncpus=None, imaginary_bonds=None):
+    def __init__(self, input_file=None, output_directory=None):
+        self.job_list = []
         self.input_file = input_file
-        self.name = self.input_file.split('/')[-1].split('.')[0] if name is None else name
-        self.project_directory = project_directory if project_directory is not None\
-            else os.path.abspath(os.path.dirname(input_file))
-        self.protocol = protocol
-        self.multiplicity = multiplicity
-        self.charge = charge
-        self.level_of_theory = level_of_theory
-        self.basis = basis
-        self.ncpus = ncpus
-        self.imaginary_bonds = imaginary_bonds
-        self.csv_path = os.path.join(self.project_directory, '{}_samping_result.csv'.format(self.name))
-
-    def parse(self):
-        Log = QChemLog(self.input_file)
-        self.hessian = Log.load_force_constant_matrix()
-        coordinates, number, mass = Log.load_geometry()
-        self.conformer, unscaled_frequencies = Log.load_conformer()
-        if self.name is None:
-            self.name = self.input_file.split('/')[-1].split('.')[0]
-        if self.protocol is None:
-            self.protocol = 'UMVT'
-        if self.multiplicity is None:
-            self.multiplicity = Log.multiplicity
-            # self.multiplicity = self.ARCSpecies.multiplicity
-        if self.charge is None:
-            self.charge = Log.charge
-            # self.charge = 0
-
-        self.is_QM_MM_INTERFACE = Log.is_QM_MM_INTERFACE()
-        if self.is_QM_MM_INTERFACE:
-            if self.imaginary_bonds is None:
-                raise InputError('Lack of specified imaginary bonds to describe frustrated translation and rotation in QMMM system.')
-            self.QM_ATOMS = Log.get_QM_ATOMS()
-            self.number_of_fixed_atoms = Log.get_number_of_atoms() - len(Log.get_QM_ATOMS())
-            self.ISOTOPES = Log.get_ISOTOPES()
-            self.nHcap = len(self.ISOTOPES)
-            self.force_field_params = Log.get_force_field_params()
-            self.opt = Log.get_opt()
-            self.fixed_molecule_string = Log.get_fixed_molecule()
-            self.QM_USER_CONNECT = Log.get_QM_USER_CONNECT()
-            self.QM_mass = Log.QM_mass
-            self.QM_coord = Log.QM_coord
-            self.natom =  len(self.QM_ATOMS) + len(self.ISOTOPES)
-            self.symbols = Log.QM_atom
-            self.cart_coords = self.QM_coord.reshape(-1,)
-            self.conformer.coordinates = (self.QM_coord, "angstroms")
-            self.conformer.mass = (self.QM_mass, "amu")
-            xyz = ''
-            for i in range(len(self.QM_ATOMS)):
-                if self.QM_USER_CONNECT[i].endswith('0  0  0  0'):
-                    xyz += '{}\t{}\t\t{}\t\t{}'.format(self.symbols[i],self.cart_coords[3*i],self.cart_coords[3*i+1],self.cart_coords[3*i+2])
-                    if i != self.natom-1: xyz += '\n'
-            self.xyz = xyz
-            if self.xyz == '':
-                self.ARCSpecies = None
-            else:
-                self.ARCSpecies = ARCSpecies(label=self.name,xyz=self.xyz)
-            if self.ncpus is None:
-                self.ncpus = 8 # default cpu for QM/MM calculation
-            self.zpe = Log.load_zero_point_energy()
-        else:
-            self.natom = Log.get_number_of_atoms()
-            self.symbols = [symbol_by_number[i] for i in number]
-            self.cart_coords = coordinates.reshape(-1,)
-            self.conformer.coordinates = (coordinates, "angstroms")
-            self.conformer.mass = (mass, "amu")            
-            self.xyz = getXYZ(self.symbols, self.cart_coords)
-            self.ARCSpecies = ARCSpecies(label=self.name,xyz=self.xyz)
-            if self.ncpus is None:
-                self.ncpus = self.ARCSpecies.number_of_heavy_atoms
-                if self.ncpus > 8: self.ncpus = 8
-            # Below is information for thermodynamic caculation
-            self.linearity = is_linear(self.conformer.coordinates.value)
-            # self.e_elect = Log.load_energy()
-            self.zpe = Log.load_zero_point_energy()
-            # e0 = self.e_elect + self.zpe
-            # self.conformer.E0 = (e0, "J/mol")
-
-        # Determine hindered rotors information
-        if self.protocol == 'UMVT':
-            self.rotors_dict = self.get_rotors_dict()
-            self.n_rotors = len(self.rotors_dict)
-        else:
-            self.rotors_dict = []
-            self.n_rotors = 0
-
-        if self.is_QM_MM_INTERFACE:
-            self.nmode = 3 * len(Log.get_QM_ATOMS())
-            self.n_vib = 3 * len(Log.get_QM_ATOMS()) - self.n_rotors
-        else:        
-            self.nmode = 3 * self.natom - (5 if self.linearity else 6) 
-            self.n_vib = 3 * self.natom - (5 if self.linearity else 6) - self.n_rotors
-
-        # Create RedundantCoords object
-        self.internal = get_RedundantCoords(self.symbols, self.cart_coords, self.rotors_dict, self.imaginary_bonds)
-        if self.is_QM_MM_INTERFACE:
-            self.internal.nHcap = self.nHcap
+        self.output_directory = output_directory
     
-    def get_rotors_dict(self):
-        rotors_dict = {}
-        species = self.ARCSpecies
-        if species is None:
-            return rotors_dict
-        species.determine_rotors()
-        for i in species.rotors_dict:
-            rotors_dict[i+1] = {}
-            pivots = species.rotors_dict[i]['pivots']
-            top = species.rotors_dict[i]['top']
-            scan = species.rotors_dict[i]['scan']
-            rotors_dict[i+1]['pivots'] = pivots 
-            rotors_dict[i+1]['top'] = top
-            rotors_dict[i+1]['scan'] = scan
-        return rotors_dict
+    def parse_command_line_arguments(self):
+        parser = argparse.ArgumentParser(description='Automated Property Estimator (APE)')
+        parser.add_argument('file', metavar='FILE', type=str, nargs=1, 
+                            help='a file describing the job to execute')
+        parser.add_argument('-n', '--ncpus',type=int, help='number of CPUs to run quantum calculation')
 
-    def sampling(self, thresh=0.05, save_result=True, scan_res=10):
-        xyz_dict = {}
-        energy_dict = {}
-        mode_dict = {}
-        if not os.path.exists(self.project_directory):
-            os.makedirs(self.project_directory)
-        path = os.path.join(self.project_directory, 'output_file', self.name)
-        if not os.path.exists(path):
-            os.makedirs(path)
-        if self.protocol == 'UMVT' and self.n_rotors != 0:
-            n_vib = self.n_vib
-            if self.is_QM_MM_INTERFACE:
-                n_vib -= 6 # due to frustrated translation and rotation 
-            rotor = HinderedRotor(self.symbols, self.cart_coords, self.hessian, self.rotors_dict, self.conformer.mass.value_si, n_vib, self.imaginary_bonds)
-            projected_hessian = rotor.projectd_hessian()        
-            vib_freq, unweighted_v = SolvEig(projected_hessian, self.conformer.mass.value_si, self.n_vib)
-            print('Frequencies(cm-1) from projected Hessian:',vib_freq)
-            
-            for i in range(self.n_rotors):
-                mode = i+1
-                if self.is_QM_MM_INTERFACE:
-                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, rotor, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, \
-                    self.is_QM_MM_INTERFACE, self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
-                else:
-                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, rotor, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis)
-                xyz_dict[mode] = XyzDictOfEachMode
-                energy_dict[mode] = EnergyDictOfEachMode
-                mode_dict[mode] = ModeDictOfEachMode
-        
-        elif self.protocol == 'UMN':
-            vib_freq, unweighted_v = SolvEig(self.hessian, self.conformer.mass.value_si, self.n_vib)
-            print('Vibrational frequencies of normal modes: ',vib_freq)
+        # Options for controlling the amount of information printed to the console 
+        parser.add_argument('-q', '--quiet', action='store_const', const=logging.WARNING, default=logging.INFO,
+                           dest='verbose', help='only print warnings and errors')
+        parser.add_argument('-v', '--verbose', action='store_const', const=logging.DEBUG, default=logging.INFO,
+                           dest='verbose', help='print more verbose output')
+        parser.add_argument('-d', '--debug', action='store_const', const=0, default=logging.INFO, dest='verbose',
+                           help='print debug information')
 
-        for i in range(self.nmode):
-            if i in range(self.n_rotors): continue
-            mode = i+1
-            vector=unweighted_v[i-self.n_rotors]
-            freq = vib_freq[i-self.n_rotors]
-            magnitude = np.linalg.norm(vector)
-            reduced_mass = magnitude ** -2 / constants.amu # in amu
-            step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (freq * 2 * np.pi * constants.c * 100)) * 10 ** 10 # in angstrom
-            normalizes_vector = vector/magnitude
-            qj = np.matmul(self.internal.B, normalizes_vector)
-            P = np.ones(self.internal.B.shape[0],dtype=int)
-            n_rotors = len(self.rotors_dict)
-            if n_rotors != 0:
-                P[-n_rotors:] = 0
-            P = np.diag(P)
-            qj = P.dot(qj).reshape(-1,)
-            if self.is_QM_MM_INTERFACE:
-                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, step_size, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, \
-                self.is_QM_MM_INTERFACE, self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
-            else:
-                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, step_size, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis)
-            xyz_dict[mode] = XyzDictOfEachMode
-            energy_dict[mode] = EnergyDictOfEachMode
-            mode_dict[mode] = ModeDictOfEachMode
+        # Add options for whether running this calculation in parallel or not
+        parser.add_argument('-parallel', '--run-in-parallel', type=bool, default=False, help='run parallel jobs (default: False)')
 
-        # add the ground-state energy (including zero-point energy) of the conformer
-        self.e_elect = min_elect # in Hartree/particle
-        e0 = self.e_elect * constants.E_h * constants.Na + self.zpe # in J/mol
-        self.conformer.E0 = (e0, "J/mol")
+        # Add options for controlling what directories files are written to
+        parser.add_argument('-o', '--output-directory', type=str, nargs=1, default='',
+                            metavar='DIR', help='use DIR as output directory')
 
-        if save_result:
-            if os.path.exists(self.csv_path):
-                os.remove(self.csv_path)
-            self.write_samping_result_to_csv_file(self.csv_path, mode_dict, energy_dict)
+        # Add options for controlling generation of plots
+        parser.add_argument('-p', '--plot',type=bool, default=True, help='generating plots')
 
-            path = os.path.join(self.project_directory, 'plot', self.name)
-            if not os.path.exists(path):
-                os.makedirs(path)
-            self.write_sampling_displaced_geometries(path, energy_dict, xyz_dict)
+        args = parser.parse_args()
 
-        return xyz_dict, energy_dict, mode_dict
+        # Extract the input file
+        self.input_file = args.file[0]
 
-    def write_samping_result_to_csv_file(self, csv_path, mode_dict, energy_dict):
-        write_min_elect = False
-        if os.path.exists(csv_path) is False:
-            write_min_elect = True
+        # Extract the number of cpus
+        self.ncpus = args.ncpus
 
-        with open(csv_path, 'a') as f:
-            writer = csv.writer(f)
-            if write_min_elect:
-                writer.writerow(['min_elect', self.e_elect])
-            for mode in mode_dict.keys():
-                if mode_dict[mode]['mode'] == 'tors':
-                    is_tors = True
-                    name = 'mode_{}_tors'.format(mode)
-                else:
-                    is_tors = False
-                    name = 'mode_{}_vib'.format(mode)
-                writer.writerow([name])
-                if is_tors:
-                    writer.writerow(['symmetry_number', mode_dict[mode]['symmetry_number']])
-                writer.writerow(['M', mode_dict[mode]['M']])
-                writer.writerow(['K', mode_dict[mode]['K']])
-                writer.writerow(['step_size', mode_dict[mode]['step_size']])
-                writer.writerow(['sample', 'total energy(HARTREE)'])
-                for sample in sorted(energy_dict[mode].keys()):
-                    writer.writerow([sample, energy_dict[mode][sample]])
-            f.close()
-            #print('Have saved the sampling result in {path}'.format(path=csv_path))
-    
-    def write_sampling_displaced_geometries(self, path, energy_dict, xyz_dict):
-        # creat a format can be read by VMD software
-        for mode in energy_dict.keys():
-            txt_path = os.path.join(path, 'mode_{}.txt'.format(mode))
-            with open(txt_path, 'w') as f:
-                for sample in sorted(energy_dict[mode].keys()): 
-                    content = record_script.format(natom=self.natom, sample=sample, e_elect=energy_dict[mode][sample], xyz=xyz_dict[mode][sample])
-                    f.write(content)
-                current_time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
-                f.write('\n    This sampling was finished on:   {time}'.format(time=current_time))
-                f.write("""\n=------------------------------------------------------------------------------=""")
-                f.write("""\nSampling finished.""")
-                f.write("""\n=------------------------------------------------------------------------------=""")
-                f.close()
+        # Extract the log verbosity
+        self.verbose = args.verbose
+
+        # Extract the APE running version (serial or parallel) 
+        self.run_in_parallel = args.run_in_parallel
+
+        # Extract the plot settings
+        self.plot = args.plot
+
+        # Determine the output directory
+        # By default the directory containing the input file is used, unless an
+        # alternate directory is specified using the -o flag
+        if args.output_directory and os.path.isdir(args.output_directory[0]):
+            self.output_directory = os.path.abspath(args.output_directory[0])
+        else:
+            self.output_directory = os.path.dirname(os.path.abspath(args.file[0]))
+        return args
+
+    def load_input_file(self, input_file):
+        """
+        Load a set of jobs from the given `input_file` on disk. Returns the
+        loaded set of jobs as a list.
+        """
+        self.input_file = input_file
+        self.job_list, self.reaction_dict, self.species_dict, \
+            self.transition_state_dict = load_input_file(self.input_file, self.output_directory)
+        return self.job_list
 
     def execute(self):
         """
-        Execute APE.
+        Execute, in order, the jobs found in input file specified by the
+        `input_file` attribute.
         """
-        if os.path.exists(self.csv_path):
-            os.remove(self.csv_path)
-        self.parse()
-        xyz_dict, energy_dict, mode_dict = self.sampling()
-        # Solve SE of 1-D PES and calculate E S G Cp
-        polynomial_dict = cubic_spline_interpolations(energy_dict,mode_dict)
-        thermo = ThermoJob(self.conformer, polynomial_dict, mode_dict, energy_dict, T=298.15, P=100000)
-        if self.is_QM_MM_INTERFACE:
-            thermo.calcQMMMThermo()
-        else:
-            thermo.calcThermo(print_HOhf_result=True, zpe_of_Hohf=self.zpe)
-        
+        # Initialize the logging system (both to the console and to a file in the
+        # output directory)
+        initialize_log(self.verbose, os.path.join(self.output_directory, 'ape.log'))
 
-#creat a format can be read by VMD software
-record_script ='''{natom}
-# Point {sample} Energy = {e_elect}
-{xyz}
-'''
+        # Print some information to the beginning of the log
+        log_header(run_in_parallel=self.run_in_parallel, ncpus=self.ncpus)
+
+        # Load the input file for the job
+        self.job_list = self.load_input_file(self.input_file)
+
+        # Initialize (and clear!) the output files for the job
+        if self.output_directory is None:
+            self.output_directory = os.path.dirname(os.path.abspath(self.input_file))
+        output_file = os.path.join(self.output_directory, 'output.py')
+        with open(output_file, 'w'):
+            pass
+
+        # run SamplingJob
+        for job in self.job_list:
+            if isinstance(job, SamplingJob):
+                job.ncpus = self.ncpus
+                job.execute()
+
+        # run thermo and kinetics jobs
+        for job in self.job_list:
+            if isinstance(job, ThermoJob):
+                job.load_save()
+                job.execute()
+            #if isinstance(job, KineticsJob):
+            #    job.execute(plot=self.plot)
+
+        # Print some information to the end of the log
+        log_footer()
+
+def initialize_log(verbose=logging.INFO, log_file=None):
+    """
+    Set up a logger for Arkane to use to print output to stdout. The
+    `verbose` parameter is an integer specifying the amount of log text seen
+    at the console; the levels correspond to those of the :data:`logging` module.
+    """
+    # Create logger
+    logger = logging.getLogger()
+    logger.setLevel(verbose)
+
+    # Use custom level names for cleaner log output
+    logging.addLevelName(logging.CRITICAL, 'Critical: ')
+    logging.addLevelName(logging.ERROR, 'Error: ')
+    logging.addLevelName(logging.WARNING, 'Warning: ')
+    logging.addLevelName(logging.INFO, '')
+    logging.addLevelName(logging.DEBUG, '')
+    logging.addLevelName(0, '')
+
+    # Create formatter and add to handlers
+    formatter = logging.Formatter('%(levelname)s%(message)s')
+
+    # Remove old handlers before adding ours
+    while logger.handlers:
+        logger.removeHandler(logger.handlers[0])
+
+    # Create console handler; send everything to stdout rather than stderr
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(verbose)
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
+    # Create file handler; always be at least verbose in the file
+    if log_file:
+        fh = logging.FileHandler(filename=log_file)
+        fh.setLevel(min(logging.DEBUG, verbose))
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
+
+
+def log_header(level=logging.INFO, run_in_parallel=None, ncpus=None):
+    """
+    Output a header containing identifying information about Arkane to the log.
+    """
+    logging.log(level, 'APE execution initiated at {0}'.format(time.asctime()))
+    if run_in_parallel and ncpus is not None:
+        logging.log(level, 'Parallel version, running on {0} processors'.format(ncpus))
+    elif ncpus is not None:
+        logging.log(level, 'Serial version, running on {0} processors'.format(ncpus))
+    logging.log(level, '')
+    logging.log(level, '################################################################')
+    logging.log(level, '#                                                              #')
+    logging.log(level, '#              Automated Property Estimator (APE)              #')
+    logging.log(level, '#                                                              #')
+    logging.log(level, '#   Developer: Shih-Cheng Li (r08524007@ntu.edu.tw)            #')
+    logging.log(level, '#   P.I.:      Yi-Pei Li (yipeili@ntu.edu.tw)                  #')
+    logging.log(level, '#   Website:   https://webpageprodvm.ntu.edu.tw/Li-group/      #')
+    logging.log(level, '#                                                              #')
+    logging.log(level, '################################################################')
+    logging.log(level, '')
+
+
+def log_footer(level=logging.INFO):
+    """
+    Output a footer to the log.
+    """
+    logging.log(level, '')
+    logging.log(level, 'APE execution terminated at {0}'.format(time.asctime()))

@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 import math
+import logging
 import numpy as np
 import pybel
+
 import rmgpy.constants as constants
+
 from ape.InternalCoordinates import get_RedundantCoords
 from ape.exceptions import ConvergeError
+from ape.common import SolvEig
 
 class HinderedRotor(object):
 
@@ -39,7 +43,7 @@ class HinderedRotor(object):
         n_rotors = len(self.rotors_dict)
         B = internal.B[:-n_rotors]
         rotors_dict = self.rotors_dict
-        #adding one dihedral internal related to torsion in B-matrix
+        # adding one dihedral internal related to torsion in B-matrix
         scan_indices = [scan[0]-1, scan[1]-1, scan[2]-1, scan[3]-1]
         val, grad = internal.calc_dihedral(internal.c3d, scan_indices, True)
         grad = grad.reshape(1,len(grad))
@@ -67,19 +71,7 @@ class HinderedRotor(object):
             if i == vib_freq[-1] and j == projectd_vib_freq[-1]:
                 raise ConvergeError('Can\'t find the frequency of the hindered rotor whose scan is {scan}'.format(scan=scan))
         
-        print('The frequency of the hindered rotor whose scan is {scan} is {freq} cm-1'\
+        logging.info('The frequency of the hindered rotor whose scan is {scan} is {freq} cm-1'\
             .format(scan=scan, freq=projected_out_freq))
     
         return projected_out_freq, reduced_mass
-
-###################################################################################
-def SolvEig(hessian, mass, n_vib):
-    # Generate mass-weighted force constant matrix
-    mass_3N_array = np.array([i for i in mass for j in range(3)])
-    mass_mat = np.diag(mass_3N_array)
-    inv_sq_mass_mat = np.linalg.inv(mass_mat**0.5)
-    mass_weighted_hessian = inv_sq_mass_mat.dot(hessian).dot(inv_sq_mass_mat)
-    eig, v = np.linalg.eigh(mass_weighted_hessian)
-    vib_freq = np.sqrt(eig[-n_vib:]) / (2 * np.pi * constants.c * 100) # in cm^-1
-    unweighted_v = np.matmul(inv_sq_mass_mat,v).T[-n_vib:]
-    return vib_freq, unweighted_v

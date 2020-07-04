@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import sys
 import math
 import numpy as np
@@ -7,23 +8,40 @@ from copy import deepcopy
 
 import rmgpy.constants as constants
 
+from ape.sampling import SamplingJob
 from ape.FitPES import from_sampling_result, cubic_spline_interpolations
 from ape.schrodinger import SetAnharmonicH
 
 class Statmech(object):
     """
-    The class to solve shrodinger equation, evaluate partition function and related properties of 1-D PES by using statistical thermodynamics
+    A class to solve shrodinger equation, evaluate partition function and related properties of 1-D PES by using statistical thermodynamics
     """
-    def __init__(self, conformer, polynomial_dict, mode_dict, energy_dict,T,P=100000):
-        self.conformer = conformer
-        self.polynomial_dict = polynomial_dict
-        self.mode_dict = mode_dict
-        self.energy_dict = energy_dict
-        self.T = T
+    def __init__(self, label, input_file, output_directory, Tlist=[298.15], P=100000, zpe_of_Hohf=None):
+        self.label = label
+        self.input_file = input_file
+        self.output_directory = output_directory
+        self.Tlist = Tlist
         self.P = P
+        self.result_info = list()
     
-    def calcThermoOfEachMode(self,eig,N,mode):
-        T = self.T
+    def load_save(self):
+        self.sampling = SamplingJob(self.label, self.input_file)
+        self.sampling.parse()
+        self.conformer = self.sampling.conformer
+        self.csv_path = os.path.join(self.output_directory, '{}_samping_result.csv'.format(self.label))
+        self.mode_dict, self.energy_dict, self.min_elect = from_sampling_result(self.csv_path)
+        self.zpe_of_Hohf = self.sampling.zpe
+        e0 = self.min_elect + self.sampling.zpe
+        self.conformer.E0 = (e0, "J/mol")
+        self.symbols = self.sampling.symbols
+
+        # Solve SE of 1-D PES and calculate E S G Cp
+        self.polynomial_dict = cubic_spline_interpolations(self.energy_dict, self.mode_dict)
+
+        # Extract whether this system is QM/MM system or not
+        self.is_QM_MM_INTERFACE = self.sampling.is_QM_MM_INTERFACE
+
+    def calcThermoOfEachMode(self, eig, N, mode, T):
         beta = 1/(constants.kB*T) * constants.E_h
         Q = 0
         E = 0
@@ -53,7 +71,7 @@ class Statmech(object):
 
         return v, E0, E, S, F, Q, Cv
 
-    def SolvEig(self,mode):
+    def SolvEig(self, mode, T):
         Nbasis = 50
         Nbasis_prev = 0
         H_prev = None
@@ -66,22 +84,23 @@ class Statmech(object):
             Nbasis_prev = Nbasis
             H_prev = deepcopy(H)
             eig, v =np.linalg.eigh(H)
-            v, E0, E, S, F, Q, Cv = self.calcThermoOfEachMode(eig,Nbasis,mode)
+            v, E0, E, S, F, Q, Cv = self.calcThermoOfEachMode(eig, Nbasis, mode, T)
 
             if Qold == np.log(sys.float_info[0]):
-                print("\n\t %d \t\t-\t\t-" % Nbasis) #first run
+                self.result_info.append("# \n# \t %d \t\t-\t\t-" % Nbasis) #first run
             else:
-                print("\n\t %d \t\t %.10f \t\t %.10f" % (Nbasis,abs(Q-Qold),abs(v-vold)))
+                self.result_info.append("# \n# \t %d \t\t %.10f \t\t %.10f" % (Nbasis,abs(Q-Qold),abs(v-vold)))
             
             if ((abs(Q-Qold)<1e-4) and (abs(v-vold)<1e-2)):
-                print(" Convergence criterion met\n","------------------------------------")
+                self.result_info.append("# Convergence criterion met")
+                self.result_info.append("# ------------------------------------")
                 converge = True
-                print("Frequency (cm-1): %.10f" % v)
-                print("Zero point vibrational energy (hartree): %.10f" % E0)
-                print("Energy (hartree): %.10f" % E )
-                print("Entropy (hartree/K): %.10f" % S)
-                print("Free energy (hartree): %.10f" % F)
-                print("Partition function: %.10f" % Q)
+                self.result_info.append("# Frequency (cm-1): %.10f" % v)
+                self.result_info.append("# Zero point vibrational energy (hartree): %.10f" % E0)
+                self.result_info.append("# Energy (hartree): %.10f" % E )
+                self.result_info.append("# Entropy (hartree/K): %.10f" % S)
+                self.result_info.append("# Free energy (hartree): %.10f" % F)
+                self.result_info.append("# Partition function: %.10f" % Q)
                 hartree2kcalmol = constants.E_h * constants.Na / 4184
                 E0 *= hartree2kcalmol
                 E *= hartree2kcalmol

@@ -1,185 +1,288 @@
 # -*- coding: utf-8 -*-
 
-"""
-A module to sample the geometries along given direction
-"""
+# [1] https://doi.org/10.1021/acs.jctc.5b01177 Thermodynamics of Anharmonic Systems: Uncoupled Mode Approximations for Molecules
 
 import os
-import copy
+import csv
+import logging
 import numpy as np
+from time import gmtime, strftime
+
 import rmgpy.constants as constants
-from arkane.statmech import determine_rotor_symmetry
-from ape.job.job import Job
+
+from arkane.common import symbol_by_number
+from arkane.statmech import is_linear
+
+from arc.species.species import ARCSpecies
+
 from ape.qchem import QChemLog
+from ape.torsion import HinderedRotor 
+from ape.common import SolvEig, sampling_along_torsion, sampling_along_vibration
 from ape.InternalCoordinates import get_RedundantCoords, getXYZ
-from ape.exceptions import SamplingError
+from ape.exceptions import InputError
 
-def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conformer, rotor, rotors_dict, scan_res, path, thresh, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, \
-is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None):
-    XyzDictOfEachMode = {}
-    EnergyDictOfEachMode = {}
-    ModeDictOfEachMode = {}
 
-    pivots = rotors_dict[mode]['pivots']
-    top = rotors_dict[mode]['top']
-    scan = rotors_dict[mode]['scan']
-    step_size = np.pi / (180/scan_res)
-    projected_freq, reduced_mass = rotor.get_projected_out_freq(scan)
+class SamplingJob(object):
+    """
+    The SamplingJob class.
+    """
 
-    ModeDictOfEachMode['mode'] = 'tors'
-    ModeDictOfEachMode['M'] = conformer.get_internal_reduced_moment_of_inertia(pivots,top) * constants.Na * 1e23 # in amu*angstrom^2
-    ModeDictOfEachMode['K'] = (projected_freq * (2 * np.pi * constants.c * 100)) ** 2 # in 1/s^2
-    ModeDictOfEachMode['step_size'] = step_size # in radian
+    def __init__(self, label=None, input_file=None, output_directory=None, protocol=None, multiplicity=None, charge = None,\
+    level_of_theory=None, basis=None, ncpus=None, imaginary_bonds=None, is_ts=None):
+        self.input_file = input_file
+        self.label = label
+        self.output_directory = output_directory
+        self.protocol = protocol
+        self.multiplicity = multiplicity
+        self.charge = charge
+        self.level_of_theory = level_of_theory
+        self.basis = basis
+        self.ncpus = ncpus
+        self.imaginary_bonds = imaginary_bonds
+        self.is_ts = is_ts
 
-    n_rotors = len(rotors_dict)
-    internal = copy.deepcopy(internal_object)
-    scan_indices = internal.B_indices[-n_rotors:]
-    torsion_ind = len(internal.B_indices) - n_rotors + scan_indices.index([ind-1 for ind in scan])    
+    def parse(self):
+        Log = QChemLog(self.input_file)
+        self.hessian = Log.load_force_constant_matrix()
+        coordinates, number, mass = Log.load_geometry()
+        self.conformer, unscaled_frequencies = Log.load_conformer()
+        if self.protocol is None:
+            self.protocol = 'UMVT'
+        if self.multiplicity is None:
+            self.multiplicity = Log.multiplicity
+            # self.multiplicity = self.ARCSpecies.multiplicity
+        if self.charge is None:
+            self.charge = Log.charge
+            # self.charge = 0
+        
+        # A $rem variable is needed when moledule is radical
+        self.unrestricted = Log.is_unrestricted()
 
-    B = internal.B
-    Bt_inv = np.linalg.pinv(B.dot(B.T)).dot(B)
-    nrow = B.shape[0]
-    qk = np.zeros(nrow, dtype=int)
-    qk[torsion_ind] = 1
-    nsample = int(360/scan_res) + 1
-
-    initial_geometry = cart_coords
-    cart_coords = initial_geometry.copy()
-    Fail_in_torsion_sampling = False
-    for sample in range(nsample):
-        xyz = getXYZ(symbols, cart_coords)
-        file_name = 'tors_{}_{}'.format(mode,sample)
-        if is_QM_MM_INTERFACE:
-            e_elec = get_e_elect(xyz, path, file_name, ncpus, charge, multiplicity, level_of_theory, basis, is_QM_MM_INTERFACE, \
-            QM_USER_CONNECT, QM_ATOMS, force_field_params, fixed_molecule_string, opt, number_of_fixed_atoms)
-        else:
-            e_elec = get_e_elect(xyz, path, file_name, ncpus)
-        XyzDictOfEachMode[sample] = xyz
-        if sample == 0:
-            EnergyDictOfEachMode[sample] = 0
-            min_elect = e_elec
-        else: EnergyDictOfEachMode[sample] = e_elec - min_elect
-        if e_elec - min_elect > thresh:
-            Fail_in_torsion_sampling = True
-            print('Since the torsional barrier of mode {} is higher than {} hartree. \
-            This mode will use harmonic basis to construct its hamiltonian matrix.'.format(mode,thresh))
-            step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (projected_freq * 2 * np.pi * constants.c * 100)) * 10 ** 10 # in angstrom
-            XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode = sampling_along_vibration(symbols, cart_coords, mode, internal, qk, projected_freq, reduced_mass, step_size, path, thresh, ncpus, charge, multiplicity, level_of_theory, basis)
-            break
-        cart_coords += internal.transform_int_step((qk*step_size).reshape(-1,))
-    if Fail_in_torsion_sampling is False:
-        v_list = [i * (constants.E_h * constants.Na) for i in EnergyDictOfEachMode.values()] # in J/mol
-        name = 'tors_{}'.format(mode)
-        symmetry_number = determine_rotor_symmetry(v_list, name, scan)
-        #symmetry_number = 3
-        ModeDictOfEachMode['symmetry_number'] = symmetry_number
-    return XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect
-
-def sampling_along_vibration(symbols, cart_coords, mode, internal_object, internal_vector, freq, reduced_mass, step_size, path, thresh, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, \
-is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None, max_nloop=100):
-    XyzDictOfEachMode = {}
-    EnergyDictOfEachMode = {}
-    ModeDictOfEachMode = {}
-
-    ModeDictOfEachMode['mode'] = 'vib'
-    ModeDictOfEachMode['M'] = reduced_mass # in amu
-    ModeDictOfEachMode['K'] = (freq * (2 * np.pi * constants.c * 100)) ** 2 # in 1/s^2
-    ModeDictOfEachMode['step_size'] = step_size # in angstrom
-    
-    initial_geometry = cart_coords
-    cart_coords = initial_geometry.copy()
-    internal = copy.deepcopy(internal_object)
-    qj = internal_vector
-
-    sample = 0
-    while True:
-        xyz = getXYZ(symbols, cart_coords)
-        file_name = 'vib_{}_{}'.format(mode,sample)
-        if is_QM_MM_INTERFACE:
-            e_elec = get_e_elect(xyz, path, file_name, ncpus, charge, multiplicity, level_of_theory, basis, is_QM_MM_INTERFACE, \
-            QM_USER_CONNECT, QM_ATOMS, force_field_params, fixed_molecule_string, opt, number_of_fixed_atoms)
-        else:
-            e_elec = get_e_elect(xyz, path, file_name, ncpus)
-        # Take the potential energy of stationary point as reference energy, min_elect
-        if sample == 0:
-            XyzDictOfEachMode[0] = xyz
-            EnergyDictOfEachMode[sample] = 0
-            min_elect = e_elec
-        # The sampling of UM-N was carried out symmetrically for each mode to the classical turning points
-        elif e_elec - min_elect < EnergyDictOfEachMode[sample-1]:
-            if sample == 1:
-                raise SamplingError('Sampling of mode {} fails. Make sure the directional vector of this normal mode is correct.'.format(mode))
+        self.is_QM_MM_INTERFACE = Log.is_QM_MM_INTERFACE()
+        if self.is_QM_MM_INTERFACE:
+            if self.imaginary_bonds is None:
+                raise InputError('Lack of specified imaginary bonds to describe frustrated translation and rotation in QMMM system.')
+            self.QM_ATOMS = Log.get_QM_ATOMS()
+            self.number_of_fixed_atoms = Log.get_number_of_atoms() - len(Log.get_QM_ATOMS())
+            self.ISOTOPES = Log.get_ISOTOPES()
+            self.nHcap = len(self.ISOTOPES)
+            self.force_field_params = Log.get_force_field_params()
+            self.opt = Log.get_opt()
+            self.fixed_molecule_string = Log.get_fixed_molecule()
+            self.QM_USER_CONNECT = Log.get_QM_USER_CONNECT()
+            self.QM_mass = Log.QM_mass
+            self.QM_coord = Log.QM_coord
+            self.natom =  len(self.QM_ATOMS) + len(self.ISOTOPES)
+            self.symbols = Log.QM_atom
+            self.cart_coords = self.QM_coord.reshape(-1,)
+            self.conformer.coordinates = (self.QM_coord, "angstroms")
+            self.conformer.mass = (self.QM_mass, "amu")
+            xyz = ''
+            for i in range(len(self.QM_ATOMS)):
+                if self.QM_USER_CONNECT[i].endswith('0  0  0  0'):
+                    xyz += '{}\t{}\t\t{}\t\t{}'.format(self.symbols[i],self.cart_coords[3*i],self.cart_coords[3*i+1],self.cart_coords[3*i+2])
+                    if i != self.natom-1: xyz += '\n'
+            self.xyz = xyz
+            if self.xyz == '':
+                self.ARCSpecies = None
             else:
-                print('Sampling of mode {} in positive direction is terminated at the classical turning points.')
-                break
-        elif e_elec - min_elect > 10:
-            # Not include the wrong sampling point in sampling 1D-PES
-            print('The potential energy of this point is too large. Sampling of point {} in mode {} might fail.'.format(sample, mode))
-            break
+                self.ARCSpecies = ARCSpecies(label=self.label, xyz=self.xyz)
+            if self.ncpus is None:
+                self.ncpus = 8 # default cpu for QM/MM calculation
+            self.zpe = Log.load_zero_point_energy()
         else:
-            XyzDictOfEachMode[sample] = xyz
-            EnergyDictOfEachMode[sample] = e_elec - min_elect
-        if e_elec - min_elect > thresh:
-            break
-        sample += 1
-        if sample > max_nloop:
-            print('The energy of the end point is not above the cutoff value {thresh} hartree. Please increase the max_nloop value or increase step_size'.format(thresh=thresh))
-            break
-        cart_coords += internal.transform_int_step((qj*step_size).reshape(-1,))
-    
-    cart_coords = initial_geometry.copy()
-    internal = copy.deepcopy(internal_object)  
-    cart_coords += internal.transform_int_step((-qj*step_size).reshape(-1,))
-    sample = -1
-    while True:
-        xyz = getXYZ(symbols, cart_coords)
-        file_name = 'vib_{}_{}'.format(mode,sample)
-        if is_QM_MM_INTERFACE:
-            e_elec = get_e_elect(xyz, path, file_name, ncpus, charge, multiplicity, level_of_theory, basis, is_QM_MM_INTERFACE, \
-            QM_USER_CONNECT, QM_ATOMS, force_field_params, fixed_molecule_string, opt, number_of_fixed_atoms)
-        else:
-            e_elec = get_e_elect(xyz, path, file_name, ncpus)
-        # The sampling of UM-N was carried out symmetrically for each mode to the classical turning points
-        if e_elec - min_elect < EnergyDictOfEachMode[sample+1]:
-            if sample == -1:
-                raise SamplingError('Sampling of mode {} fails. Make sure the directional vector of this normal mode is correct.'.format(mode))
-            else:
-                print('Sampling of mode {} in negative direction is terminated at the classical turning points')
-                break
-        elif e_elec - min_elect > 10:
-            # Not include the wrong sampling point in sampling 1D-PES
-            print('The potential energy of this point is too large. Sampling of point {} in mode {} might fail.'.format(sample, mode))
-            break
-        else:
-            XyzDictOfEachMode[sample] = xyz
-            EnergyDictOfEachMode[sample] = e_elec - min_elect
-        if e_elec - min_elect > thresh:
-            break
-        sample -= 1
-        if sample < -max_nloop:
-            print('The energy of the end point is not above the cutoff value {thresh} hartree. Please increase the max_nloop value or increase step_size'.format(thresh=thresh))
-            break
-        cart_coords += internal.transform_int_step((-qj*step_size).reshape(-1,))
-    return XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect
+            self.natom = Log.get_number_of_atoms()
+            self.symbols = [symbol_by_number[i] for i in number]
+            self.cart_coords = coordinates.reshape(-1,)
+            self.conformer.coordinates = (coordinates, "angstroms")
+            self.conformer.number = number
+            self.conformer.mass = (mass, "amu")            
+            self.xyz = getXYZ(self.symbols, self.cart_coords)
+            self.ARCSpecies = ARCSpecies(label=self.label, xyz=self.xyz)
+            if self.ncpus is None:
+                self.ncpus = self.ARCSpecies.number_of_heavy_atoms
+                if self.ncpus > 8: self.ncpus = 8
+            # Below is information for thermodynamic caculation
+            self.linearity = is_linear(self.conformer.coordinates.value)
+            # self.e_elect = Log.load_energy()
+            self.zpe = Log.load_zero_point_energy()
+            # e0 = self.e_elect + self.zpe
+            # self.conformer.E0 = (e0, "J/mol")
 
-def get_e_elect(xyz, path, file_name, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, is_QM_MM_INTERFACE=None, \
-QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None):
-    #file_name = 'output'
-    if is_QM_MM_INTERFACE:
-        QMMM_xyz_string = ''
-        for i, xyz in enumerate(xyz.split('\n')):
-            QMMM_xyz_string += " ".join([xyz, QM_USER_CONNECT[i]]) + '\n'
-            if i == len(QM_ATOMS)-1:
-                break
-        QMMM_xyz_string += fixed_molecule_string
-        job = Job(QMMM_xyz_string, path, file_name,jobtype='sp', ncpus=ncpus, charge=charge, multiplicity=multiplicity, \
-        level_of_theory=level_of_theory, basis=basis, QM_atoms=QM_ATOMS, force_field_params=force_field_params, opt=opt, \
-        number_of_fixed_atoms=number_of_fixed_atoms)
-    else:
-        job = Job(xyz, path, file_name,jobtype='sp', ncpus=ncpus, charge=charge, multiplicity=multiplicity, \
-        level_of_theory=level_of_theory, basis=basis)
-    job.write_input_file()
-    job.submit()
-    output_file_path = os.path.join(path, '{}.q.out'.format(file_name))
-    e_elect = QChemLog(output_file_path).load_energy() / (constants.E_h * constants.Na) # in Hartree/particle
-    return e_elect
+        # Determine hindered rotors information
+        if self.protocol == 'UMVT':
+            self.rotors_dict = self.get_rotors_dict()
+            self.n_rotors = len(self.rotors_dict)
+        else:
+            self.rotors_dict = []
+            self.n_rotors = 0
+
+        if self.is_QM_MM_INTERFACE:
+            self.nmode = 3 * len(Log.get_QM_ATOMS()) - (1 if self.is_ts else 0)
+            self.n_vib = 3 * len(Log.get_QM_ATOMS()) - self.n_rotors - (1 if self.is_ts else 0)
+        else:        
+            self.nmode = 3 * self.natom - (5 if self.linearity else 6)- (1 if self.is_ts else 0)
+            self.n_vib = 3 * self.natom - (5 if self.linearity else 6) - self.n_rotors - (1 if self.is_ts else 0)
+
+        # Create RedundantCoords object
+        self.internal = get_RedundantCoords(self.symbols, self.cart_coords, self.rotors_dict, self.imaginary_bonds)
+        if self.is_QM_MM_INTERFACE:
+            self.internal.nHcap = self.nHcap
+        
+        # Extract imaginary frequency
+        if self.is_ts:
+            self.imaginary_frequency = Log.imaginary_frequency
+    
+    def get_rotors_dict(self):
+        rotors_dict = {}
+        species = self.ARCSpecies
+        if species is None:
+            return rotors_dict
+        species.determine_rotors()
+        for i in species.rotors_dict:
+            rotors_dict[i+1] = {}
+            pivots = species.rotors_dict[i]['pivots']
+            top = species.rotors_dict[i]['top']
+            scan = species.rotors_dict[i]['scan']
+            rotors_dict[i+1]['pivots'] = pivots 
+            rotors_dict[i+1]['top'] = top
+            rotors_dict[i+1]['scan'] = scan
+        return rotors_dict
+
+    def sampling(self, thresh=0.05, save_result=True, scan_res=10):
+        xyz_dict = {}
+        energy_dict = {}
+        mode_dict = {}
+        if not os.path.exists(self.output_directory):
+            os.makedirs(self.output_directory)
+        path = os.path.join(self.output_directory, 'output_file', self.label)
+        if not os.path.exists(path):
+            os.makedirs(path)
+        if self.protocol == 'UMVT' and self.n_rotors != 0:
+            n_vib = self.n_vib
+            if self.is_QM_MM_INTERFACE:
+                n_vib -= 6 # due to frustrated translation and rotation 
+            rotor = HinderedRotor(self.symbols, self.cart_coords, self.hessian, self.rotors_dict, self.conformer.mass.value_si, n_vib, self.imaginary_bonds)
+            projected_hessian = rotor.projectd_hessian()
+            vib_freq, unweighted_v = SolvEig(projected_hessian, self.conformer.mass.value_si, self.n_vib)
+            logging.debug('\nFrequencies(cm-1) from projected Hessian: {}'.format(vib_freq))
+            
+            for i in range(self.n_rotors):
+                mode = i+1
+                if self.is_QM_MM_INTERFACE:
+                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, rotor, \
+                    self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, self.unrestricted, self.is_QM_MM_INTERFACE, self.nHcap, \
+                    self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
+                else:
+                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, rotor, \
+                    self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, self.unrestricted)
+                xyz_dict[mode] = XyzDictOfEachMode
+                energy_dict[mode] = EnergyDictOfEachMode
+                mode_dict[mode] = ModeDictOfEachMode
+        
+        elif self.protocol == 'UMN' or self.n_rotors == 0:
+            vib_freq, unweighted_v = SolvEig(self.hessian, self.conformer.mass.value_si, self.n_vib)
+            logging.debug('\nVibrational frequencies of normal modes: {}'.format(vib_freq))
+
+        for i in range(self.nmode):
+            if i in range(self.n_rotors): continue
+            mode = i+1
+            vector=unweighted_v[i-self.n_rotors]
+            freq = vib_freq[i-self.n_rotors]
+            magnitude = np.linalg.norm(vector)
+            reduced_mass = magnitude ** -2 / constants.amu # in amu
+            step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (freq * 2 * np.pi * constants.c * 100)) * 10 ** 10 # in angstrom
+            normalizes_vector = vector/magnitude
+            qj = np.matmul(self.internal.B, normalizes_vector)
+            P = np.ones(self.internal.B.shape[0], dtype=int)
+            n_rotors = len(self.rotors_dict)
+            if n_rotors != 0:
+                P[-n_rotors:] = 0
+            P = np.diag(P)
+            qj = P.dot(qj).reshape(-1,)
+            if self.is_QM_MM_INTERFACE:
+                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, \
+                step_size, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, self.unrestricted, self.is_QM_MM_INTERFACE, self.nHcap, self.QM_USER_CONNECT, \
+                self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
+            else:
+                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, step_size, \
+                path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, self.unrestricted)
+            xyz_dict[mode] = XyzDictOfEachMode
+            energy_dict[mode] = EnergyDictOfEachMode
+            mode_dict[mode] = ModeDictOfEachMode
+
+        # add the ground-state energy (including zero-point energy) of the conformer
+        self.e_elect = min_elect # in Hartree/particle
+        e0 = self.e_elect * constants.E_h * constants.Na + self.zpe # in J/mol
+        self.conformer.E0 = (e0, "J/mol")
+
+        if save_result:
+            if os.path.exists(self.csv_path):
+                os.remove(self.csv_path)
+            self.write_samping_result_to_csv_file(self.csv_path, mode_dict, energy_dict)
+
+            path = os.path.join(self.output_directory, 'plot', self.label)
+            if not os.path.exists(path):
+                os.makedirs(path)
+            self.write_sampling_displaced_geometries(path, energy_dict, xyz_dict)
+
+        return xyz_dict, energy_dict, mode_dict
+
+    def write_samping_result_to_csv_file(self, csv_path, mode_dict, energy_dict):
+        write_min_elect = False
+        if os.path.exists(csv_path) is False:
+            write_min_elect = True
+
+        with open(csv_path, 'a') as f:
+            writer = csv.writer(f)
+            if write_min_elect:
+                writer.writerow(['min_elect', self.e_elect])
+            for mode in mode_dict.keys():
+                if mode_dict[mode]['mode'] == 'tors':
+                    is_tors = True
+                    name = 'mode_{}_tors'.format(mode)
+                else:
+                    is_tors = False
+                    name = 'mode_{}_vib'.format(mode)
+                writer.writerow([name])
+                if is_tors:
+                    writer.writerow(['symmetry_number', mode_dict[mode]['symmetry_number']])
+                writer.writerow(['M', mode_dict[mode]['M']])
+                writer.writerow(['K', mode_dict[mode]['K']])
+                writer.writerow(['step_size', mode_dict[mode]['step_size']])
+                writer.writerow(['sample', 'total energy(HARTREE)'])
+                for sample in sorted(energy_dict[mode].keys()):
+                    writer.writerow([sample, energy_dict[mode][sample]])
+            f.close()
+            # logging.debug('Have saved the sampling result in {path}'.format(path=csv_path))
+    
+    def write_sampling_displaced_geometries(self, path, energy_dict, xyz_dict):
+        # creat a format can be read by VMD software
+        for mode in energy_dict.keys():
+            txt_path = os.path.join(path, 'mode_{}.txt'.format(mode))
+            with open(txt_path, 'w') as f:
+                for sample in sorted(energy_dict[mode].keys()): 
+                    content = record_script.format(natom=self.natom, sample=sample, e_elect=energy_dict[mode][sample], xyz=xyz_dict[mode][sample])
+                    f.write(content)
+                current_time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+                f.write('\n    This sampling was finished on:   {time}'.format(time=current_time))
+                f.write("""\n=------------------------------------------------------------------------------=""")
+                f.write("""\nSampling finished.""")
+                f.write("""\n=------------------------------------------------------------------------------=""")
+                f.close()
+
+    def execute(self):
+        """
+        Execute APE.
+        """
+        self.csv_path = os.path.join(self.output_directory, '{}_samping_result.csv'.format(self.label))
+        if os.path.exists(self.csv_path):
+            os.remove(self.csv_path)
+        self.parse()
+        self.sampling()
+
+# creat a format can be read by VMD software
+record_script ='''{natom}
+# Point {sample} Energy = {e_elect}
+{xyz}
+'''

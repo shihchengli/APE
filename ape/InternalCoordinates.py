@@ -740,7 +740,7 @@ class RedundantCoords:
         coordinates."""
 
         bond, bend, dihedrals = self.prim_indices
-        #for i in set(self.shift_pi):
+        # for i in set(self.shift_pi):
         #        step[len(bond)+i] *= -1
 
         remaining_int_step = step
@@ -752,8 +752,8 @@ class RedundantCoords:
         target_bends = target_internals[len(bond):-(len(dihedrals))]
         for i, target_bend in enumerate(target_bends):
             if target_bend > np.pi:
-                #target_bends[i] = 2*np.pi - target_bends[i]
-                #self.shift_pi.append(i)
+                # target_bends[i] = 2*np.pi - target_bends[i]
+                # self.shift_pi.append(i)
                 # A bug need to be fixed
                 raise Exception('A sampling bending angel is over 180 degrees in this mode !')
 

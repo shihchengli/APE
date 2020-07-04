@@ -1,20 +1,23 @@
 # -*- coding: utf-8 -*-
 import os
+import logging
 import subprocess
 
 from ape.qchem import QChemLog
 from ape.job.inputs import fine, fine_zeolite, input_script
 
 class Job(object):
-    def __init__(self, xyz, path, file_name, jobtype, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, QM_atoms=None, force_field_params=None, opt=None, number_of_fixed_atoms=None):
+    def __init__(self, xyz, path, file_name, jobtype, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, unrestricted=False, QM_atoms=None, force_field_params=None, opt=None, number_of_fixed_atoms=None):
         self.xyz = xyz
         self.path = path
+        self.file_name = file_name
         self.jobtype = jobtype
         self.ncpus = ncpus
         self.charge = charge
         self.multiplicity = multiplicity
         self.level_of_theory = level_of_theory
         self.basis = basis
+        self.unrestricted = unrestricted
         self.is_QM_MM_INTERFACE = False
         self.number_of_fixed_atoms = number_of_fixed_atoms
 
@@ -37,8 +40,8 @@ class Job(object):
             else:
                 self.basis = '6-311+G(2df,2pd)'
 
-        self.input_path = os.path.join(self.path, '{}.qcin'.format(file_name))
-        self.output_path = os.path.join(self.path, '{}.q.out'.format(file_name))
+        self.input_path = os.path.join(self.path, '{}.qcin'.format(self.file_name))
+        self.output_path = os.path.join(self.path, '{}.q.out'.format(self.file_name))
 
     def write_input_file(self):
         """
@@ -58,9 +61,10 @@ class Job(object):
 
         if self.jobtype in {'opt', 'ts', 'sp'}:
             script = input_script.format(jobtype=self.jobtype, level_of_theory=self.level_of_theory, basis=self.basis,\
-            fine=fine_string, QM_atoms=QM_atoms, force_field_params=force_field_params, opt=opt, charge=self.charge, multiplicity=self.multiplicity, xyz=self.xyz)
+            unrestricted=self.unrestricted, fine=fine_string, QM_atoms=QM_atoms, force_field_params=force_field_params, opt=opt,\
+            charge=self.charge, multiplicity=self.multiplicity, xyz=self.xyz)
         f = open(self.input_path, 'w')
-        print('self.input_path :',self.input_path)
+        # logging.debug('self.input_path :',self.input_path))
         f.write(script)
         f.close()
     
@@ -70,8 +74,10 @@ class Job(object):
             log = QChemLog(self.output_path)
             success = log.job_is_finished()
         if success:
-            print('{} exists, so this calculation is passed !'.format(self.output_path))
+            file_name = '{}.q.out'.format(self.file_name)
+            logging.info('{} exists, so this calculation is passed !'.format(file_name))
         else:
-            proc = subprocess.Popen(['qchem -nt {cpus} {input_path} {output_path}'.format(cpus=self.ncpus,input_path=self.input_path,output_path=self.output_path)],shell=True)
+            proc = subprocess.Popen(['qchem -nt {cpus} {input_path} {output_path}'.format(cpus=self.ncpus, input_path=self.input_path, output_path=self.output_path)], shell=True)
             proc.wait()
-        subprocess.Popen(['rm {input_path}'.format(input_path=self.input_path)],shell=True)
+            raise
+        subprocess.Popen(['rm {input_path}'.format(input_path=self.input_path)], shell=True)
