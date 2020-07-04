@@ -79,5 +79,4 @@ class Job(object):
         else:
             proc = subprocess.Popen(['qchem -nt {cpus} {input_path} {output_path}'.format(cpus=self.ncpus, input_path=self.input_path, output_path=self.output_path)], shell=True)
             proc.wait()
-            raise
         subprocess.Popen(['rm {input_path}'.format(input_path=self.input_path)], shell=True)
