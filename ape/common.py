@@ -5,6 +5,7 @@ APE common module
 """
 
 import os
+import math
 import copy
 import logging
 import numpy as np
@@ -12,19 +13,165 @@ import rmgpy.constants as constants
 from arkane.statmech import determine_rotor_symmetry
 from ape.job.job import Job
 from ape.qchem import QChemLog
-from ape.InternalCoordinates import get_RedundantCoords, getXYZ
+from ape.InternalCoordinates import getXYZ
 from ape.exceptions import SamplingError
 
-def SolvEig(hessian, mass, n_vib):
-    # Generate mass-weighted force constant matrix
+def SolvEig(mass_weighted_hessian, mass, n_vib):
+    """
+    The list of vibrational frequencies is returned in cm^-1.
+    The directional vectors are not mormalized. 
+    """
     mass_3N_array = np.array([i for i in mass for j in range(3)])
     mass_mat = np.diag(mass_3N_array)
     inv_sq_mass_mat = np.linalg.inv(mass_mat**0.5)
-    mass_weighted_hessian = inv_sq_mass_mat.dot(hessian).dot(inv_sq_mass_mat)
     eig, v = np.linalg.eigh(mass_weighted_hessian)
-    vib_freq = np.sqrt(eig[-n_vib:]) / (2 * np.pi * constants.c * 100) # in cm^-1
+    # Convert eigenvalues to vibrational frequencies in cm^-1
+    vib_freq = np.sqrt(eig[-n_vib:]) / (2 * np.pi * constants.c * 100)
     unweighted_v = np.matmul(inv_sq_mass_mat,v).T[-n_vib:]
     return vib_freq, unweighted_v
+
+def mass_weighted_hessian(conformer, hessian, linear, is_ts):
+    """
+    For a given `conformer` with associated force constant matrix `hessian` and the 
+    linearity of themolecule `linear`, project out the nonvibrational modes from the 
+    force constant matrix and use this to determine the vibrational frequencies. The
+    list of vibrational frequencies is returned in cm^-1.
+    Refer to Gaussian whitepaper (http://gaussian.com/vib/) for procedure to calculate
+    harmonic oscillator vibrational frequencies using the force constant matrix.
+    """
+    mass = conformer.mass.value_si
+    coordinates = conformer.coordinates.value
+    if linear is None:
+        linear = is_linear(coordinates)
+        if linear:
+            logging.info('Determined species {0} to be linear.'.format(label))
+    n_atoms = len(conformer.mass.value)
+
+    # Put origin in center of mass
+    xm = 0.0
+    ym = 0.0
+    zm = 0.0
+    totmass = 0.0
+    for i in range(n_atoms):
+        xm += mass[i] * coordinates[i, 0]
+        ym += mass[i] * coordinates[i, 1]
+        zm += mass[i] * coordinates[i, 2]
+        totmass += mass[i]
+
+    xm /= totmass
+    ym /= totmass
+    zm /= totmass
+
+    for i in range(n_atoms):
+        coordinates[i, 0] -= xm
+        coordinates[i, 1] -= ym
+        coordinates[i, 2] -= zm
+    # Make vector with the root of the mass in amu for each atom
+    amass = np.sqrt(mass / constants.amu)
+
+    # Rotation matrix
+    inertia = conformer.get_moment_of_inertia_tensor()
+    inertia_xyz = np.linalg.eigh(inertia)[1]
+
+    external = 6
+    if linear:
+        external = 5
+
+    d = np.zeros((n_atoms * 3, external), np.float64)
+
+    # Transform the coordinates to the principal axes
+    p = np.dot(coordinates, inertia_xyz)
+
+    for i in range(n_atoms):
+        # Projection vectors for translation
+        d[3 * i + 0, 0] = amass[i]
+        d[3 * i + 1, 1] = amass[i]
+        d[3 * i + 2, 2] = amass[i]
+
+    # Construction of the projection vectors for external rotation
+    for i in range(n_atoms):
+        d[3 * i, 3] = (p[i, 1] * inertia_xyz[0, 2] - p[i, 2] * inertia_xyz[0, 1]) * amass[i]
+        d[3 * i + 1, 3] = (p[i, 1] * inertia_xyz[1, 2] - p[i, 2] * inertia_xyz[1, 1]) * amass[i]
+        d[3 * i + 2, 3] = (p[i, 1] * inertia_xyz[2, 2] - p[i, 2] * inertia_xyz[2, 1]) * amass[i]
+        d[3 * i, 4] = (p[i, 2] * inertia_xyz[0, 0] - p[i, 0] * inertia_xyz[0, 2]) * amass[i]
+        d[3 * i + 1, 4] = (p[i, 2] * inertia_xyz[1, 0] - p[i, 0] * inertia_xyz[1, 2]) * amass[i]
+        d[3 * i + 2, 4] = (p[i, 2] * inertia_xyz[2, 0] - p[i, 0] * inertia_xyz[2, 2]) * amass[i]
+        if not linear:
+            d[3 * i, 5] = (p[i, 0] * inertia_xyz[0, 1] - p[i, 1] * inertia_xyz[0, 0]) * amass[i]
+            d[3 * i + 1, 5] = (p[i, 0] * inertia_xyz[1, 1] - p[i, 1] * inertia_xyz[1, 0]) * amass[i]
+            d[3 * i + 2, 5] = (p[i, 0] * inertia_xyz[2, 1] - p[i, 1] * inertia_xyz[2, 0]) * amass[i]
+
+    # Make sure projection matrix is orthonormal
+
+    inertia = np.identity(n_atoms * 3, np.float64)
+
+    p = np.zeros((n_atoms * 3, 3 * n_atoms + external), np.float64)
+
+    p[:, 0:external] = d[:, 0:external]
+    p[:, external:external + 3 * n_atoms] = inertia[:, 0:3 * n_atoms]
+
+    for i in range(3 * n_atoms + external):
+        norm = 0.0
+        for j in range(3 * n_atoms):
+            norm += p[j, i] * p[j, i]
+        for j in range(3 * n_atoms):
+            if norm > 1E-15:
+                p[j, i] /= np.sqrt(norm)
+            else:
+                p[j, i] = 0.0
+        for j in range(i + 1, 3 * n_atoms + external):
+            proj = 0.0
+            for k in range(3 * n_atoms):
+                proj += p[k, i] * p[k, j]
+            for k in range(3 * n_atoms):
+                p[k, j] -= proj * p[k, i]
+
+    # Order p, there will be vectors that are 0.0
+    i = 0
+    while i < 3 * n_atoms:
+        norm = 0.0
+        for j in range(3 * n_atoms):
+            norm += p[j, i] * p[j, i]
+        if norm < 0.5:
+            p[:, i:3 * n_atoms + external - 1] = p[:, i + 1:3 * n_atoms + external]
+        else:
+            i += 1
+
+    # T is the transformation vector from cartesian to internal coordinates
+    T = np.zeros((n_atoms * 3, 3 * n_atoms - external), np.float64)
+
+    T[:, 0:3 * n_atoms - external] = p[:, external:3 * n_atoms]
+
+    # Generate mass-weighted force constant matrix
+    # This converts the axes to mass-weighted Cartesian axes
+    # Units of Fm are J/m^2*kg = 1/s^2
+    weighted_hessian = hessian.copy()
+    for i in range(n_atoms):
+        for j in range(n_atoms):
+            for u in range(3):
+                for v in range(3):
+                    weighted_hessian[3 * i + u, 3 * j + v] /= math.sqrt(mass[i] * mass[j])
+
+    hessian_int = np.dot(T.T, np.dot(weighted_hessian, T))
+
+    # Get eigenvalues of internal force constant matrix, V = 3N-6 * 3N-6
+    eig, v = np.linalg.eigh(hessian_int)
+
+    logging.debug('Frequencies from internal Hessian')
+    for i in range(3 * n_atoms - external):
+        with np.warnings.catch_warnings():
+            np.warnings.filterwarnings('ignore', r'invalid value encountered in sqrt')
+            logging.debug(np.sqrt(eig[i]) / (2 * math.pi * constants.c * 100))
+
+    # Normal modes in mass weighted cartesian coordinates
+    vmw = np.dot(T, v)
+    eigm = np.zeros((3 * n_atoms - external, 3 * n_atoms - external), np.float64)
+
+    for i in range(3 * n_atoms - external):
+        eigm[i, i] = eig[i]
+
+    fm = np.dot(vmw, np.dot(eigm, vmw.T))
+    return fm
 
 def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conformer, rotor, rotors_dict, scan_res, path, thresh, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, unrestricted=None,\
 is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None):
@@ -55,7 +202,8 @@ is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_
     qk[torsion_ind] = 1
     nsample = int(360/scan_res) + 1
 
-    initial_geometry = copy.deepcopy(cart_coords)
+    initial_geometry = cart_coords.copy()
+    cart_coords = initial_geometry.copy()
     Fail_in_torsion_sampling = False
     for sample in range(nsample):
         xyz = getXYZ(symbols, cart_coords)
@@ -83,12 +231,12 @@ is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_
         v_list = [i * (constants.E_h * constants.Na) for i in EnergyDictOfEachMode.values()] # in J/mol
         name = 'tors_{}'.format(mode)
         symmetry_number = determine_rotor_symmetry(v_list, name, scan)
-        #symmetry_number = 3
+        # symmetry_number = 3
         ModeDictOfEachMode['symmetry_number'] = symmetry_number
     return XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect
 
 def sampling_along_vibration(symbols, cart_coords, mode, internal_object, internal_vector, freq, reduced_mass, step_size, path, thresh, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, unrestricted=None, \
-is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None, max_nloop=100):
+is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None, max_nloop=20):
     XyzDictOfEachMode = {}
     EnergyDictOfEachMode = {}
     ModeDictOfEachMode = {}
@@ -98,7 +246,7 @@ is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_
     ModeDictOfEachMode['K'] = (freq * (2 * np.pi * constants.c * 100)) ** 2 # in 1/s^2
     ModeDictOfEachMode['step_size'] = step_size # in angstrom
     
-    initial_geometry = cart_coords
+    initial_geometry = cart_coords.copy()
     cart_coords = initial_geometry.copy()
     internal = copy.deepcopy(internal_object)
     qj = internal_vector
@@ -135,7 +283,7 @@ is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_
             break
         sample += 1
         if sample > max_nloop:
-            logging.warning('The energy of the end point is not above the cutoff value {thresh} hartree. Please increase the max_nloop value or increase step_size'.format(thresh=thresh))
+            logging.warning('The energy of the end point is not above the cutoff value {thresh} hartree. Please increase the max_nloop value or increase step_size.'.format(thresh=thresh))
             break
         cart_coords += internal.transform_int_step((qj*step_size).reshape(-1,))
     
@@ -156,7 +304,7 @@ is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_
             if sample == -1:
                 raise SamplingError('Sampling of mode {} fails. Make sure the directional vector of this normal mode is correct.'.format(mode))
             else:
-                logging.info('Sampling of mode {} in negative direction is terminated at the classical turning points'.format(mode))
+                logging.info('Sampling of mode {} in negative direction is terminated at the classical turning points.'.format(mode))
                 break
         elif e_elec - min_elect > 10:
             # Not include the wrong sampling point in sampling 1D-PES
@@ -169,14 +317,14 @@ is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_
             break
         sample -= 1
         if sample < -max_nloop:
-            logging.warning('The energy of the end point is not above the cutoff value {thresh} hartree. Please increase the max_nloop value or increase step_size'.format(thresh=thresh))
+            logging.warning('The energy of the end point is not above the cutoff value {thresh} hartree. Please increase the max_nloop value or increase step_size.'.format(thresh=thresh))
             break
         cart_coords += internal.transform_int_step((-qj*step_size).reshape(-1,))
     return XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect
 
 def get_e_elect(xyz, path, file_name, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, unrestricted=None, \
 is_QM_MM_INTERFACE=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None):
-    #file_name = 'output'
+    # file_name = 'output'
     if is_QM_MM_INTERFACE:
         QMMM_xyz_string = ''
         for i, xyz in enumerate(xyz.split('\n')):

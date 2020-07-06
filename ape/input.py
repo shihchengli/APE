@@ -1,32 +1,5 @@
 # -*- coding: utf-8 -*-
 
-###############################################################################
-#                                                                             #
-# RMG - Reaction Mechanism Generator                                          #
-#                                                                             #
-# Copyright (c) 2002-2020 Prof. William H. Green (whgreen@mit.edu),           #
-# Prof. Richard H. West (r.west@neu.edu) and the RMG Team (rmg_dev@mit.edu)   #
-#                                                                             #
-# Permission is hereby granted, free of charge, to any person obtaining a     #
-# copy of this software and associated documentation files (the 'Software'),  #
-# to deal in the Software without restriction, including without limitation   #
-# the rights to use, copy, modify, merge, publish, distribute, sublicense,    #
-# and/or sell copies of the Software, and to permit persons to whom the       #
-# Software is furnished to do so, subject to the following conditions:        #
-#                                                                             #
-# The above copyright notice and this permission notice shall be included in  #
-# all copies or substantial portions of the Software.                         #
-#                                                                             #
-# THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR  #
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,    #
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE #
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER      #
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING     #
-# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER         #
-# DEALINGS IN THE SOFTWARE.                                                   #
-#                                                                             #
-###############################################################################
-
 """
 This module contains functionality for parsing APE input files.
 """
@@ -89,7 +62,6 @@ def species(label, *args, **kwargs):
         protocol = 'UMVT'
         multiplicity = None
         charge = None
-        imaginary_bonds = None
         for key, value in kwargs.items():
             if key == 'protocol':
                 protocol = value.upper()
@@ -97,16 +69,12 @@ def species(label, *args, **kwargs):
                 multiplicity = value
             elif key == 'charge':
                 charge = value
-            elif key == 'imaginary_bonds':
-                # atom indices starts from 1
-                imaginary_bonds = value
             else:
                 raise TypeError('species() got an unexpected keyword argument {0!r}.'.format(key))
                
         job.protocol = protocol
         job.multiplicity = multiplicity
         job.charge = charge
-        job.imaginary_bonds = None
     
     return spec
 
@@ -119,13 +87,13 @@ def transitionState(label, *args, **kwargs):
     ts = TransitionState(label=label)
     transition_state_dict[label] = ts
 
-    if len(args) == 1 and len(kwargs) == 1:
+    if len(args) == 1:
         # The argument is a path to a conformer input file
         path = os.path.join(directory, args[0])
-        job = SamplingJob(label=label, input_file=path, output_directory=output_directory)
+        job = SamplingJob(label=label, input_file=path, output_directory=output_directory, is_ts=True)
         Log = QChemLog(path)
         ts.conformer, unscaled_frequencies = Log.load_conformer()
-        ts.frequency = Log.imaginary_frequency
+        ts.frequency = (Log.load_negative_frequency(), "cm^-1")
         job_list.append(job)
 
     elif len(args) == 0:
@@ -157,6 +125,17 @@ def transitionState(label, *args, **kwargs):
             raise InputError(
                 'The transition_state needs to reference a quantum job file or contain kinetic information.')
         raise InputError('The transition_state can only link a quantum job or directly input information, not both.')
+
+    if len(kwargs) > 0:
+        # The species parameters are given explicitly
+        protocol = 'UMVT'
+        for key, value in kwargs.items():
+            if key == 'protocol':
+                protocol = value.upper()
+            else:
+                raise TypeError('species() got an unexpected keyword argument {0!r}.'.format(key))
+               
+        job.protocol = protocol
 
     return ts
 

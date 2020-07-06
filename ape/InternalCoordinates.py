@@ -54,18 +54,33 @@ def get_bond_indices(atoms, cart_coords):
     bond_indices = np.array(sorted(bond_indices))
     return bond_indices
 
-def get_RedundantCoords(atoms, cart_coords, rotors_dict=None, imaginary_bonds=None):
-    internal = RedundantCoords(atoms, cart_coords)
-    bond_indices = get_bond_indices(atoms, cart_coords)
-    
-    new_imaginary_bonds = []
-    if imaginary_bonds is not None:
-        for bond in imaginary_bonds:
-            atom1, atom2 = bond
-            new_imaginary_bonds.append([atom1-1, atom2-1]) # the index order in the pysisyphus package starts from 0
-        bond_indices = np.append(bond_indices,new_imaginary_bonds,axis=0)
+def get_RedundantCoords(atoms, cart_coords, rotors_dict=None):
 
-    def set_primitive_indices():
+    def connect_fragments(internal, bond_indices):
+        internal.bond_indices = get_bond_indices(atoms, cart_coords)
+        coords3d = cart_coords.reshape(-1, 3)
+        # Condensed distance matrix
+        cdm = pdist(coords3d)
+        # Merge bond index sets into fragments
+        bond_ind_sets = [frozenset(bi) for bi in bond_indices]
+        fragments = internal.merge_fragments(bond_ind_sets)
+
+        # Look for unbonded single atoms and create fragments for them.
+        bonded_set = set(tuple(bond_indices.flatten()))
+        unbonded_set = set(range(len(internal.atoms))) - bonded_set
+        fragments.extend(
+            [frozenset((atom, )) for atom in unbonded_set]
+        )
+        internal.fragments = fragments
+
+        # Check if there are any disconnected fragments. If there are some
+        # create interfragment bonds between all of them.
+        if len(fragments) != 1:
+            interfragment_inds = internal.connect_fragments(cdm, fragments)
+            bond_indices = np.concatenate((bond_indices, interfragment_inds))
+        return bond_indices
+
+    def set_primitive_indices(internal, bond_indices):
         internal.bond_indices = bond_indices
         internal.bending_indices = list()
         internal.set_bending_indices()
@@ -89,8 +104,11 @@ def get_RedundantCoords(atoms, cart_coords, rotors_dict=None, imaginary_bonds=No
             
             new_dihedral_indices.extend(list(scan_indices_set))
             internal.dihedral_indices = np.array(new_dihedral_indices)
-
-    set_primitive_indices()
+    
+    internal = RedundantCoords(atoms, cart_coords)
+    bond_indices = get_bond_indices(atoms, cart_coords)
+    bond_indices = connect_fragments(internal, bond_indices)
+    set_primitive_indices(internal, bond_indices)
     internal._prim_internals = internal.calculate(cart_coords)
     internal._prim_coords = np.array([pc.val for pc in internal._prim_internals])
     return internal
@@ -799,6 +817,8 @@ class RedundantCoords:
                 # Reduce the moving step to avoid failing
                 ratio *= 2
                 remaining_int_step /= ratio
+                if ratio > 100000000:
+                    break
             else:
                 raise Exception("Internal-cartesian back-transformation already "
                                 "failed in the first step. Aborting!"

@@ -8,21 +8,23 @@ import rmgpy.constants as constants
 
 from ape.InternalCoordinates import get_RedundantCoords
 from ape.exceptions import ConvergeError
-from ape.common import SolvEig
+from ape.common import SolvEig, mass_weighted_hessian
 
 class HinderedRotor(object):
 
-    def __init__(self, symbols, cart_coords, hessian, rotors_dict, mass=None, n_vib=None, imaginary_bonds=None):
+    def __init__(self, symbols, conformer, hessian, rotors_dict, linear, is_ts, n_vib):
         self.symbols = symbols
-        self.cart_coords = cart_coords
+        self.conformer = conformer
+        self.cart_coords = conformer.coordinates.value.reshape(-1,)
+        self.mass = conformer.mass.value_si
         self.hessian = hessian
         self.rotors_dict = rotors_dict
-        self.mass = mass
+        self.linear = linear
+        self.is_ts = is_ts
         self.n_vib = n_vib
-        self.imaginary_bonds = imaginary_bonds
 
     def projectd_hessian(self):
-        internal = get_RedundantCoords(self.symbols, self.cart_coords, self.rotors_dict, imaginary_bonds=self.imaginary_bonds)
+        internal = get_RedundantCoords(self.symbols, self.cart_coords, self.rotors_dict)
         B = internal.B
         B_inv = internal.B_inv
         Bt_inv = internal.Bt_inv
@@ -39,7 +41,7 @@ class HinderedRotor(object):
         Calculate the vibrational frequency in the unit of cm^-1 of the internal rotation
         whose scan is provided by user.
         """
-        internal = get_RedundantCoords(self.symbols, self.cart_coords, imaginary_bonds=self.imaginary_bonds)
+        internal = get_RedundantCoords(self.symbols, self.cart_coords)
         n_rotors = len(self.rotors_dict)
         B = internal.B[:-n_rotors]
         rotors_dict = self.rotors_dict
@@ -51,10 +53,12 @@ class HinderedRotor(object):
         B_inv = np.linalg.pinv(B)
         Bt_inv = B_inv.T
         hessian = B.T.dot(Bt_inv).dot(self.hessian).dot(B_inv).dot(B)
-        vib_freq, unweighted_v = SolvEig(hessian, self.mass, self.n_vib+1)
+        mwh = mass_weighted_hessian(self.conformer, hessian, self.linear, is_ts=self.is_ts)
+        vib_freq, unweighted_v = SolvEig(mwh, self.mass, self.n_vib)
 
-        projectd_hessian = self.projectd_hessian()
-        projectd_vib_freq, projectd_unweighted_v = SolvEig(projectd_hessian, self.mass, self.n_vib+1)
+        ph = self.projectd_hessian()
+        mwph = mass_weighted_hessian(self.conformer, ph, self.linear, is_ts=self.is_ts)
+        projectd_vib_freq, projectd_unweighted_v = SolvEig(mwph, self.mass, self.n_vib)
 
         for i in vib_freq:
             match_freq = 0

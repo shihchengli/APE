@@ -17,7 +17,7 @@ from arc.species.species import ARCSpecies
 
 from ape.qchem import QChemLog
 from ape.torsion import HinderedRotor 
-from ape.common import SolvEig, sampling_along_torsion, sampling_along_vibration
+from ape.common import SolvEig, mass_weighted_hessian, sampling_along_torsion, sampling_along_vibration
 from ape.InternalCoordinates import get_RedundantCoords, getXYZ
 from ape.exceptions import InputError
 
@@ -28,7 +28,7 @@ class SamplingJob(object):
     """
 
     def __init__(self, label=None, input_file=None, output_directory=None, protocol=None, multiplicity=None, charge = None,\
-    level_of_theory=None, basis=None, ncpus=None, imaginary_bonds=None, is_ts=None):
+    level_of_theory=None, basis=None, ncpus=None, is_ts=None):
         self.input_file = input_file
         self.label = label
         self.output_directory = output_directory
@@ -38,7 +38,6 @@ class SamplingJob(object):
         self.level_of_theory = level_of_theory
         self.basis = basis
         self.ncpus = ncpus
-        self.imaginary_bonds = imaginary_bonds
         self.is_ts = is_ts
 
     def parse(self):
@@ -60,8 +59,6 @@ class SamplingJob(object):
 
         self.is_QM_MM_INTERFACE = Log.is_QM_MM_INTERFACE()
         if self.is_QM_MM_INTERFACE:
-            if self.imaginary_bonds is None:
-                raise InputError('Lack of specified imaginary bonds to describe frustrated translation and rotation in QMMM system.')
             self.QM_ATOMS = Log.get_QM_ATOMS()
             self.number_of_fixed_atoms = Log.get_number_of_atoms() - len(Log.get_QM_ATOMS())
             self.ISOTOPES = Log.get_ISOTOPES()
@@ -102,12 +99,10 @@ class SamplingJob(object):
             if self.ncpus is None:
                 self.ncpus = self.ARCSpecies.number_of_heavy_atoms
                 if self.ncpus > 8: self.ncpus = 8
-            # Below is information for thermodynamic caculation
-            self.linearity = is_linear(self.conformer.coordinates.value)
-            # self.e_elect = Log.load_energy()
             self.zpe = Log.load_zero_point_energy()
-            # e0 = self.e_elect + self.zpe
-            # self.conformer.E0 = (e0, "J/mol")
+
+        # Determine whether or not the species is linear from its 3D coordinates
+        self.linearity = is_linear(self.conformer.coordinates.value)
 
         # Determine hindered rotors information
         if self.protocol == 'UMVT':
@@ -121,18 +116,18 @@ class SamplingJob(object):
             self.nmode = 3 * len(Log.get_QM_ATOMS()) - (1 if self.is_ts else 0)
             self.n_vib = 3 * len(Log.get_QM_ATOMS()) - self.n_rotors - (1 if self.is_ts else 0)
         else:        
-            self.nmode = 3 * self.natom - (5 if self.linearity else 6)- (1 if self.is_ts else 0)
+            self.nmode = 3 * self.natom - (5 if self.linearity else 6) - (1 if self.is_ts else 0)
             self.n_vib = 3 * self.natom - (5 if self.linearity else 6) - self.n_rotors - (1 if self.is_ts else 0)
 
         # Create RedundantCoords object
-        self.internal = get_RedundantCoords(self.symbols, self.cart_coords, self.rotors_dict, self.imaginary_bonds)
+        self.internal = get_RedundantCoords(self.symbols, self.cart_coords, self.rotors_dict)
         if self.is_QM_MM_INTERFACE:
             self.internal.nHcap = self.nHcap
         
-        # Extract imaginary frequency
+        # Extract imaginary frequency from transition state
         if self.is_ts:
-            self.imaginary_frequency = Log.imaginary_frequency
-    
+            self.imaginary_frequency = Log.load_negative_frequency()
+            
     def get_rotors_dict(self):
         rotors_dict = {}
         species = self.ARCSpecies
@@ -161,10 +156,12 @@ class SamplingJob(object):
         if self.protocol == 'UMVT' and self.n_rotors != 0:
             n_vib = self.n_vib
             if self.is_QM_MM_INTERFACE:
-                n_vib -= 6 # due to frustrated translation and rotation 
-            rotor = HinderedRotor(self.symbols, self.cart_coords, self.hessian, self.rotors_dict, self.conformer.mass.value_si, n_vib, self.imaginary_bonds)
-            projected_hessian = rotor.projectd_hessian()
-            vib_freq, unweighted_v = SolvEig(projected_hessian, self.conformer.mass.value_si, self.n_vib)
+                # Due to frustrated translation and rotation
+                n_vib -= 6
+            rotor = HinderedRotor(symbols=self.symbols, conformer=self.conformer, hessian=self.hessian, rotors_dict=self.rotors_dict, linear=self.linearity, is_ts=self.is_ts, n_vib=n_vib)
+            ph = rotor.projectd_hessian()
+            mwph = mass_weighted_hessian(self.conformer, ph, linear=self.linearity, is_ts=self.is_ts)
+            vib_freq, unweighted_v = SolvEig(mwph, self.conformer.mass.value_si, self.n_vib)
             logging.debug('\nFrequencies(cm-1) from projected Hessian: {}'.format(vib_freq))
             
             for i in range(self.n_rotors):
@@ -181,7 +178,8 @@ class SamplingJob(object):
                 mode_dict[mode] = ModeDictOfEachMode
         
         elif self.protocol == 'UMN' or self.n_rotors == 0:
-            vib_freq, unweighted_v = SolvEig(self.hessian, self.conformer.mass.value_si, self.n_vib)
+            mwh = mass_weighted_hessian(self.conformer, self.hessian, linear=self.linearity, is_ts=self.is_ts)
+            vib_freq, unweighted_v = SolvEig(mwh, self.conformer.mass.value_si, self.n_vib)
             logging.debug('\nVibrational frequencies of normal modes: {}'.format(vib_freq))
 
         for i in range(self.nmode):
