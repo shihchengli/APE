@@ -48,7 +48,7 @@ class QChemLog(ESSAdapter):
         with open(self.path, 'r') as f:
             line = f.readline()
             while line != '':
-                if '$rem' in line:
+                if line.startswith('$rem'):
                     while '$end' not in line:
                         if 'UNRESTRICTED' in line.upper():
                             OPTION = line.split()[1].upper()
@@ -106,7 +106,7 @@ class QChemLog(ESSAdapter):
         with open(self.path, 'r') as f:
             line = f.readline()
             while line != '':
-                if '$rem' in line:
+                if line.startswith('$rem'):
                     while '$end' not in line:
                         if 'ISOTOPES' in line.upper():
                             OPTION = line.split()[1].upper()
