@@ -179,7 +179,7 @@ class ThermoJob(Statmech):
     def execute(self):
         logging.info('Calculate thermodynamics for {0}'.format(self.label))
         for T in self.Tlist:
-            self.result_info.append('# Thermodynamics for {0} at {1} K:\n'.format(self.label, T))
+            self.result_info.append('\n\n# Thermodynamics for {0} at {1} K:\n'.format(self.label, T))
             if self.is_QM_MM_INTERFACE:
                 self.calcQMMMThermo(T=T, print_HOhf_result=True)
             else:
