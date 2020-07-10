@@ -16,11 +16,8 @@ from arkane.statmech import is_linear
 from arc.species.species import ARCSpecies
 
 from ape.qchem import QChemLog
-from ape.torsion import HinderedRotor 
-from ape.common import SolvEig, mass_weighted_hessian, sampling_along_torsion, sampling_along_vibration
+from ape.common import diagonalize_projected_hessian, get_internal_rotation_freq, sampling_along_torsion, sampling_along_vibration
 from ape.InternalCoordinates import get_RedundantCoords, getXYZ
-from ape.exceptions import InputError
-
 
 class SamplingJob(object):
     """
@@ -41,12 +38,25 @@ class SamplingJob(object):
         self.is_ts = is_ts
 
     def parse(self):
+        """
+        Parse QChem output file and crate the variables the sampling job needed.
+        """
         Log = QChemLog(self.input_file)
+
+        # Load force constant matrix
         self.hessian = Log.load_force_constant_matrix()
+
+        # Load cartesian coordinate
         coordinates, number, mass = Log.load_geometry()
+
+        # Create conformer class
         self.conformer, unscaled_frequencies = Log.load_conformer()
+
+        # Define the sampling protocol
         if self.protocol is None:
             self.protocol = 'UMVT'
+        
+        # Extract multiplicity and net charge from QChem output file
         if self.multiplicity is None:
             self.multiplicity = Log.multiplicity
             # self.multiplicity = self.ARCSpecies.multiplicity
@@ -54,9 +64,10 @@ class SamplingJob(object):
             self.charge = Log.charge
             # self.charge = 0
         
-        # A $rem variable is needed when moledule is radical
+        # Determine wheteher `UNRESTRICTED` variable should be used or not in QChem calculation
         self.unrestricted = Log.is_unrestricted()
 
+        # Log some information related to QM/MM system
         self.is_QM_MM_INTERFACE = Log.is_QM_MM_INTERFACE()
         if self.is_QM_MM_INTERFACE:
             self.QM_ATOMS = Log.get_QM_ATOMS()
@@ -77,7 +88,7 @@ class SamplingJob(object):
             xyz = ''
             for i in range(len(self.QM_ATOMS)):
                 if self.QM_USER_CONNECT[i].endswith('0  0  0  0'):
-                    xyz += '{}\t{}\t\t{}\t\t{}'.format(self.symbols[i],self.cart_coords[3*i],self.cart_coords[3*i+1],self.cart_coords[3*i+2])
+                    xyz += '{}\t{}\t\t{}\t\t{}'.format(self.symbols[i], self.cart_coords[3 * i], self.cart_coords[3 * i + 1], self.cart_coords[3 * i + 2])
                     if i != self.natom-1: xyz += '\n'
             self.xyz = xyz
             if self.xyz == '':
@@ -85,7 +96,8 @@ class SamplingJob(object):
             else:
                 self.ARCSpecies = ARCSpecies(label=self.label, xyz=self.xyz)
             if self.ncpus is None:
-                self.ncpus = 8 # default cpu for QM/MM calculation
+                # Default ncpus for QM/MM calculation
+                self.ncpus = 8
             self.zpe = Log.load_zero_point_energy()
         else:
             self.natom = Log.get_number_of_atoms()
@@ -111,7 +123,8 @@ class SamplingJob(object):
         else:
             self.rotors_dict = []
             self.n_rotors = 0
-
+        
+        # Determine whether this system is QM/MM system
         if self.is_QM_MM_INTERFACE:
             self.nmode = 3 * len(Log.get_QM_ATOMS()) - (1 if self.is_ts else 0)
             self.n_vib = 3 * len(Log.get_QM_ATOMS()) - self.n_rotors - (1 if self.is_ts else 0)
@@ -129,6 +142,11 @@ class SamplingJob(object):
             self.imaginary_frequency = Log.load_negative_frequency()
             
     def get_rotors_dict(self):
+        """
+        Determine possible unique rotors in the species to be treated as hindered rotors,
+        taking into account all localized structures.
+        The resulting rotors are saved in {'pivots': [1, 3], 'top': [3, 7], 'scan': [2, 1, 3, 7]} format.
+        """
         rotors_dict = {}
         species = self.ARCSpecies
         if species is None:
@@ -145,6 +163,15 @@ class SamplingJob(object):
         return rotors_dict
 
     def sampling(self, thresh=0.05, save_result=True, scan_res=10):
+        """
+        Sample 1-D PES of each mode.
+        The sampling of UM-N was carried out symmetrically for each mode to the classical turning points or
+        the energy rises more than 0.05 hartree (i.e., about 130 kJ/mol) compared with the reference stationary point. 
+        The sampling of UM-VT was terminated either when the torsional angle has been displaced by 2π or the energy 
+        rises more than 0.05 hartree.
+        The energy cutoff energy could be changed by defining the value of thresh.
+        The dictionary of sampling geometries, calculated energies and mode information will be returned.
+        """
         xyz_dict = {}
         energy_dict = {}
         mode_dict = {}
@@ -153,44 +180,44 @@ class SamplingJob(object):
         path = os.path.join(self.output_directory, 'output_file', self.label)
         if not os.path.exists(path):
             os.makedirs(path)
+        
+        # Determine the vibrational frequency and directional vector of each vibrational normal mode
         if self.protocol == 'UMVT' and self.n_rotors != 0:
             n_vib = self.n_vib
-            if self.is_QM_MM_INTERFACE:
-                # Due to frustrated translation and rotation
-                n_vib -= 6
-            rotor = HinderedRotor(symbols=self.symbols, conformer=self.conformer, hessian=self.hessian, rotors_dict=self.rotors_dict, linear=self.linearity, is_ts=self.is_ts, n_vib=n_vib)
-            ph = rotor.projectd_hessian()
-            mwph = mass_weighted_hessian(self.conformer, ph, linear=self.linearity, is_ts=self.is_ts)
-            vib_freq, unweighted_v = SolvEig(mwph, self.conformer.mass.value_si, self.n_vib)
+            rotors = [[rotor['pivots'], rotor['top']] for rotor in self.rotors_dict.values()]
+            vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, n_vib, rotors)
             logging.debug('\nFrequencies(cm-1) from projected Hessian: {}'.format(vib_freq))
             
+            # Sample points along the 1-D PES of each torsion motion
             for i in range(self.n_rotors):
                 mode = i+1
+                target_rotor = rotors[i]
+                int_freq, reduced_mass = get_internal_rotation_freq(self.conformer, self.hessian, target_rotor, rotors, self.linearity, n_vib, is_QM_MM_INTERFACE=self.is_QM_MM_INTERFACE, get_reduced_mass=True)
                 if self.is_QM_MM_INTERFACE:
-                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, rotor, \
-                    self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, self.unrestricted, self.is_QM_MM_INTERFACE, self.nHcap, \
-                    self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
+                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, \
+                    int_freq, reduced_mass, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, self.unrestricted, \
+                    self.is_QM_MM_INTERFACE, self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
                 else:
-                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, rotor, \
-                    self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, self.unrestricted)
+                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, \
+                    int_freq, reduced_mass, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.multiplicity, self.level_of_theory, self.basis, self.unrestricted)
                 xyz_dict[mode] = XyzDictOfEachMode
                 energy_dict[mode] = EnergyDictOfEachMode
                 mode_dict[mode] = ModeDictOfEachMode
         
         elif self.protocol == 'UMN' or self.n_rotors == 0:
-            mwh = mass_weighted_hessian(self.conformer, self.hessian, linear=self.linearity, is_ts=self.is_ts)
-            vib_freq, unweighted_v = SolvEig(mwh, self.conformer.mass.value_si, self.n_vib)
+            vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib)
             logging.debug('\nVibrational frequencies of normal modes: {}'.format(vib_freq))
-
+        
+        # Sample points along the 1-D PES of each vibration motion
         for i in range(self.nmode):
             if i in range(self.n_rotors): continue
-            mode = i+1
-            vector=unweighted_v[i-self.n_rotors]
-            freq = vib_freq[i-self.n_rotors]
+            mode = i + 1
+            vector=unweighted_v[i - self.n_rotors]
+            freq = vib_freq[i - self.n_rotors]
             magnitude = np.linalg.norm(vector)
             reduced_mass = magnitude ** -2 / constants.amu # in amu
             step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (freq * 2 * np.pi * constants.c * 100)) * 10 ** 10 # in angstrom
-            normalizes_vector = vector/magnitude
+            normalizes_vector = vector / magnitude
             qj = np.matmul(self.internal.B, normalizes_vector)
             P = np.ones(self.internal.B.shape[0], dtype=int)
             n_rotors = len(self.rotors_dict)
@@ -209,9 +236,10 @@ class SamplingJob(object):
             energy_dict[mode] = EnergyDictOfEachMode
             mode_dict[mode] = ModeDictOfEachMode
 
-        # add the ground-state energy (including zero-point energy) of the conformer
-        self.e_elect = min_elect # in Hartree/particle
-        e0 = self.e_elect * constants.E_h * constants.Na + self.zpe # in J/mol
+        # Add the ground-state energy (including zero-point energy) of the conformer
+        # Convert the unit from hartree/particle to J/mol
+        self.e_elect = min_elect
+        e0 = self.e_elect * constants.E_h * constants.Na + self.zpe
         self.conformer.E0 = (e0, "J/mol")
 
         if save_result:
