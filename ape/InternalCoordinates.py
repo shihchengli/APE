@@ -172,8 +172,9 @@ class RedundantCoords:
         self.shift_pi = list() #Shih-Cheng Li
 
     def log(self, message):
-        logger = logging.getLogger("internal_coords")
-        logger.debug(message)
+        #logger = logging.getLogger("internal_coords")
+        #logger.debug(message)
+        pass
 
     @property
     def prim_indices(self):
