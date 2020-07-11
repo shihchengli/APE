@@ -185,7 +185,7 @@ class SamplingJob(object):
         if self.protocol == 'UMVT' and self.n_rotors != 0:
             n_vib = self.n_vib
             rotors = [[rotor['pivots'], rotor['top']] for rotor in self.rotors_dict.values()]
-            vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, n_vib, rotors)
+            vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, n_vib, rotors, label=self.label)
             logging.debug('\nFrequencies(cm-1) from projected Hessian: {}'.format(vib_freq))
             
             # Sample points along the 1-D PES of each torsion motion
@@ -205,7 +205,7 @@ class SamplingJob(object):
                 mode_dict[mode] = ModeDictOfEachMode
         
         elif self.protocol == 'UMN' or self.n_rotors == 0:
-            vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib)
+            vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, label=self.label)
             logging.debug('\nVibrational frequencies of normal modes: {}'.format(vib_freq))
         
         # Sample points along the 1-D PES of each vibration motion

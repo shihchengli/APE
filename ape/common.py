@@ -9,14 +9,17 @@ import math
 import copy
 import logging
 import numpy as np
+
 import rmgpy.constants as constants
-from arkane.statmech import determine_rotor_symmetry
+
+from arkane.statmech import is_linear, determine_rotor_symmetry
+
 from ape.job.job import Job
 from ape.qchem import QChemLog
 from ape.InternalCoordinates import getXYZ
 from ape.exceptions import SamplingError
 
-def diagonalize_projected_hessian(conformer, hessian, linear, n_vib, rotors=[], get_projected_out_freqs=False):
+def diagonalize_projected_hessian(conformer, hessian, linear, n_vib, rotors=[], get_projected_out_freqs=False, label=None):
     """
     For a given `conformer` with associated force constant matrix `hessian`, lists of
     rotor information `rotors`, `pivots`, and `top1`, and the linearity of the
