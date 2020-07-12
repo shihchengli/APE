@@ -314,7 +314,7 @@ def get_internal_rotation_freq(conformer, hessian, target_rotor, rotors, linear,
                 magnitude = np.linalg.norm(vector)
                 reduced_mass = magnitude ** -2 / 1.660538921e-27 # in amu
                 internal_rotation_freq = freqa
-                logging.info('The vibrational frequency of internal rotation whose scan is {scan} is {freqa:.2f} cm^-1'.format(scan=target_rotor[1]), freqa))
+                logging.info('The vibrational frequency of internal rotation whose scan is {scan} is {freq:.2f} cm^-1'.format(scan=target_rotor[1], freq=freqa))
                 break
             except ValueError:
                 pass
