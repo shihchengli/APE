@@ -314,6 +314,7 @@ def get_internal_rotation_freq(conformer, hessian, target_rotor, rotors, linear,
                 magnitude = np.linalg.norm(vector)
                 reduced_mass = magnitude ** -2 / 1.660538921e-27 # in amu
                 internal_rotation_freq = freqa
+                logging.info('The vibrational frequency of internal rotation whose scan is {scan} is {freqa:.2f} cm^-1'.format(scan=target_rotor[1]), freqa))
                 break
             except ValueError:
                 pass
@@ -513,7 +514,7 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
             break
         
         # Update cartesian coordinate of each sampling point
-        cart_coords += internal.transform_int_step((qj * step_size).reshape(-1,))
+        cart_coords += internal.transform_int_step((-qj * step_size).reshape(-1,))
 
     return XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect
 
