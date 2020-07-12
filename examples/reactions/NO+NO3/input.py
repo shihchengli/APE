@@ -5,7 +5,7 @@ title = 'Example calculation of NO + NO3 = 2NO2'
 
 species('NO', './NO.q.out', protocol='UMVT')
 species('NO3', './NO3.q.out', protocol='UMVT')
-transitionState('TS', './TS.out', protocol='UMVT')
+transitionState('TS', './TS.q.out', protocol='UMVT')
 species('NO2', './NO2.q.out', protocol='UMVT')
 '''
 reaction(
