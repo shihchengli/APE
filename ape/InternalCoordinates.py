@@ -818,7 +818,7 @@ class RedundantCoords:
                 # Reduce the moving step to avoid failing
                 ratio *= 2
                 remaining_int_step /= ratio
-                if ratio > 100000000:
+                if ratio > 16:
                     break
             else:
                 raise Exception("Internal-cartesian back-transformation already "
