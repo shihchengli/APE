@@ -250,13 +250,6 @@ def load_input_file(path, output_path=None):
     level_of_theory = local_context.get('level_of_theory', None)
     basis = local_context.get('basis', None)
 
-    for job in job_list:
-        if isinstance(job, SamplingJob):
-            pass
-
-        #if isinstance(job, KineticsJob):
-        #    job.path = os.path.join(directory, job.path)
-
     return job_list, reaction_dict, species_dict, transition_state_dict
 
 

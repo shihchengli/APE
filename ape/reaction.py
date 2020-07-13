@@ -32,7 +32,7 @@ class Reaction(object):
     
     def calcThermo(self, T, P=101325):
         self.thermo_dict[T] = {}
-        specs = self.reactants + self.products + [self.transition_state]
+        specs = set(self.reactants + self.products + [self.transition_state])
         for spec in specs:
             logging.debug('    Calculating thermodynamics properties for {0} at {1} K'.format(spec.label, T))
             self.thermo_dict[T][spec.label] = {}
@@ -88,9 +88,9 @@ class Reaction(object):
             self.calcThermo(T, P)
         dGrxn = 0.0
         for reactant in self.reactants:
-            dGrxn -= self.thermo_dict[T][reactant.label]['F'] * 4.184
+            dGrxn -= self.thermo_dict[T][reactant.label]['F'] * 4184
         for product in self.products:
-            dGrxn += self.thermo_dict[T][product.label]['F'] * 4.184
+            dGrxn += self.thermo_dict[T][product.label]['F'] * 4184
         return dGrxn
 
     def get_equilibrium_constant(self, T, type='Kc'):

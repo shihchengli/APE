@@ -302,4 +302,4 @@ class KineticsJob(object):
         filename = ''.join(c for c in reaction_str if c in valid_chars) + '.pdf'
         path = os.path.join(drawing_path, filename)
 
-        KineticsDrawer().draw(self.rmg_reaction, file_format=file_format, path=path)
+        KineticsDrawer().draw(self.reaction, file_format=file_format, path=path)
