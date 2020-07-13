@@ -23,39 +23,37 @@ class ThermoJob(Statmech):
         conformer = self.conformer
         # Calculate global translation and rotation E, S
         E_trans = 1.5 * constants.R * T / 4184
-        S_trans = conformer.modes[0].get_entropy(T) / 4.184 - constants.R * math.log(P/101325) / 4.184
-        Cv_trans = 1.5 * constants.R / 4184 * 1000  
-        # F_trans = conformer.modes[0].get_free_energy(T) / 4.184
-        # Q_trans = conformer.modes[0].get_partition_function
+        S_trans = conformer.modes[0].get_entropy(T) / 4.184 - constants.R * math.log(P / 101325) / 4.184
+        Cv_trans = 1.5 * constants.R / 4184 * 1000
+        Q_trans = conformer.modes[0].get_partition_function(T)
 
         E_rot = conformer.modes[1].get_enthalpy(T) / 4184
         S_rot = conformer.modes[1].get_entropy(T) / 4.184
         Cv_rot = conformer.modes[1].get_heat_capacity(T) / 4.184
-        # F_rot = conformer.modes[1].get_free_energy(T) / 4.184
-        # Q_rot = conformer.modes[1].get_partition_function
+        Q_rot = conformer.modes[1].get_partition_function(T)
 
         # logging.info("Calculate internal E, S")
-        E0 = 0
+        ZPE = 0
         E_int = 0
         S_int = 0
         # F_int = 0
-        # Q_int = 1
+        Q_int = 1
         Cv_int = 0
 
         for mode in sorted(self.mode_dict.keys()):
             self.result_info.append("\n# \t********** Mode {} **********".format(mode))
             v, e0, E, S, F, Q, Cv = self.SolvEig(mode, T)
-            E0 += e0
+            ZPE += e0
             E_int += E
             S_int += S
             # F_int += F
-            # Q_int *= Q
+            Q_int *= Q
             Cv_int += Cv
 
         self.result_info.append("\n# \t********** Final results **********\n\n")
         self.result_info.append("# Temperature (K): %.2f" % (T))
         self.result_info.append("# Pressure (Pa): %.0f" % (P))
-        self.result_info.append("# Zero point vibrational energy (kcal/mol): %.10f" % (E0))
+        self.result_info.append("# Zero point vibrational energy (kcal/mol): %.10f" % (ZPE))
         self.result_info.append("# Translational energy (kcal/mol): %.10f" % (E_trans))
         self.result_info.append("# Translational entropy (cal/mol/K): %.10f" % (S_trans))
         self.result_info.append("# Translational Cv (cal/mol/K): %.10f" % (Cv_trans))
@@ -66,11 +64,11 @@ class ThermoJob(Statmech):
         self.result_info.append("# Internal (tor+vib) entropy (cal/mol/K): %.10f" % (S_int))
         self.result_info.append("# Internal (tor+vib) Cv (cal/mol/K): %.10f" % (Cv_int))
         self.result_info.append("\n")
-        self.result_info.append("# Total energy (kcal/mol): %.10f" % (E_trans+E_rot+E_int))
-        self.result_info.append("# Total enthalpy (kcal/mol): %.10f" % (E_trans+E_rot+E_int+constants.kB*T*constants.Na/4184))
-        self.result_info.append("# Enthalpy H(%f K)-H(0 K) (kcal/mol):  %.10f" % (T, E_trans+E_rot+E_int+constants.kB*T*constants.Na/4184-E0))
-        self.result_info.append("# Total entropy (cal/mol/K): %.10f" % (S_trans+S_rot+S_int))
-        self.result_info.append("# Total Cv (cal/mol/K): %.10f" % (Cv_trans+Cv_rot+Cv_int))
+        self.result_info.append("# Total energy (kcal/mol): %.10f" % (E_trans + E_rot + E_int))
+        self.result_info.append("# Total enthalpy (kcal/mol): %.10f" % (E_trans + E_rot + E_int + constants.kB * T * constants.Na / 4184))
+        self.result_info.append("# Enthalpy H(%f K)-H(0 K) (kcal/mol):  %.10f" % (T, E_trans + E_rot + E_int + constants.kB * T * constants.Na / 4184 - ZPE))
+        self.result_info.append("# Total entropy (cal/mol/K): %.10f" % (S_trans + S_rot + S_int))
+        self.result_info.append("# Total Cv (cal/mol/K): %.10f" % (Cv_trans + Cv_rot + Cv_int))
 
         if print_HOhf_result:
             # compare to HOhf model
@@ -87,17 +85,26 @@ class ThermoJob(Statmech):
             self.result_info.append("# Rotational entropy (cal/mol/K): %.10f" % (S_rot))
             self.result_info.append("# Vibrational entropy (cal/mol/K): %.10f" % (S_vib))
             self.result_info.append("\n")
-            self.result_info.append("# Total energy (kcal/mol): %.10f" % (E_trans+E_rot+E_vib))
-            self.result_info.append("# Total enthalpy (kcal/mol): %.10f" % (E_trans+E_rot+E_vib+constants.R*T/4184))
-            self.result_info.append("# Enthalpy H(%f K)-H(0 K) (kcal/mol): %.10f" % (T, conformer.get_enthalpy(T)/4184))
-            self.result_info.append("# Total entropy (cal/mol/K): %.10f" % (S_trans+S_rot+S_vib))
+            self.result_info.append("# Total energy (kcal/mol): %.10f" % (E_trans + E_rot + E_vib))
+            self.result_info.append("# Total enthalpy (kcal/mol): %.10f" % (E_trans + E_rot + E_vib + constants.R * T / 4184))
+            self.result_info.append("# Enthalpy H(%f K)-H(0 K) (kcal/mol): %.10f" % (T, conformer.get_enthalpy(T) / 4184))
+            self.result_info.append("# Total entropy (cal/mol/K): %.10f" % (S_trans + S_rot + S_vib))
             self.result_info.append("# Total Cv (cal/mol/K): %.10f" % (conformer.get_heat_capacity(T) / 4.184))
+        
+        
+        E0 = (self.conformer.E0.value_si - self.zpe_of_Hohf) * 0.001 / 4.184  + ZPE # in kcal/mol
+        E = E_trans + E_rot + E_int # in kcal/mol
+        S = S_trans + S_rot + S_int # in cal/mol/K
+        F = (E + constants.R * T / 4184 - ZPE) - T * S * 0.001 + E0 # in kcal/mol
+        Q = Q_trans * Q_rot * Q_int
+        Cv = Cv_trans + Cv_rot + Cv_int # in cal/mol/K
+        return  E0, E, S, F, Q, Cv
     
     def calcQMMMThermo(self, T, print_HOhf_result=True):
         P = self.P
         conformer = self.conformer
         logging.info("Calculate internal E, S")
-        E0 = 0
+        ZPE = 0
         E_int = 0
         S_int = 0
         # F_int = 0
@@ -107,7 +114,7 @@ class ThermoJob(Statmech):
         for mode in sorted(self.mode_dict.keys()):
             self.result_info.append("\n# \t********** Mode ",mode," **********\n\n")
             v, e0, E, S, F, Q, Cv = self.SolvEig(mode, T)
-            E0 += e0
+            ZPE += e0
             E_int += E
             S_int += S
             # F_int += F
@@ -117,7 +124,7 @@ class ThermoJob(Statmech):
         self.result_info.append("\n# \t********** Final results **********\n#\n")
         self.result_info.append("# Temperature (K): %.2f" % (T))
         self.result_info.append("# Pressure (Pa): %.0f" % (P))
-        self.result_info.append("# Zero point vibrational energy (kcal/mol): %.10f" % (E0))
+        self.result_info.append("# Zero point vibrational energy (kcal/mol): %.10f" % (ZPE))
         self.result_info.append("# Internal (rot+vib) energy (kcal/mol): %.10f" % (E_int))
         self.result_info.append("# Internal (tor+vib) entropy (cal/mol/K): %.10f" % (S_int))
         self.result_info.append("# Internal (tor+vib) Cv (cal/mol/K): %.10f" % (Cv_int))

@@ -13,19 +13,18 @@ import numpy as np
 from rmgpy.exceptions import InputError
 from rmgpy.kinetics.model import TunnelingModel
 from rmgpy.kinetics.tunneling import Wigner, Eckart
-from rmgpy.reaction import Reaction
-from rmgpy.species import Species, TransitionState
 from rmgpy.statmech.conformer import Conformer
 from rmgpy.statmech.rotation import LinearRotor, NonlinearRotor, KRotor, SphericalTopRotor
 from rmgpy.statmech.torsion import HinderedRotor, FreeRotor
 from rmgpy.statmech.translation import IdealGasTranslation
 from rmgpy.statmech.vibration import HarmonicOscillator
 
-from arkane.kinetics import KineticsJob
-
+from ape.species import Species, TransitionState
 from ape.sampling import SamplingJob
 from ape.qchem import QChemLog
 from ape.thermo import ThermoJob
+from ape.reaction import Reaction
+from ape.kinetics import KineticsJob
 
 ################################################################################
 
@@ -48,6 +47,7 @@ def species(label, *args, **kwargs):
     if len(args) == 1:
         # The argument is a path to a conformer input file
         path = os.path.join(directory, args[0])
+        spec.path = path
         job = SamplingJob(label=label, input_file=path, output_directory=output_directory)
         spec.conformer, unscaled_frequencies = QChemLog(path).load_conformer()
         logging.debug('Added species {0} to a sampling job.'.format(label))
@@ -60,18 +60,23 @@ def species(label, *args, **kwargs):
     if len(kwargs) > 0:
         # The species parameters are given explicitly
         protocol = 'UMVT'
+        E0 = None
         multiplicity = None
         charge = None
         for key, value in kwargs.items():
             if key == 'protocol':
                 protocol = value.upper()
+            elif key == 'E0':
+                E0 = value
             elif key == 'multiplicity':
                 multiplicity = value
             elif key == 'charge':
                 charge = value
             else:
                 raise TypeError('species() got an unexpected keyword argument {0!r}.'.format(key))
-               
+
+        spec.conformer.E0 = E0
+
         job.protocol = protocol
         job.multiplicity = multiplicity
         job.charge = charge
@@ -90,6 +95,7 @@ def transitionState(label, *args, **kwargs):
     if len(args) == 1:
         # The argument is a path to a conformer input file
         path = os.path.join(directory, args[0])
+        ts.path = path
         job = SamplingJob(label=label, input_file=path, output_directory=output_directory, is_ts=True)
         Log = QChemLog(path)
         ts.conformer, unscaled_frequencies = Log.load_conformer()
@@ -129,17 +135,21 @@ def transitionState(label, *args, **kwargs):
     if len(kwargs) > 0:
         # The species parameters are given explicitly
         protocol = 'UMVT'
+        E0 = None
         for key, value in kwargs.items():
             if key == 'protocol':
                 protocol = value.upper()
+            elif key == 'E0':
+                E0 = value
             else:
                 raise TypeError('species() got an unexpected keyword argument {0!r}.'.format(key))
                
         job.protocol = protocol
+        ts.conformer.E0 = E0
 
     return ts
 
-def reaction(label, reactants, products, transitionState=None, kinetics=None, tunneling=''):
+def reaction(label, reactants, products, transitionState=None, tunneling=''):
     """Load a reaction from an input file"""
     global reaction_dict, species_dict, transition_state_dict
     if label in reaction_dict:
@@ -160,8 +170,7 @@ def reaction(label, reactants, products, transitionState=None, kinetics=None, tu
 
     elif transitionState and not isinstance(tunneling, TunnelingModel):
         raise ValueError('Unknown tunneling model {0!r}.'.format(tunneling))
-    rxn = Reaction(label=label, reactants=reactants, products=products, transition_state=transitionState,
-                   kinetics=kinetics)
+    rxn = Reaction(label=label, reactants=reactants, products=products, transition_state=transitionState, output_directory=output_directory)
 
     if isinstance(rxn, Reaction):
         reaction_dict[label] = rxn
@@ -181,15 +190,14 @@ def thermo(label, Tlist=[298.15]):
     job = ThermoJob(label=label, input_file= input_file, output_directory=output_directory, Tlist=Tlist)
     job_list.append(job)
 
-def kinetics(label, Tmin=None, Tmax=None, Tlist=None, Tcount=0, sensitivity_conditions=None, three_params=True):
+def kinetics(label, Tmin=None, Tmax=None, Tlist=None, Tcount=0, three_params=True):
     """Generate a kinetics job"""
     global job_list, reaction_dict
     try:
         rxn = reaction_dict[label]
     except KeyError:
         raise ValueError('Unknown reaction label {0!r} for kinetics() job.'.format(label))
-    job = KineticsJob(reaction=rxn, Tmin=Tmin, Tmax=Tmax, Tcount=Tcount, Tlist=Tlist,
-                      sensitivity_conditions=sensitivity_conditions, three_params=three_params)
+    job = KineticsJob(reaction=rxn, Tmin=Tmin, Tmax=Tmax, Tcount=Tcount, Tlist=Tlist, three_params=three_params)
     job_list.append(job)
 
 

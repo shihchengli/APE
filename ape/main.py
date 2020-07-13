@@ -18,6 +18,7 @@ import time
 from ape.input import load_input_file
 from ape.sampling import SamplingJob
 from ape.thermo import ThermoJob
+from ape.kinetics import KineticsJob
 
 class APE(object):
     """
@@ -115,15 +116,15 @@ class APE(object):
         for job in self.job_list:
             if isinstance(job, SamplingJob):
                 job.ncpus = self.ncpus
-                job.execute()
+                #job.execute()
 
         # run thermo and kinetics jobs
         for job in self.job_list:
             if isinstance(job, ThermoJob):
                 job.load_save()
                 job.execute()
-            #if isinstance(job, KineticsJob):
-            #    job.execute(plot=self.plot)
+            if isinstance(job, KineticsJob):
+                job.execute(output_directory=self.output_directory, plot=self.plot)
 
         # Print some information to the end of the log
         log_footer()
