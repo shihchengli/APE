@@ -247,7 +247,7 @@ class SamplingJob(object):
                 os.remove(self.csv_path)
             self.write_samping_result_to_csv_file(self.csv_path, mode_dict, energy_dict)
 
-            path = os.path.join(self.output_directory, 'plot', self.label)
+            path = os.path.join(self.output_directory, 'sampling', self.label)
             if not os.path.exists(path):
                 os.makedirs(path)
             self.write_sampling_displaced_geometries(path, energy_dict, xyz_dict)

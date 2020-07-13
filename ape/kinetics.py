@@ -15,7 +15,8 @@ from rmgpy.kinetics.arrhenius import Arrhenius
 from rmgpy.kinetics.tunneling import Wigner, Eckart
 
 from arkane.output import prettify
-from arkane.kinetics import KineticsJob, KineticsDrawer
+from arkane.kinetics import KineticsJob as RMG_KineticsJob
+from arkane.kinetics import KineticsDrawer
 
 class KineticsJob(object):
     """
@@ -45,7 +46,7 @@ class KineticsJob(object):
             self.Tlist = (1 / np.linspace(1 / self.Tmax.value_si, 1 / self.Tmin.value_si, self.Tcount), 'K')
 
         self.reaction = reaction
-        self.rmg_reaction = reaction.rmg_Reaction
+        self.rmg_reaction = reaction.rmg_reaction
         self.k_units = None
 
     @property
@@ -80,7 +81,8 @@ class KineticsJob(object):
         Execute the kinetics job, saving the results within
         the `output_directory`.
 
-        If `plot` is True, then plot of the reaction will be saved.
+        If `plot` is True, then plots of the raw and fitted values for the kinetics
+        will be saved.
         """
         self.generate_kinetics()
         if output_directory is not None:
@@ -92,15 +94,23 @@ class KineticsJob(object):
         
             if plot:
                 try:
+                    self.plot(output_directory)
+                except Exception as e:
+                    logging.warning("Could not plot kinetics due to error: "
+                                    "{0} in reaction {1}".format(e, self.reaction.label))
+                try:
                     self.draw(output_directory)
                 except Exception as e:
                     logging.warning("Could not draw reaction {1} due to error: {0}".format(e, self.reaction.label))
-        logging.debug('Finished kinetics job for reaction {0}.'.format(self.reaction))
+        logging.debug('Finished kinetics job for reaction {0}.'.format(self.reaction.label))
 
         if print_HOhf_result:
-            RMG_KineticsJob = KineticsJob(self.rmg_reaction, Tlist=self.Tlist, three_params=self.three_params)
-            RMG_KineticsJob.generate_kinetics()
-            RMG_KineticsJob.execute(output_directory)
+            f = open(os.path.join(output_directory, 'output.py'), 'a')
+            f.write('\n#   By using harmonic approximation method\n')
+            f.close()
+            rmg_KineticsJob = RMG_KineticsJob(self.rmg_reaction, Tlist=self.Tlist, three_params=self.three_params)
+            rmg_KineticsJob.generate_kinetics()
+            rmg_KineticsJob.execute(output_directory, plot=False)
 
     def generate_kinetics(self):
         """
@@ -124,8 +134,8 @@ class KineticsJob(object):
                 # Frequency was given by the user
                 pass
             else:
-                raise ValueError('Unknown tunneling model {0!r} for reaction {1}.'.format(tunneling, self.rmg_reaction))
-        logging.debug('Generating {0} kinetics model for {1}...'.format(kinetics_class, self.rmg_reaction))
+                raise ValueError('Unknown tunneling model {0!r} for reaction {1}.'.format(tunneling, self.reaction.label))
+        logging.debug('Generating {0} kinetics model for {1}...'.format(kinetics_class, self.reaction.label))
         order = len(self.reaction.reactants)
         self.k_units = {1: 's^-1', 2: 'cm^3/(mol*s)', 3: 'cm^6/(mol^2*s)'}[order]
         self.K_eq_units = {2: 'mol^2/cm^6', 1: 'mol/cm^3', 0: '       ', -1: 'cm^3/mol', -2: 'cm^6/mol^2'}[
@@ -145,6 +155,7 @@ class KineticsJob(object):
         self.kappa_list = np.zeros_like(self.Tlist.value_si)
         self.Keq_list = np.zeros_like(self.Tlist.value_si)
         for i, T in enumerate(self.Tlist.value_si):
+            logging.info('Generate kinetics for {0} at {1} K...'.format(self.reaction.label, T))
             tunneling = self.reaction.transition_state.tunneling
             self.reaction.transition_state.tunneling = None
             k0 = self.reaction.calculate_tst_rate_coefficient(T) * factor
@@ -165,16 +176,16 @@ class KineticsJob(object):
         in `output_directory`.
         """
         reaction = self.reaction
-        rmg_reaction = self.rmg_reaction
 
         k0_revs, k_revs = [], []
         
-        logging.info('Saving kinetics for {0}...'.format(rmg_reaction))
+        logging.info('Saving kinetics for {0}...'.format(reaction.label))
 
         f = open(os.path.join(output_directory, 'output.py'), 'a')
 
         if self.usedTST:
             # If TST is not used, eg. it was given in 'reaction', then this will throw an error.
+            f.write('#   By using APE algorithm\n')
             f.write('#   ======= =========== =========== =========== ===============\n')
             f.write('#   Temp.   k (TST)     Tunneling   k (TST+T)   Units\n')
             f.write('#   ======= =========== =========== =========== ===============\n')
@@ -194,7 +205,7 @@ class KineticsJob(object):
             f.write('#   Temp.    Kc (eq)        Units     k_rev (TST) k_rev (TST+T)   Units\n')
             f.write('#   ======= ============ =========== ============ ============= =========\n')
 
-            for n, T in enumerate(t_list):
+            for i, T in enumerate(t_list):
                 k = self.k_list[i]
                 k0 = self.k0_list[i]
                 K_eq = self.Keq_list[i]
@@ -227,6 +238,49 @@ class KineticsJob(object):
         f.write('{0}\n\n'.format(prettify(rxn_str)))
 
         f.close()
+    
+    def plot(self, output_directory):
+        """
+        Plot both the raw kinetics data and the Arrhenius fit versus 
+        temperature. The plot is saved to the file ``kinetics.pdf`` in the
+        output directory. The plot is not generated if ``matplotlib`` is not
+        installed.
+        """
+        import matplotlib.pyplot as plt
+
+        f, ax = plt.subplots()
+        if self.Tlist is not None:
+            t_list = [t for t in self.Tlist.value_si]
+        else:
+            t_list = 1000.0 / np.arange(0.4, 3.35, 0.05)
+        klist = np.zeros_like(t_list)
+        klist2 = np.zeros_like(t_list)
+        for i in range(len(t_list)):
+            klist[i] = self.reaction.calculate_tst_rate_coefficient(t_list[i])
+            klist2[i] = self.reaction.kinetics.get_rate_coefficient(t_list[i])
+
+        order = len(self.reaction.reactants)
+        klist *= 1e6 ** (order - 1)
+        klist2 *= 1e6 ** (order - 1)
+        t_list = [1000.0 / t for t in t_list]
+        plt.semilogy(t_list, klist, 'ob', label='TST calculation')
+        plt.semilogy(t_list, klist2, '-k', label='Fitted rate')
+        plt.legend()
+        reaction_str = '{0} {1} {2}'.format(
+            ' + '.join([reactant.label for reactant in self.reaction.reactants]),
+            '<=>', ' + '.join([product.label for product in self.reaction.products]))
+        plt.title(reaction_str)
+        plt.xlabel('1000 / Temperature (K^-1)')
+        plt.ylabel('Rate coefficient ({0})'.format(self.k_units))
+
+        plot_path = os.path.join(output_directory, 'plots')
+
+        if not os.path.exists(plot_path):
+            os.mkdir(plot_path)
+        valid_chars = "-_.()<=> %s%s" % (string.ascii_letters, string.digits)
+        filename = ''.join(c for c in reaction_str if c in valid_chars) + '.pdf'
+        plt.savefig(os.path.join(plot_path, filename))
+        plt.close()
 
     def draw(self, output_directory, file_format='pdf'):
         """
@@ -248,12 +302,4 @@ class KineticsJob(object):
         filename = ''.join(c for c in reaction_str if c in valid_chars) + '.pdf'
         path = os.path.join(drawing_path, filename)
 
-        KineticsDrawer().draw(self.reaction, file_format=file_format, path=path)
-
-
-            
-
-
-
-
-
+        KineticsDrawer().draw(self.rmg_reaction, file_format=file_format, path=path)

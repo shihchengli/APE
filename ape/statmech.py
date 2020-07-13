@@ -31,7 +31,7 @@ class Statmech(object):
         self.csv_path = os.path.join(self.output_directory, '{}_samping_result.csv'.format(self.label))
         self.mode_dict, self.energy_dict, self.min_elect = from_sampling_result(self.csv_path)
         self.zpe_of_Hohf = self.sampling.zpe
-        e0 = self.min_elect + self.sampling.zpe
+        e0 = self.min_elect * constants.E_h * constants.Na + self.sampling.zpe
         self.conformer.E0 = (e0, "J/mol")
         self.symbols = self.sampling.symbols
 

@@ -2,6 +2,7 @@
 
 import logging
 import numpy as np
+import math
 
 import rmgpy.constants as constants
 from rmgpy.exceptions import ReactionError
@@ -21,13 +22,18 @@ class Reaction(object):
         self.thermo_dict = {}
     
     def rmg_Reaction(self):
+        specs = self.reactants + self.products + [self.transition_state]
+        for spec in specs:
+            thermo = ThermoJob(spec.label, spec.path, output_directory=self.output_directory)
+            thermo.load_save()
+            spec.conformer.E0 = thermo.conformer.E0
         rxn = rmg_Reaction(label=self.label, reactants=self.reactants, products=self.products, transition_state=self.transition_state)
         return rxn
     
     def calcThermo(self, T, P=101325):
         self.thermo_dict[T] = {}
         specs = self.reactants + self.products + [self.transition_state]
-        for spec in specs :
+        for spec in specs:
             logging.debug('    Calculating thermodynamics properties for {0} at {1} K'.format(spec.label, T))
             self.thermo_dict[T][spec.label] = {}
             thermo = ThermoJob(spec.label, spec.path, output_directory=self.output_directory, P=P)
@@ -63,8 +69,8 @@ class Reaction(object):
         for spec in self.reactants:
             Qreac *= self.thermo_dict[T][spec.label]['Q'] / (constants.R * T / P)
             E0 -= self.thermo_dict[T][spec.label]['E0'] * 4184
-        Qts = self.thermo_dict[T][transition_state.label]['Q'] / (constants.R * T / P)
-        E0 -= self.thermo_dict[T][transition_state.label]['E0'] * 4184
+        Qts = self.thermo_dict[T][self.transition_state.label]['Q'] / (constants.R * T / P)
+        E0 += self.thermo_dict[T][self.transition_state.label]['E0'] * 4184
         k = (constants.kB * T / constants.h * Qts / Qreac) * math.exp(-E0 / constants.R / T)
 
         # Apply tunneling correction
