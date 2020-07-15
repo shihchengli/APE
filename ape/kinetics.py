@@ -46,7 +46,6 @@ class KineticsJob(object):
             self.Tlist = (1 / np.linspace(1 / self.Tmax.value_si, 1 / self.Tmin.value_si, self.Tcount), 'K')
 
         self.reaction = reaction
-        self.rmg_reaction = reaction.rmg_reaction
         self.k_units = None
 
     @property
@@ -84,6 +83,7 @@ class KineticsJob(object):
         If `plot` is True, then plots of the raw and fitted values for the kinetics
         will be saved.
         """
+        self.rmg_reaction = self.reaction.rmg_Reaction()
         self.generate_kinetics()
         if output_directory is not None:
             try:
