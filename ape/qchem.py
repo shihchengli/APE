@@ -398,7 +398,7 @@ class QChemLog(ESSAdapter):
                     if len(line.split()) == 2:
                         spin_multiplicity = int(float(line.split()[1]))
                         self.charge = int(float(line.split()[0]))
-                        self.multiplicity = spin_multiplicity
+                        self.spin_multiplicity = spin_multiplicity
                         logging.debug(
                             'Conformer {0} is assigned a spin multiplicity of {1}'.format(label, spin_multiplicity))
                 # The rest of the data we want is in the Thermochemistry section of the output

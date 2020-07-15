@@ -33,6 +33,8 @@ class Statmech(object):
         self.zpe_of_Hohf = self.sampling.zpe
         e0 = self.min_elect * constants.E_h * constants.Na + self.sampling.zpe
         self.conformer.E0 = (e0, "J/mol")
+        self.spin_multiplicity = self.conformer.spin_multiplicity
+        self.optical_isomers =self.conformer.optical_isomers
         self.symbols = self.sampling.symbols
 
         # Solve SE of 1-D PES and calculate E S G Cp
