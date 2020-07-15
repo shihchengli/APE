@@ -18,7 +18,6 @@ class Reaction(object):
         self.transition_state = transition_state
         self.output_directory = output_directory
         self.kinetics = None
-        self.rmg_reaction = self.rmg_Reaction()
         self.thermo_dict = {}
     
     def rmg_Reaction(self):
