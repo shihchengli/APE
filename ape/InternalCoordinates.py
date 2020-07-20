@@ -805,28 +805,22 @@ class RedundantCoords:
 
             # This assumes the first cart_rms won't be > 9999 ;)
             if (cart_rms < last_rms):
-                if i != 0:
-                    internal_diffs = np.array(new_internals - prev_internals)
-                    bond_diffs = internal_diffs[:len(bond)]
-                    if any(bond_diff > 0.5 for bond_diff in bond_diffs):
-                        # Terminate sampling due to sampling failure.
-                        cur_cart_coords, new_internals = best_cycle
-                        break
                 # Store results of the conversion cycle for laster use, if
                 # the internal-cartesian-transformation goes bad.
                 best_cycle = (copy.deepcopy(cur_cart_coords), copy.deepcopy(new_internals.copy()))
                 best_cycle_ind = i
-                best_cart_rms = cart_rms
+                last_rms = cart_rms
                 ratio = 1
             elif i != 0:
                 cur_cart_coords, new_internals = best_cycle
-                cart_rms = best_cart_rms
                 remaining_int_step = target_internals - new_internals
                 # Reduce the moving step to avoid failing
                 ratio *= 2
                 remaining_int_step /= ratio
                 if ratio > 16:
                     break
+                else:
+                    continue
             else:
                 raise Exception("Internal-cartesian back-transformation already "
                                 "failed in the first step. Aborting!"
