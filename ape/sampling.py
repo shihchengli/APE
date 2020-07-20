@@ -136,9 +136,15 @@ class SamplingJob(object):
             self.n_vib = 3 * self.natom - (5 if self.linearity else 6) - self.n_rotors - (1 if self.is_ts else 0)
 
         # Create RedundantCoords object
-        self.internal = get_RedundantCoords(self.symbols, self.cart_coords, self.rotors_dict)
+        self.internal = get_RedundantCoords(self.symbols, self.cart_coords)
         if self.is_QM_MM_INTERFACE:
             self.internal.nHcap = self.nHcap
+        
+        # Create RedundantCoords object for torsional mode
+        if self.protocol == 'UMVT':
+            self.torsion_internal = get_RedundantCoords(self.symbols, self.cart_coords, self.rotors_dict)
+            if self.is_QM_MM_INTERFACE:
+                self.torsion_internal.nHcap = self.nHcap
         
         # Extract imaginary frequency from transition state
         if self.is_ts:
@@ -156,13 +162,13 @@ class SamplingJob(object):
             return rotors_dict
         species.determine_rotors()
         for i in species.rotors_dict:
-            rotors_dict[i+1] = {}
+            rotors_dict[i + 1] = {}
             pivots = species.rotors_dict[i]['pivots']
             top = species.rotors_dict[i]['top']
             scan = species.rotors_dict[i]['scan']
-            rotors_dict[i+1]['pivots'] = pivots 
-            rotors_dict[i+1]['top'] = top
-            rotors_dict[i+1]['scan'] = scan
+            rotors_dict[i + 1]['pivots'] = pivots 
+            rotors_dict[i + 1]['top'] = top
+            rotors_dict[i + 1]['scan'] = scan
         return rotors_dict
 
     def sampling(self, thresh=0.05, save_result=True, scan_res=10):
@@ -193,15 +199,15 @@ class SamplingJob(object):
             
             # Sample points along the 1-D PES of each torsion motion
             for i in range(self.n_rotors):
-                mode = i+1
+                mode = i + 1
                 target_rotor = rotors[i]
                 int_freq, reduced_mass = get_internal_rotation_freq(self.conformer, self.hessian, target_rotor, rotors, self.linearity, n_vib, is_QM_MM_INTERFACE=self.is_QM_MM_INTERFACE, get_reduced_mass=True)
                 if self.is_QM_MM_INTERFACE:
-                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, \
+                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.torsion_internal, self.conformer, \
                     int_freq, reduced_mass, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.level_of_theory, self.basis, self.unrestricted, \
                     self.is_QM_MM_INTERFACE, self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
                 else:
-                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.internal, self.conformer, \
+                    XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.torsion_internal, self.conformer, \
                     int_freq, reduced_mass, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.level_of_theory, self.basis, self.unrestricted)
                 xyz_dict[mode] = XyzDictOfEachMode
                 energy_dict[mode] = EnergyDictOfEachMode
