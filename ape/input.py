@@ -63,6 +63,7 @@ def species(label, *args, **kwargs):
         E0 = None
         multiplicity = None
         charge = None
+        rotors = None
         for key, value in kwargs.items():
             if key == 'protocol':
                 protocol = value.upper()
@@ -72,6 +73,8 @@ def species(label, *args, **kwargs):
                 multiplicity = value
             elif key == 'charge':
                 charge = value
+            elif key == 'rotors':
+                rotors = value
             else:
                 raise TypeError('species() got an unexpected keyword argument {0!r}.'.format(key))
 
@@ -80,6 +83,7 @@ def species(label, *args, **kwargs):
         job.protocol = protocol
         job.multiplicity = multiplicity
         job.charge = charge
+        job.rotors = rotors
     
     return spec
 
@@ -136,16 +140,20 @@ def transitionState(label, *args, **kwargs):
         # The species parameters are given explicitly
         protocol = 'UMVT'
         E0 = None
+        rotors = None
         for key, value in kwargs.items():
             if key == 'protocol':
                 protocol = value.upper()
             elif key == 'E0':
                 E0 = value
+            elif key == 'rotors':
+                rotors = value
             else:
                 raise TypeError('species() got an unexpected keyword argument {0!r}.'.format(key))
                
         job.protocol = protocol
         ts.conformer.E0 = E0
+        job.rotors = rotors
 
     return ts
 

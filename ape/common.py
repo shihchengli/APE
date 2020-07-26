@@ -314,13 +314,13 @@ def get_internal_rotation_freq(conformer, hessian, target_rotor, rotors, linear,
                 magnitude = np.linalg.norm(vector)
                 reduced_mass = magnitude ** -2 / 1.660538921e-27 # in amu
                 internal_rotation_freq = freqa
-                logging.info('The vibrational frequency of internal rotation whose scan is {scan} is {freq:.2f} cm^-1'.format(scan=target_rotor[1], freq=freqa))
+                logging.info('The vibrational frequency of internal rotation whose pivot is {pivot} is {freq:.2f} cm^-1'.format(pivot=target_rotor[0], freq=freqa))
                 break
             except ValueError:
                 pass
 
     if internal_rotation_freq is None:
-        raise ConvergeError('Can\'t find the frequency of the hindered rotor whose scan is {scan}'.format(scan=target_rotor[1]))
+        raise ConvergeError('Can\'t find the frequency of the hindered rotor whose pivot is {pivot}'.format(pivot=target_rotor[0]))
     
     if get_reduced_mass:
         return internal_rotation_freq, reduced_mass
@@ -401,8 +401,8 @@ def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conforme
     if fail_in_torsion_sampling is False:
         v_list = [i * (constants.E_h * constants.Na) for i in EnergyDictOfEachMode.values()] # in J/mol
         label = 'tors_{}'.format(mode)
-        symmetry_number = determine_rotor_symmetry(v_list, label, pivots)
-        #symmetry_number = 3
+        #symmetry_number = determine_rotor_symmetry(v_list, label, pivots)
+        symmetry_number = 3
         ModeDictOfEachMode['symmetry_number'] = symmetry_number
 
     return XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect
@@ -520,7 +520,7 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
 
 def get_electronic_energy(xyz, path, file_name, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, unrestricted=None, \
         is_QM_MM_INTERFACE=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None):
-    #file_name = 'output'
+    file_name = 'output'
     if is_QM_MM_INTERFACE:
         # Create geometry format of QM/MM system 
         # <Atom> <X> <Y> <Z> <MM atom type> <Bond 1> <Bond 2> <Bond 3> <Bond 4>
@@ -545,10 +545,10 @@ def get_electronic_energy(xyz, path, file_name, ncpus, charge=None, multiplicity
             level_of_theory=level_of_theory, basis=basis, unrestricted=unrestricted)
     
     # Write Q-Chem input file
-    job.write_input_file()
+    #job.write_input_file()
 
     # Job submission
-    job.submit()
+    #job.submit()
 
     # Parse output file to get the calculated electronic energy
     output_file_path = os.path.join(path, '{}.q.out'.format(file_name))

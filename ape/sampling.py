@@ -25,7 +25,7 @@ class SamplingJob(object):
     """
 
     def __init__(self, label=None, input_file=None, output_directory=None, protocol=None, spin_multiplicity=None, 
-                optical_isomers=None, charge = None, level_of_theory=None, basis=None, ncpus=None, is_ts=None):
+                optical_isomers=None, charge = None, level_of_theory=None, basis=None, ncpus=None, is_ts=None, rotors=None):
         self.input_file = input_file
         self.label = label
         self.output_directory = output_directory
@@ -37,6 +37,7 @@ class SamplingJob(object):
         self.basis = basis
         self.ncpus = ncpus
         self.is_ts = is_ts
+        self.rotors = rotors
 
     def parse(self):
         """
@@ -121,7 +122,12 @@ class SamplingJob(object):
 
         # Determine hindered rotors information
         if self.protocol == 'UMVT':
-            self.rotors_dict = self.get_rotors_dict()
+            if self.rotors is not None:
+                self.rotors_dict = self.rotors
+            else:
+                self.rotors_dict = self.get_rotors_dict()
+            if self.rotors_dict == {}:
+                logging.info('No internal rotations are found for {label}'.format(label=self.label))
             self.n_rotors = len(self.rotors_dict)
         else:
             self.rotors_dict = []
