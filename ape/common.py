@@ -283,14 +283,10 @@ def diagonalize_projected_hessian(conformer, hessian, linear, n_vib, rotors=[], 
     unweighted_v = np.matmul(inv_sq_mass_mat, v).T[-n_vib:]
     return vib_freq, unweighted_v
 
-def get_internal_rotation_freq(conformer, hessian, target_rotor, rotors, linear, n_vib, is_QM_MM_INTERFACE=False, get_reduced_mass=False):
+def get_internal_rotation_freq(conformer, hessian, target_rotor, rotors, linear, n_vib, is_QM_MM_INTERFACE=False, get_reduced_mass=False, label=None):
     # If is QM/MM sysyem, delete six normal modes related to frustrated motion
     if is_QM_MM_INTERFACE:
         n_vib -= 6
-    
-    # Calculate eigenvalues and directional vectors of vibrational normal modes
-    # Only keep the modes that don't correspond to translation, rotation, or internal rotation
-    projected_vib_freq, projected_v = diagonalize_projected_hessian(conformer, hessian, linear, n_vib, rotors)
 
     # Create a list of rotors, which exclude the target rotor
     no_tar_rotors = list()
@@ -299,29 +295,23 @@ def get_internal_rotation_freq(conformer, hessian, target_rotor, rotors, linear,
             no_tar_rotors.append(rotor)
     
     # Calculate eigenvalues and directional vectors of normal modes which include one internal rotation
-    vib_freq, v = diagonalize_projected_hessian(conformer, hessian, linear, n_vib+1, no_tar_rotors)
+    vib_freq, v = diagonalize_projected_hessian(conformer, hessian, linear, n_vib+1, no_tar_rotors, label=label)
 
-    # Compare this two lists to get the vibrational frequency and directional vector of this internal rotation
-    internal_rotation_freq = None
-    for i, freqa in enumerate(vib_freq):
-        match_freq = 0
-        for freqb in projected_vib_freq[i:]:
-            if math.isclose(freqa, freqb, abs_tol=5) is True:
-                match_freq += 1
-        if match_freq == 0:
-            try:
-                vector = v[i]
-                magnitude = np.linalg.norm(vector)
-                reduced_mass = magnitude ** -2 / 1.660538921e-27 # in amu
-                internal_rotation_freq = freqa
-                logging.info('The vibrational frequency of internal rotation whose pivot is {pivot} is {freq:.2f} cm^-1'.format(pivot=target_rotor[0], freq=freqa))
-                break
-            except ValueError:
-                pass
+    # Determine the projected frequency of the targeted internal rotation
+    internal_rotation_freq = diagonalize_projected_hessian(conformer, hessian, linear, n_vib, [target_rotor], get_projected_out_freqs=True, label=label)[0]
+    logging.info('The vibrational frequency of internal rotation whose pivot is {pivot} is {freq:.2f} cm^-1'.format(pivot=target_rotor[0], freq=internal_rotation_freq))
 
-    if internal_rotation_freq is None:
-        raise ConvergeError('Can\'t find the frequency of the hindered rotor whose pivot is {pivot}'.format(pivot=target_rotor[0]))
-    
+
+    # Determine the reduced mass
+    nfreq = min(vib_freq, key=lambda x:abs(x-internal_rotation_freq))
+    ind = vib_freq.tolist().index(nfreq)
+    vector = v[ind]
+    magnitude = np.linalg.norm(vector)
+    reduced_mass = magnitude ** -2 / 1.660538921e-27 # in amu
+    if abs(internal_rotation_freq - nfreq) > 100:
+        logging.warning('The definition of internal rotation in species {label} whose pivot is {pivot} might be wrong! If the algorithm for this torsion switches to UMN due to over cutoff energy, \
+please eliminate this torsion or just switch the algorithm from UMVT to UMN'.format(label=label, pivot=target_rotor[0]))
+
     if get_reduced_mass:
         return internal_rotation_freq, reduced_mass
 

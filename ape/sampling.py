@@ -207,7 +207,7 @@ class SamplingJob(object):
             for i in range(self.n_rotors):
                 mode = i + 1
                 target_rotor = rotors[i]
-                int_freq, reduced_mass = get_internal_rotation_freq(self.conformer, self.hessian, target_rotor, rotors, self.linearity, n_vib, is_QM_MM_INTERFACE=self.is_QM_MM_INTERFACE, get_reduced_mass=True)
+                int_freq, reduced_mass = get_internal_rotation_freq(self.conformer, self.hessian, target_rotor, rotors, self.linearity, n_vib, is_QM_MM_INTERFACE=self.is_QM_MM_INTERFACE, get_reduced_mass=True, label=self.label)
                 if self.is_QM_MM_INTERFACE:
                     XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.torsion_internal, self.conformer, \
                     int_freq, reduced_mass, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.level_of_theory, self.basis, self.unrestricted, \
