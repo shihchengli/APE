@@ -9,8 +9,6 @@ transitionState('TS', './TS.q.out', protocol='UMVT',
               2: {'pivots': [1, 5], 'top': [1, 2, 3, 4], 'scan': [2, 1, 5, 6]},
               3: {'pivots': [5, 6], 'top': [6, 9], 'scan': [1, 5, 6 ,9]}},
 )
-
-species('C2H5OH', './C2H5OH.q.out', protocol='UMVT')
 species('C2H4', './C2H4.q.out', protocol='UMVT')
 species('H2O', './H2O.q.out', protocol='UMVT')
 
