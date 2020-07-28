@@ -2,6 +2,10 @@
 
 title = 'Example calculation of propane thermodynamics with UMN sampling scheme'
 
+level_of_theory = 'omegaB97X-D'
+basis = '6-311+G(2df,2pd)'
+thresh = 0.05
+
 species('propane', 'propane.q.out',
         protocol='UMN')
 

@@ -25,7 +25,8 @@ class SamplingJob(object):
     """
 
     def __init__(self, label=None, input_file=None, output_directory=None, protocol=None, spin_multiplicity=None, 
-                optical_isomers=None, charge = None, level_of_theory=None, basis=None, ncpus=None, is_ts=None, rotors=None):
+                optical_isomers=None, charge = None, level_of_theory=None, basis=None, ncpus=None, is_ts=None, 
+                rotors=None, thresh=0.01):
         self.input_file = input_file
         self.label = label
         self.output_directory = output_directory
@@ -38,6 +39,7 @@ class SamplingJob(object):
         self.ncpus = ncpus
         self.is_ts = is_ts
         self.rotors = rotors
+        self.thresh = thresh
 
     def parse(self):
         """
@@ -177,13 +179,12 @@ class SamplingJob(object):
             rotors_dict[i + 1]['scan'] = scan
         return rotors_dict
 
-    def sampling(self, thresh=0.05, save_result=True, scan_res=10):
+    def sampling(self, thresh=0.01, save_result=True, scan_res=10):
         """
         Sample 1-D PES of each mode.
         The sampling of UM-N was carried out symmetrically for each mode to the classical turning points or
-        the energy rises more than 0.05 hartree (i.e., about 130 kJ/mol) compared with the reference stationary point. 
-        The sampling of UM-VT was terminated either when the torsional angle has been displaced by 2π or the energy 
-        rises more than 0.05 hartree.
+        the energy rises more than 0.01 hartree (i.e., about 26 kJ/mol) compared with the reference stationary point. 
+        The sampling of UM-VT was terminated when the torsional angle has been displaced by 2π.
         The energy cutoff energy could be changed by defining the value of thresh.
         The dictionary of sampling geometries, calculated energies and mode information will be returned.
         """
@@ -207,14 +208,14 @@ class SamplingJob(object):
             for i in range(self.n_rotors):
                 mode = i + 1
                 target_rotor = rotors[i]
-                int_freq, reduced_mass = get_internal_rotation_freq(self.conformer, self.hessian, target_rotor, rotors, self.linearity, n_vib, is_QM_MM_INTERFACE=self.is_QM_MM_INTERFACE, get_reduced_mass=True, label=self.label)
+                int_freq = get_internal_rotation_freq(self.conformer, self.hessian, target_rotor, rotors, self.linearity, n_vib, is_QM_MM_INTERFACE=self.is_QM_MM_INTERFACE, label=self.label)
                 if self.is_QM_MM_INTERFACE:
                     XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.torsion_internal, self.conformer, \
-                    int_freq, reduced_mass, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.level_of_theory, self.basis, self.unrestricted, \
+                    int_freq, self.rotors_dict, scan_res, path, self.ncpus, self.charge, self.spin_multiplicity, self.level_of_theory, self.basis, self.unrestricted, \
                     self.is_QM_MM_INTERFACE, self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
                 else:
                     XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.torsion_internal, self.conformer, \
-                    int_freq, reduced_mass, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.level_of_theory, self.basis, self.unrestricted)
+                    int_freq, self.rotors_dict, scan_res, path, self.ncpus, self.charge, self.spin_multiplicity, self.level_of_theory, self.basis, self.unrestricted)
                 xyz_dict[mode] = XyzDictOfEachMode
                 energy_dict[mode] = EnergyDictOfEachMode
                 mode_dict[mode] = ModeDictOfEachMode
@@ -320,7 +321,7 @@ class SamplingJob(object):
         if os.path.exists(self.csv_path):
             os.remove(self.csv_path)
         self.parse()
-        self.sampling()
+        self.sampling(thresh=self.thresh)
 
 # creat a format can be read by VMD software
 record_script ='''{natom}

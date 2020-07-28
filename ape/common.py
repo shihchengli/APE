@@ -283,42 +283,14 @@ def diagonalize_projected_hessian(conformer, hessian, linear, n_vib, rotors=[], 
     unweighted_v = np.matmul(inv_sq_mass_mat, v).T[-n_vib:]
     return vib_freq, unweighted_v
 
-def get_internal_rotation_freq(conformer, hessian, target_rotor, rotors, linear, n_vib, is_QM_MM_INTERFACE=False, get_reduced_mass=False, label=None):
-    # If is QM/MM sysyem, delete six normal modes related to frustrated motion
-    if is_QM_MM_INTERFACE:
-        n_vib -= 6
-
-    # Create a list of rotors, which exclude the target rotor
-    no_tar_rotors = list()
-    for rotor in rotors:
-        if rotor != target_rotor:
-            no_tar_rotors.append(rotor)
-    
-    # Calculate eigenvalues and directional vectors of normal modes which include one internal rotation
-    vib_freq, v = diagonalize_projected_hessian(conformer, hessian, linear, n_vib+1, no_tar_rotors, label=label)
-
+def get_internal_rotation_freq(conformer, hessian, target_rotor, rotors, linear, n_vib, is_QM_MM_INTERFACE=False, label=None):
     # Determine the projected frequency of the targeted internal rotation
     internal_rotation_freq = diagonalize_projected_hessian(conformer, hessian, linear, n_vib, [target_rotor], get_projected_out_freqs=True, label=label)[0]
     logging.info('The vibrational frequency of internal rotation whose pivot is {pivot} is {freq:.2f} cm^-1'.format(pivot=target_rotor[0], freq=internal_rotation_freq))
-
-
-    # Determine the reduced mass
-    nfreq = min(vib_freq, key=lambda x:abs(x-internal_rotation_freq))
-    ind = vib_freq.tolist().index(nfreq)
-    vector = v[ind]
-    magnitude = np.linalg.norm(vector)
-    reduced_mass = magnitude ** -2 / 1.660538921e-27 # in amu
-    if abs(internal_rotation_freq - nfreq) > 100:
-        logging.warning('The definition of internal rotation in species {label} whose pivot is {pivot} might be wrong! If the algorithm for this torsion switches to UMN due to over cutoff energy, \
-please eliminate this torsion or just switch the algorithm from UMVT to UMN'.format(label=label, pivot=target_rotor[0]))
-
-    if get_reduced_mass:
-        return internal_rotation_freq, reduced_mass
-
     return internal_rotation_freq
 
-def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conformer, int_freq, reduced_mass, rotors_dict, scan_res, \
-        path, thresh, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, unrestricted=None, \
+def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conformer, int_freq, rotors_dict, scan_res, \
+        path, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, unrestricted=None, \
         is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, \
         fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None):
     XyzDictOfEachMode = {}
@@ -372,17 +344,6 @@ def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conforme
             EnergyDictOfEachMode[sample] = 0
             min_elect = e_elec
         else: EnergyDictOfEachMode[sample] = e_elec - min_elect
-
-        # Check if this mode is a high-barrier hindered rotation
-        if e_elec - min_elect > thresh:
-            # Treat this mode as a vibrational normal mode
-            fail_in_torsion_sampling = True
-            logging.info('Since the torsional barrier of mode {} is higher than {} hartree. \
-                This mode will use harmonic basis to construct its hamiltonian matrix.'.format(mode, thresh))
-            step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (int_freq * 2 * np.pi * constants.c * 100)) * 10 ** 10 # in angstrom
-            XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(symbols, initial_geometry, mode, internal, qk, \
-                int_freq, reduced_mass, step_size, path, thresh, ncpus, charge, multiplicity, level_of_theory, basis, unrestricted)
-            break
         
         # Update cartesian coordinate of each sampling point
         cart_coords += internal.transform_int_step((qk * step_size).reshape(-1,))

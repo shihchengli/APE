@@ -257,6 +257,13 @@ def load_input_file(path, output_path=None):
     
     level_of_theory = local_context.get('level_of_theory', None)
     basis = local_context.get('basis', None)
+    thresh = local_context.get('thresh', 0.01)
+    
+    for job in job_list:
+        if isinstance(job, SamplingJob):
+            job.level_of_theory = level_of_theory
+            job.basis = basis
+            job.thresh = thresh
 
     return job_list, reaction_dict, species_dict, transition_state_dict
 
