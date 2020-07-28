@@ -4,7 +4,7 @@
 
 **Automated Property Estimator (APE)** software is a tool to automatically calculate the thermodynamic properties with considering anharmonic effect. All calculations were done using a development version of the [QChem](http://www.q-chem.com/) software package.
 
-Currently, APE can only estimate the thermodynamic property of a given molecule.
+Currently, APE can estimate the thermodynamic property of a given molecule and the kinetics properties of a given elementary reaction in gas-phase.
 
 **This software is still work in progress to develop more functions.**
 
@@ -61,15 +61,15 @@ Add APE to your local path in .bashrc (make sure to change ~/Path/to/APE/ accord
 To run APE, make sure to first activate the APE environment.
 
 - Basic run
-
-  `python <path_to_the_APE_folder>/APE.py freq_output.q.out -n <ncpus> -p <UMN or UMVT (default)> -parallel <1 or 0 (default)> > thermo_result`
+  
+  `python <path_to_the_APE_folder>/APE.py -n <ncpus> input.py`
 
 - Using the API
   ```markdown
 
   from ape.main import APE
   
-  ape = APE(input_file, name=None, project_directory=None, protocol=None, multiplicity=None, charge = None, external_symmetry=None, level_of_theory=None, basis=None, ncpus=None, imaginary_bonds=None)
+  ape = APE(input_file, project_directory=None)
   
   ape.execute()
   ```
