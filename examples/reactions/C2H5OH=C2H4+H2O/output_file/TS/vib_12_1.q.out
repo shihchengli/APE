@@ -1,0 +1,313 @@
+                  Welcome to Q-Chem
+     A Quantum Leap Into The Future Of Chemistry
+
+
+ Q-Chem 5.3 (devel), Q-Chem, Inc., Pleasanton, CA (2020)
+
+ Yihan Shao,  Zhengting Gan,  E. Epifanovsky,  A. T. B. Gilbert,  M. Wormit,  
+ J. Kussmann,  A. W. Lange,  A. Behn,  Jia Deng,  Xintian Feng,  D. Ghosh,  
+ M. Goldey,  P. R. Horn,  L. D. Jacobson,  I. Kaliman,  T. Kus,  A. Landau,  
+ Jie Liu,  E. I. Proynov,  R. M. Richard,  R. P. Steele,  E. J. Sundstrom,  
+ H. L. Woodcock III,  P. M. Zimmerman,  D. Zuev,  B. Alam,  B. Albrecht,  
+ E. Alguire,  S. A. Baeppler,  D. Barton,  Z. Benda,  Y. A. Bernard,  
+ E. J. Berquist,  K. B. Bravaya,  H. Burton,  K. Carter-Fenk,  D. Casanova,  
+ Chun-Min Chang,  Yunqing Chen,  A. Chien,  K. D. Closser,  M. P. Coons,  
+ S. Coriani,  S. Dasgupta,  A. L. Dempwolff,  M. Diedenhofen,  Hainam Do,  
+ R. G. Edgar,  Po-Tung Fang,  S. Faraji,  S. Fatehi,  Qingguo Feng,  
+ J. Fosso-Tande,  J. Gayvert,  Qinghui Ge,  A. Ghysels,  G. Gidofalvi,  
+ J. Gomes,  J. Gonthier,  A. Gunina,  D. Hait,  M. W. D. Hanson-Heine,  
+ P. H. P. Harbach,  A. W. Hauser,  M. F. Herbst,  J. E. Herr,  
+ E. G. Hohenstein,  Z. C. Holden,  Kerwin Hui,  B. C. Huynh,  T.-C. Jagau,  
+ Hyunjun Ji,  B. Kaduk,  K. Khistyaev,  Jaehoon Kim,  P. Klunzinger,  K. Koh,  
+ D. Kosenkov,  L. Koulias,  T. Kowalczyk,  C. M. Krauter,  A. Kunitsa,  
+ Ka Un Lao,  A. Laurent,  K. V. Lawler,  Joonho Lee,  D. Lefrancois,  
+ S. Lehtola,  D. S. Levine,  Yi-Pei Li,  You-Sheng Lin,  Fenglai Liu,  
+ Kuan-Yu Liu,  E. Livshits,  M. Loipersberger,  A. Luenser,  P. Manohar,  
+ E. Mansoor,  S. F. Manzer,  Shan-Ping Mao,  Yuezhi Mao,  N. Mardirossian,  
+ A. V. Marenich,  T. Markovich,  L. A. Martinez-Martinez,  S. A. Maurer,  
+ N. J. Mayhall,  S. C. McKenzie,  J.-M. Mewes,  P. Morgante,  A. F. Morrison,  
+ J. W. Mullinax,  K. Nanda,  T. S. Nguyen-Beck,  R. Olivares-Amaya,  
+ K. J. Oosterbaan,  J. A. Parkhill,  S. K. Paul,  F. Pavosevic,  Zheng Pei,  
+ T. M. Perrine,  F. Plasser,  P. Pokhilko,  S. Prager,  A. Prociuk,  
+ E. Ramos,  B. Rana,  D. R. Rehn,  F. Rob,  M. Scheurer,  M. Schneider,  
+ N. Sergueev,  S. M. Sharada,  S. Sharma,  D. W. Small,  T. Stauch,  
+ C. J. Stein,  T. Stein,  Yu-Chuan Su,  S. P. Veccham,  Zhen Tao,  
+ A. J. W. Thom,  A. Tkatchenko,  T. Tsuchimochi,  N. M. Tubman,  L. Vogt,  
+ M. L. Vidal,  O. Vydrov,  M. A. Watson,  J. Wenzel,  M. de Wergifosse,  
+ T. A. Wesolowski,  A. White,  J. Witte,  A. Yamada,  Jun Yang,  K. Yao,  
+ S. Yeganeh,  S. R. Yost,  Zhi-Qiang You,  A. Zech,  Igor Ying Zhang,  
+ Xing Zhang,  Yan Zhao,  Ying Zhu,  B. R. Brooks,  G. K. L. Chan,  
+ C. J. Cramer,  M. S. Gordon,  W. J. Hehre,  A. Klamt,  M. W. Schmidt,  
+ C. D. Sherrill,  D. G. Truhlar,  A. Aspuru-Guzik,  R. Baer,  A. T. Bell,  
+ N. A. Besley,  Jeng-Da Chai,  A. E. DePrince, III,  R. A. DiStasio Jr.,  
+ A. Dreuw,  B. D. Dunietz,  T. R. Furlani,  Chao-Ping Hsu,  Yousung Jung,  
+ Jing Kong,  D. S. Lambrecht,  WanZhen Liang,  C. Ochsenfeld,  
+ V. A. Rassolov,  L. V. Slipchenko,  J. E. Subotnik,  T. Van Voorhis,  
+ J. M. Herbert,  A. I. Krylov,  P. M. W. Gill,  M. Head-Gordon
+
+ Contributors to earlier versions of Q-Chem not listed above: 
+ R. D. Adamson,  B. Austin,  J. Baker,  G. J. O. Beran,  K. Brandhorst,  
+ S. T. Brown,  E. F. C. Byrd,  A. K. Chakraborty,  C.-L. Cheng,  
+ Siu Hung Chien,  D. M. Chipman,  D. L. Crittenden,  H. Dachsel,  
+ R. J. Doerksen,  A. D. Dutoi,  L. Fusti-Molnar,  W. A. Goddard III,  
+ A. Golubeva-Zadorozhnaya,  S. R. Gwaltney,  G. Hawkins,  A. Heyden,  
+ S. Hirata,  G. Kedziora,  F. J. Keil,  C. Kelley,  Jihan Kim,  R. A. King,  
+ R. Z. Khaliullin,  P. P. Korambath,  W. Kurlancheek,  A. M. Lee,  M. S. Lee,  
+ S. V. Levchenko,  Ching Yeh Lin,  D. Liotard,  R. C. Lochan,  I. Lotan,  
+ P. E. Maslen,  N. Nair,  D. P. O'Neill,  D. Neuhauser,  E. Neuscamman,  
+ C. M. Oana,  R. Olson,  B. Peters,  R. Peverati,  P. A. Pieniazek,  
+ Y. M. Rhee,  J. Ritchie,  M. A. Rohrdanz,  E. Rosta,  N. J. Russ,  
+ H. F. Schaefer III,  N. E. Schultz,  N. Shenvi,  A. C. Simmonett,  A. Sodt,  
+ D. Stuck,  K. S. Thanthiriwatte,  V. Vanovschi,  Tao Wang,  A. Warshel,  
+ C. F. Williams,  Q. Wu,  X. Xu,  W. Zhang
+
+ Please cite Q-Chem as follows:
+ Y. Shao et al., Mol. Phys. 113, 184-215 (2015)
+ DOI: 10.1080/00268976.2014.952696
+
+ Q-Chem 5.3.0 for Intel X86 EM64T Linux
+
+ Parts of Q-Chem use Armadillo 9.800.1 (Horizon Scraper).
+ http://arma.sourceforge.net/
+
+ Q-Chem begins on Wed Jul 29 00:39:31 2020  
+
+Host: centos77-c1
+0
+
+     Scratch files written to /tmp/30084.centos77-h1/qchem30117//
+Processing $rem in /opt/qchem-5.3.0-intel2020u1//config/preferences:
+Processing $rem in /home/shihchengli/.qchemrc:
+
+Checking the input file for inconsistencies... 	...done.
+
+--------------------------------------------------------------
+User input:
+--------------------------------------------------------------
+$rem
+   JOBTYPE  sp
+   EXCHANGE   omegaB97X-D
+   BASIS   6-311+G(2df,2pd)
+   UNRESTRICTED   False
+   max_scf_cycles   250
+   geom_opt_max_cycles   1500
+   basis2 6-31G*
+   scf_algorithm rca_diis
+   SYM_IGNORE  TRUE
+   print_input   true
+   geom_opt_dmax   80
+   pop_mulliken false
+   XC_GRID 000075000302
+$end
+
+$molecule
+0 1
+C       -5.5404951503     0.5332434778     -0.0623580212
+C       -4.4003152926     1.3517744915     0.0843763933
+H       -5.8645288011     0.2442863761     -1.0540975657
+H       -6.3110607658     0.6428507979     0.6880882830
+H       -4.4517397532     -0.3066282271     0.2221829672
+O       -3.3028955432     -0.0469951936     0.6265740045
+H       -4.2278937594     1.9433495739     0.9719180110
+H       -3.8914465435     1.7074686340     -0.8032575815
+H       -2.6903567882     -0.2062126733     -0.1005363272
+$end
+--------------------------------------------------------------
+ ----------------------------------------------------------------
+             Standard Nuclear Orientation (Angstroms)
+    I     Atom           X                Y                Z
+ ----------------------------------------------------------------
+    1      C      -5.5404951503     0.5332434778    -0.0623580212
+    2      C      -4.4003152926     1.3517744915     0.0843763933
+    3      H      -5.8645288011     0.2442863761    -1.0540975657
+    4      H      -6.3110607658     0.6428507979     0.6880882830
+    5      H      -4.4517397532    -0.3066282271     0.2221829672
+    6      O      -3.3028955432    -0.0469951936     0.6265740045
+    7      H      -4.2278937594     1.9433495739     0.9719180110
+    8      H      -3.8914465435     1.7074686340    -0.8032575815
+    9      H      -2.6903567882    -0.2062126733    -0.1005363272
+ ----------------------------------------------------------------
+ Nuclear Repulsion Energy =          79.50471644 hartrees
+ There are       13 alpha and       13 beta electrons
+ Requested basis set is 6-311+G(2df,2pd)
+ There are 60 shells and 186 basis functions
+
+ Total QAlloc Memory Limit   2000 MB
+ Mega-Array Size       188 MB
+ MEM_STATIC part       192 MB
+
+                       Distance Matrix (Angstroms)
+             C (  1)   C (  2)   H (  3)   H (  4)   H (  5)   O (  6)
+   C (  2)  1.411217
+   H (  3)  1.082609  2.160225
+   H (  4)  1.081182  2.125556  1.842134
+   H (  5)  1.404185  1.664913  1.982012  2.139078
+   O (  6)  2.412085  1.858727  3.077575  3.086864  1.245305
+   H (  7)  2.186561  1.080472  3.109683  2.472133  2.382144  2.221791
+   H (  8)  2.155713  1.083217  2.469185  3.035137  2.328528  2.338579
+   H (  9)  2.944748  2.320663  3.344786  3.801623  1.793516  0.963973
+             H (  7)   H (  8)
+   H (  8)  1.822110
+   H (  9)  2.852156  2.366138
+ 
+ A cutoff of  1.0D-09 yielded   1777 shell pairs
+ There are     17250 function pairs (     21429 Cartesian)
+ Smallest overlap matrix eigenvalue = 9.33E-05
+
+ Scale SEOQF with 1.000000e-02/1.000000e-01/1.000000e-01
+
+ Standard Electronic Orientation quadrupole field applied
+ Nucleus-field energy     =     0.0000000026 hartrees
+ Requested basis set is 6-31G(d)
+ There are 24 shells and 54 basis functions
+ A cutoff of  1.0D-09 yielded    298 shell pairs
+ There are      1549 function pairs (      1732 Cartesian)
+ Smallest overlap matrix eigenvalue = 6.75E-03
+ Guess from superposition of atomic densities
+ Warning:  Energy on first SCF cycle will be non-variational
+ SAD guess density has 26.000000 electrons
+ Long-range K will be added via erf
+ Coulomb attenuation parameter = 0.2 bohr**(-1)
+ A restricted hybrid HF-DFT SCF calculation will be
+ performed using Relaxed Constraint Minimization + Pulay DIIS
+ Exchange:     0.2220 Hartree-Fock + 1.0000 wB97X-D + LR-HF
+ Correlation:  1.0000 wB97X-D
+ Using Euler-Maclaurin-Lebedev (75,302) quadrature formula
+ Dispersion:   Grimme D
+ SCF converges when DIIS error is below 1.0E-04
+ using 6 threads for integral computing
+ -------------------------------------------------------
+ OpenMP Integral computing Module                
+ Release: version 1.0, May 2013, Q-Chem Inc. Pittsburgh 
+ -------------------------------------------------------
+ using 6 threads for integral computing
+ -------------------------------------------------------
+ OpenMP Integral computing Module                
+ Release: version 1.0, May 2013, Q-Chem Inc. Pittsburgh 
+ -------------------------------------------------------
+ ---------------------------------------
+  Cycle       Energy         DIIS Error
+ ---------------------------------------
+    1    -155.2761979941      9.99E-02
+    2    -154.7806130184      1.58E-02
+    3    -154.8150897645      3.38E-03
+    4    -154.8566837797      2.49E-03
+    5    -154.8576673669      5.37E-04 Done RCA. Switching to DIIS
+    6    -154.8588927867      3.48E-04
+    7    -154.8589350222      4.22E-05 Convergence criterion met
+ ---------------------------------------
+ SCF time:  CPU 19.87 s  wall 3.33 s
+ SCF   energy in the small basis set = -154.85893502
+ Total energy in the small basis set = -154.85893502
+ ----------------------------------------------------
+  Cycle       Energy    
+ ----------------------------------------------------
+    1     -18.6756817822     -1.87E+01
+ Long-range K will be added via erf
+ Coulomb attenuation parameter = 0.2 bohr**(-1)
+ A restricted hybrid HF-DFT SCF calculation will be
+ performed using Relaxed Constraint Minimization + Pulay DIIS
+ Exchange:     0.2220 Hartree-Fock + 1.0000 wB97X-D + LR-HF
+ Correlation:  1.0000 wB97X-D
+ Using Euler-Maclaurin-Lebedev (75,302) quadrature formula
+ Dispersion:   Grimme D
+ SCF converges when DIIS error is below 1.0E-05
+ Basis2 calculation detected. Using small basis as guess for larger.
+ SCFMinFind is unable to tell whether the solution found is close.
+ Resetting ReadMinima to 0 and attempting to follow guess.
+ SCFMinFind following SCF Guess.
+ using 6 threads for integral computing
+ -------------------------------------------------------
+ OpenMP Integral computing Module                
+ Release: version 1.0, May 2013, Q-Chem Inc. Pittsburgh 
+ -------------------------------------------------------
+ using 6 threads for integral computing
+ -------------------------------------------------------
+ OpenMP Integral computing Module                
+ Release: version 1.0, May 2013, Q-Chem Inc. Pittsburgh 
+ -------------------------------------------------------
+ ---------------------------------------
+  Cycle       Energy         DIIS Error
+ ---------------------------------------
+    1    -154.8844742057      5.98E-03
+    2    -154.8795832371      4.43E-03
+    3    -154.9009266013      1.04E-03
+    4    -154.9303920408      1.15E-03
+    5    -154.9320355386      1.93E-04 Done RCA. Switching to DIIS
+    6    -154.9341306969      2.35E-04
+    7    -154.9342927602      7.57E-06 Convergence criterion met
+ ---------------------------------------
+ SCF time:  CPU 63.13 s  wall 10.56 s
+ SCF   energy in the final basis set = -154.93429276
+ Total energy in the final basis set = -154.93429276
+ 
+ --------------------------------------------------------------
+ 
+                    Orbital Energies (a.u.)
+ --------------------------------------------------------------
+ 
+ Alpha MOs
+ -- Occupied --
+-19.2446 -10.3554 -10.2542  -1.0922  -0.8761  -0.6984  -0.6058  -0.5741
+ -0.5069  -0.4587  -0.4488  -0.4278  -0.3033
+ -- Virtual --
+  0.0519   0.0662   0.0888   0.0957   0.1134   0.1262   0.1374   0.1501
+  0.1781   0.1912   0.2132   0.2369   0.2546   0.2732   0.2913   0.2962
+  0.3245   0.3309   0.3570   0.4064   0.4563   0.4605   0.4967   0.5476
+  0.5634   0.5755   0.5920   0.6003   0.6084   0.6190   0.6470   0.6843
+  0.6988   0.7448   0.7814   0.8217   0.8486   0.8736   0.9116   0.9490
+  1.0032   1.0115   1.0657   1.0882   1.1260   1.1483   1.1585   1.1862
+  1.2277   1.2483   1.2679   1.2942   1.3303   1.3410   1.4038   1.4288
+  1.4429   1.4488   1.4795   1.5032   1.5298   1.5748   1.5881   1.6578
+  1.7164   1.7812   1.9311   2.0260   2.0612   2.2565   2.2953   2.4441
+  2.4812   2.5482   2.6413   2.6741   2.6951   2.7422   2.7695   2.8021
+  2.8706   2.8845   2.9533   2.9752   3.0037   3.0310   3.0742   3.0927
+  3.1055   3.1343   3.1813   3.1884   3.2281   3.2807   3.3227   3.3487
+  3.3617   3.4028   3.4139   3.4511   3.4566   3.4989   3.5228   3.5722
+  3.5756   3.6034   3.6357   3.6680   3.7111   3.7286   3.7579   3.8093
+  3.8275   3.8593   3.8637   3.9150   3.9261   3.9594   4.0047   4.0769
+  4.1085   4.1177   4.1899   4.2192   4.2208   4.2489   4.2596   4.3112
+  4.3350   4.3605   4.4182   4.4892   4.5147   4.5726   4.6192   4.7261
+  4.7399   4.7912   4.8665   4.9709   4.9913   5.0228   5.0569   5.1112
+  5.1195   5.2022   5.2404   5.2995   5.3808   5.4091   5.4892   5.4964
+  5.6107   5.6238   5.7736   5.8650   6.0525   6.1879   6.2524   6.2878
+  6.4606   6.6269   6.6826   6.8897   7.1759   7.2785   7.4376   7.5694
+  7.7544   8.1743  24.9606  25.3147  50.4461
+ --------------------------------------------------------------
+ 
+ -----------------------------------------------------------------
+                    Cartesian Multipole Moments
+ -----------------------------------------------------------------
+    Charge (ESU x 10^10)
+                 0.0000
+    Dipole Moment (Debye)
+         X       0.4498      Y       1.1330      Z      -1.5843
+       Tot       1.9989
+    Quadrupole Moments (Debye-Ang)
+        XX     -24.7258     XY      -4.2959     YY     -19.1346
+        XZ       3.8027     YZ       1.2130     ZZ     -20.8792
+    Octopole Moments (Debye-Ang^2)
+       XXX     306.8039    XXY       1.5352    XYY      88.0411
+       YYY     -33.7098    XXZ      -9.8175    XYZ      -6.1824
+       YYZ      -2.2494    XZZ      90.6216    YZZ     -10.2085
+       ZZZ     -12.5498
+    Hexadecapole Moments (Debye-Ang^3)
+      XXXX   -2818.5753   XXXY     145.0871   XXYY    -451.9703
+      XYYY     165.4451   YYYY    -113.6097   XXXZ      21.7640
+      XXYZ      32.4384   XYYZ       3.9147   YYYZ       1.5007
+      XXZZ    -426.9025   XYZZ      50.1196   YYZZ     -24.7794
+      XZZZ      39.7507   YZZZ       0.1743   ZZZZ     -49.0512
+ -----------------------------------------------------------------
+Archival summary:
+1\1\centos77-c1\SP\ProcedureUnspecified\BasisUnspecified\126\shihchen\WedJul2900:39:482020WedJul2900:39:482020\0\\#,ProcedureUnspecified,BasisUnspecified,\\0,1\C\H,1,1.08047\H,1,1.08322,2,114.732\C,1,1.41122,2,122.135,3,-156.877,0\H,4,1.08118,1,116.414,2,9.24167,0\H,4,1.08261,1,119.465,2,158.242,0\H,4,1.40419,1,72.5065,2,-104.132,0\O,7,1.2453,4,131.026,1,12.3986,0\H,8,0.963973,7,107.869,4,-109.293,0\\\@
+
+ Total job time:  17.02s(wall), 88.28s(cpu) 
+ Wed Jul 29 00:39:48 2020
+
+        *************************************************************
+        *                                                           *
+        *  Thank you very much for using Q-Chem.  Have a nice day.  *
+        *                                                           *
+        *************************************************************
+
+
