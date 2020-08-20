@@ -58,7 +58,7 @@ class SamplingJob(object):
 
         # Define the sampling protocol
         if self.protocol is None:
-            self.protocol = 'UMVT'
+            self.protocol = 'UMN'
         
         # Extract spin miltiplicity and number of optical isomers
         if self.spin_multiplicity is None:

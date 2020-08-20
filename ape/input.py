@@ -10,7 +10,6 @@ import os.path
 
 import numpy as np
 
-from rmgpy.exceptions import InputError
 from rmgpy.kinetics.model import TunnelingModel
 from rmgpy.kinetics.tunneling import Wigner, Eckart
 from rmgpy.statmech.conformer import Conformer
@@ -25,6 +24,7 @@ from ape.qchem import QChemLog
 from ape.thermo import ThermoJob
 from ape.reaction import Reaction
 from ape.kinetics import KineticsJob
+from ape.exceptions import InputError
 
 ################################################################################
 
@@ -150,6 +150,9 @@ def transitionState(label, *args, **kwargs):
                 rotors = value
             else:
                 raise TypeError('species() got an unexpected keyword argument {0!r}.'.format(key))
+        
+        if protocol == 'UMVT' and rotors is None:
+            raise InputError('If the transition state is sampled by using UMVT algorithm, the rotors are needed to be specified.')
                
         job.protocol = protocol
         ts.conformer.E0 = E0
