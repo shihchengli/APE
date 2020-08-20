@@ -261,9 +261,9 @@ def load_input_file(path, output_path=None):
     level_of_theory = local_context.get('level_of_theory', None)
     basis = local_context.get('basis', None)
     thresh = local_context.get('thresh', 0.01)
-    # coordinate_system include "Nonrmal", "E-Optimized" and "E'-Optimized"
+    # coordinate_system include "Normal mode", "E-Optimized" and "E'-Optimized"
     coordinate_system = local_context.get('coordinate_system', 'Normal')
-    if coordinate_system not in ["Nonrmal", "E-Optimized", "E'-Optimized"]:
+    if coordinate_system not in ["Normal mode", "E-Optimized", "E'-Optimized"]:
         raise InputError("The value of coordinate_system should be Nonrmal, E-Optimized or E'-Optimized.")
 
     for job in job_list:
