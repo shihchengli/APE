@@ -261,12 +261,17 @@ def load_input_file(path, output_path=None):
     level_of_theory = local_context.get('level_of_theory', None)
     basis = local_context.get('basis', None)
     thresh = local_context.get('thresh', 0.01)
-    
+    # coordinate_system include "Nonrmal", "E-Optimized" and "E'-Optimized"
+    coordinate_system = local_context.get('coordinate_system', 'Normal')
+    if coordinate_system not in ["Nonrmal", "E-Optimized", "E'-Optimized"]:
+        raise InputError("The value of coordinate_system should be Nonrmal, E-Optimized or E'-Optimized.")
+
     for job in job_list:
         if isinstance(job, SamplingJob):
             job.level_of_theory = level_of_theory
             job.basis = basis
             job.thresh = thresh
+            job.coordinate_system = coordinate_system
 
     return job_list, reaction_dict, species_dict, transition_state_dict
 

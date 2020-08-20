@@ -19,7 +19,7 @@ from ape.qchem import QChemLog
 from ape.InternalCoordinates import getXYZ
 from ape.exceptions import SamplingError
 
-def diagonalize_projected_hessian(conformer, hessian, linear, n_vib, rotors=[], get_projected_out_freqs=False, label=None):
+def diagonalize_projected_hessian(conformer, hessian, linear, n_vib, rotors=[], get_projected_out_freqs=False, get_projected_hessian=False, label=None):
     """
     For a given `conformer` with associated force constant matrix `hessian`, lists of
     rotor information `rotors`, `pivots`, and `top1`, and the linearity of the
@@ -260,6 +260,17 @@ def diagonalize_projected_hessian(conformer, hessian, linear, n_vib, rotors=[], 
     inertia = np.identity(n_atoms * 3, np.float64)
     proj = inertia - proj
     fm = np.dot(proj, np.dot(fm, proj))
+
+    hessian = fm.copy()
+    for i in range(n_atoms):
+        for j in range(n_atoms):
+            for u in range(3):
+                for v in range(3):
+                    hessian[3 * i + u, 3 * j + v] *= math.sqrt(mass[i] * mass[j])
+
+    if get_projected_hessian:
+        return hessian
+
     # Get eigenvalues of mass-weighted force constant matrix
     eig, v = np.linalg.eigh(fm)
     eig.sort()

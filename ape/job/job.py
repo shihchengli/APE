@@ -59,7 +59,7 @@ class Job(object):
             force_field_params = ''
             opt = ''
 
-        if self.jobtype in {'opt', 'ts', 'sp'}:
+        if self.jobtype in {'opt', 'ts', 'sp', 'freq'}:
             script = input_script.format(jobtype=self.jobtype, level_of_theory=self.level_of_theory, basis=self.basis,\
             unrestricted=self.unrestricted, fine=fine_string, QM_atoms=QM_atoms, force_field_params=force_field_params, opt=opt,\
             charge=self.charge, multiplicity=self.multiplicity, xyz=self.xyz)

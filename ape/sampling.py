@@ -18,6 +18,7 @@ from arc.species.species import ARCSpecies
 from ape.qchem import QChemLog
 from ape.common import diagonalize_projected_hessian, get_internal_rotation_freq, sampling_along_torsion, sampling_along_vibration
 from ape.InternalCoordinates import get_RedundantCoords, getXYZ
+from ape.exceptions import InputError
 
 class SamplingJob(object):
     """
@@ -26,7 +27,7 @@ class SamplingJob(object):
 
     def __init__(self, label=None, input_file=None, output_directory=None, protocol=None, spin_multiplicity=None, 
                 optical_isomers=None, charge = None, level_of_theory=None, basis=None, ncpus=None, is_ts=None, 
-                rotors=None, thresh=0.01):
+                rotors=None, thresh=0.01, coordinate_system='Normal'):
         self.input_file = input_file
         self.label = label
         self.output_directory = output_directory
@@ -40,6 +41,7 @@ class SamplingJob(object):
         self.is_ts = is_ts
         self.rotors = rotors
         self.thresh = thresh
+        self.coordinate_system = coordinate_system
 
     def parse(self):
         """
@@ -131,10 +133,12 @@ class SamplingJob(object):
             if self.rotors_dict == {}:
                 logging.info('No internal rotations are found for {label}'.format(label=self.label))
             self.n_rotors = len(self.rotors_dict)
-        else:
+        elif self.protocol == 'UMN':
             self.rotors_dict = []
             self.n_rotors = 0
-        
+        else:
+            raise InputError('The protocol of {protocol} is invalid. Please use UMVT or UMN.'.format(protocol=self.protocol))
+
         # Determine whether this system is QM/MM system
         if self.is_QM_MM_INTERFACE:
             self.nmode = 3 * len(Log.get_QM_ATOMS()) - (1 if self.is_ts else 0)
@@ -199,16 +203,15 @@ class SamplingJob(object):
         
         # Determine the vibrational frequency and directional vector of each vibrational normal mode
         if self.protocol == 'UMVT' and self.n_rotors != 0:
-            n_vib = self.n_vib
             rotors = [[rotor['pivots'], rotor['top']] for rotor in self.rotors_dict.values()]
-            vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, n_vib, rotors, label=self.label)
+            vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, rotors, label=self.label)
             logging.debug('\nFrequencies(cm-1) from projected Hessian: {}'.format(vib_freq))
             
             # Sample points along the 1-D PES of each torsion motion
             for i in range(self.n_rotors):
                 mode = i + 1
                 target_rotor = rotors[i]
-                int_freq = get_internal_rotation_freq(self.conformer, self.hessian, target_rotor, rotors, self.linearity, n_vib, is_QM_MM_INTERFACE=self.is_QM_MM_INTERFACE, label=self.label)
+                int_freq = get_internal_rotation_freq(self.conformer, self.hessian, target_rotor, rotors, self.linearity, self.n_vib, is_QM_MM_INTERFACE=self.is_QM_MM_INTERFACE, label=self.label)
                 if self.is_QM_MM_INTERFACE:
                     XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.torsion_internal, self.conformer, \
                     int_freq, self.rotors_dict, scan_res, path, self.ncpus, self.charge, self.spin_multiplicity, self.level_of_theory, self.basis, self.unrestricted, \
@@ -224,11 +227,22 @@ class SamplingJob(object):
             vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, label=self.label)
             logging.debug('\nVibrational frequencies of normal modes: {}'.format(vib_freq))
         
+        # Optimizing vibrational coordinates to modulate intermode coupling
+        if self.coordinate_system != 'Normal':
+            logging.debug('\nVibrational coordinates setting...')
+            path = os.path.join(self.output_directory, 'output_file', self.label, 'tmp')
+            if not os.path.exists(path):
+                os.makedirs(path)
+            if self.protocol == 'UMVT' and self.n_rotors != 0:
+                vib_freq, unweighted_v = optvib(self.coordinate_system, self.conformer, self.hessian, self.linearity, self.n_vib, rotors, label=self.label, path=path)
+            elif self.protocol == 'UMN' or self.n_rotors == 0:
+                vib_freq, unweighted_v = optvib(self.coordinate_system, self.conformer, self.hessian, self.linearity, self.n_vib, rotors=[], label=self.label, path=path)
+
         # Sample points along the 1-D PES of each vibration motion
         for i in range(self.nmode):
             if i in range(self.n_rotors): continue
             mode = i + 1
-            vector=unweighted_v[i - self.n_rotors]
+            vector = unweighted_v[i - self.n_rotors]
             freq = vib_freq[i - self.n_rotors]
             magnitude = np.linalg.norm(vector)
             reduced_mass = magnitude ** -2 / constants.amu # in amu
