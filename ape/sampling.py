@@ -228,7 +228,7 @@ class SamplingJob(object):
             logging.debug('\nVibrational frequencies of normal modes: {}'.format(vib_freq))
         
         # Optimizing vibrational coordinates to modulate intermode coupling
-        if self.coordinate_system != 'Normal':
+        if self.coordinate_system != 'Normal mode':
             logging.debug('\nVibrational coordinates setting...')
             path = os.path.join(self.output_directory, 'output_file', self.label, 'tmp')
             if not os.path.exists(path):
