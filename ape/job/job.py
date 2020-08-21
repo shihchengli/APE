@@ -4,7 +4,8 @@ import logging
 import subprocess
 
 from ape.qchem import QChemLog
-from ape.job.inputs import fine, fine_zeolite, input_script
+from ape.job.inputs import fine, freq_fine, fine_zeolite, input_script
+from ape.exceptions import JobError
 
 class Job(object):
     def __init__(self, xyz, path, file_name, jobtype, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, unrestricted=False, QM_atoms=None, force_field_params=None, opt=None, number_of_fixed_atoms=None):
@@ -54,7 +55,10 @@ class Job(object):
             force_field_params = '\n$force_field_params\n' + self.force_field_params + '$end\n'
             opt = '\n$opt\n' + self.opt + '$end\n'
         else:
-            fine_string = fine
+            if self.jobtype is 'freq':
+                fine_string = freq_fine
+            else:
+                fine_string = fine
             QM_atoms = ''
             force_field_params = ''
             opt = ''
@@ -79,4 +83,8 @@ class Job(object):
         else:
             proc = subprocess.Popen(['qchem -nt {cpus} {input_path} {output_path}'.format(cpus=self.ncpus, input_path=self.input_path, output_path=self.output_path)], shell=True)
             proc.wait()
+            log = QChemLog(self.output_path)
+            success = log.job_is_finished()
+            if not success:
+                raise JobError('QChem job fails!')
         subprocess.Popen(['rm {input_path}'.format(input_path=self.input_path)], shell=True)
