@@ -14,6 +14,10 @@ fine = """\n   max_scf_cycles   250
    pop_mulliken false
    XC_GRID 000075000302"""
 
+freq_fine = """\n   max_scf_cycles   250
+   SYM_IGNORE  TRUE
+   XC_GRID 000075000302"""
+
 fine_zeolite = """\n   geom_opt_coords   0
    max_scf_cycles   250
    geom_opt_max_cycles   1500
