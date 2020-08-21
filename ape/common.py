@@ -19,7 +19,8 @@ from ape.qchem import QChemLog
 from ape.InternalCoordinates import getXYZ
 from ape.exceptions import SamplingError
 
-def diagonalize_projected_hessian(conformer, hessian, linear, n_vib, rotors=[], get_projected_out_freqs=False, get_projected_hessian=False, label=None):
+def diagonalize_projected_hessian(conformer, hessian, linear, n_vib, rotors=[], get_projected_out_freqs=False,
+                                 get_projected_hessian=False, get_weighted_vectors=False, label=None):
     """
     For a given `conformer` with associated force constant matrix `hessian`, lists of
     rotor information `rotors`, `pivots`, and `top1`, and the linearity of the
@@ -275,6 +276,9 @@ def diagonalize_projected_hessian(conformer, hessian, linear, n_vib, rotors=[], 
     eig, v = np.linalg.eigh(fm)
     eig.sort()
 
+    if get_weighted_vectors:
+        return v
+
     # Convert eigenvalues to vibrational frequencies in cm^-1
     # Only keep the modes that don't correspond to translation, rotation, or internal rotation
 
@@ -300,10 +304,10 @@ def get_internal_rotation_freq(conformer, hessian, target_rotor, rotors, linear,
     logging.info('The vibrational frequency of internal rotation whose pivot is {pivot} is {freq:.2f} cm^-1'.format(pivot=target_rotor[0], freq=internal_rotation_freq))
     return internal_rotation_freq
 
-def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conformer, int_freq, rotors_dict, scan_res, \
-        path, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, unrestricted=None, \
-        is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, \
-        fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None):
+def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conformer, int_freq, rotors_dict, scan_res, 
+                           path, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, unrestricted=None, 
+                           gen_basis="", purecart=None, is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, 
+                           force_field_params=None, fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None):
     XyzDictOfEachMode = {}
     EnergyDictOfEachMode = {}
     ModeDictOfEachMode = {}
@@ -344,10 +348,10 @@ def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conforme
 
         # Calculate electronic energy of each sampling point, and save the result
         if is_QM_MM_INTERFACE:
-            e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, level_of_theory, basis, unrestricted, \
-                is_QM_MM_INTERFACE, QM_USER_CONNECT, QM_ATOMS, force_field_params, fixed_molecule_string, opt, number_of_fixed_atoms)
+            e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, level_of_theory, basis, unrestricted, gen_basis, purecart,
+                                           is_QM_MM_INTERFACE, QM_USER_CONNECT, QM_ATOMS, force_field_params, fixed_molecule_string, opt, number_of_fixed_atoms)
         else:
-            e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, level_of_theory, basis, unrestricted)
+            e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, level_of_theory, basis, unrestricted, gen_basis, purecart)
         XyzDictOfEachMode[sample] = xyz
 
         # Take the electronic energy of stationary point as reference energy, min_elect
@@ -369,9 +373,10 @@ def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conforme
 
     return XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect
 
-def sampling_along_vibration(symbols, cart_coords, mode, internal_object, internal_vector, freq, reduced_mass, step_size, path, \
-        thresh, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, unrestricted=None, is_QM_MM_INTERFACE=None, \
-        nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None, max_nloop=50):
+def sampling_along_vibration(symbols, cart_coords, mode, internal_object, internal_vector, freq, reduced_mass, step_size, path,
+                             thresh, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, unrestricted=None, 
+                             gen_basis="", purecart=None, is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None,
+                             force_field_params=None, fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None, max_nloop=50):
     XyzDictOfEachMode = {}
     EnergyDictOfEachMode = {}
     ModeDictOfEachMode = {}
@@ -397,10 +402,11 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
         file_name = 'vib_{}_{}'.format(mode, sample)
         # Calculate electronic energy of each sampling point, and save the result
         if is_QM_MM_INTERFACE:
-            e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, level_of_theory, basis, unrestricted, is_QM_MM_INTERFACE, \
-                QM_USER_CONNECT, QM_ATOMS, force_field_params, fixed_molecule_string, opt, number_of_fixed_atoms)
+            e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, level_of_theory, basis, unrestricted, 
+                                           gen_basis, purecart, is_QM_MM_INTERFACE, QM_USER_CONNECT, QM_ATOMS, force_field_params,
+                                           fixed_molecule_string, opt, number_of_fixed_atoms)
         else:
-            e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, level_of_theory, basis, unrestricted)
+            e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, level_of_theory, basis, unrestricted, gen_basis, purecart)
 
         # Take the electronic energy of stationary point as reference energy, min_elect
         if sample == 0:
@@ -450,10 +456,11 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
         file_name = 'vib_{}_{}'.format(mode, sample)
         # Calculate electronic energy of each sampling point, and save the result
         if is_QM_MM_INTERFACE:
-            e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, level_of_theory, basis, unrestricted, is_QM_MM_INTERFACE, \
-                QM_USER_CONNECT, QM_ATOMS, force_field_params, fixed_molecule_string, opt, number_of_fixed_atoms)
+            e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, level_of_theory, basis, unrestricted,
+                                           gen_basis, purecart, is_QM_MM_INTERFACE, QM_USER_CONNECT, QM_ATOMS, force_field_params,
+                                           fixed_molecule_string, opt, number_of_fixed_atoms)
         else:
-            e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, level_of_theory, basis, unrestricted)
+            e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, level_of_theory, basis, unrestricted, gen_basis, purecart)
 
         # The sampling of UM-N was carried out symmetrically for each mode to the classical turning points
         if e_elec - min_elect < EnergyDictOfEachMode[sample + 1]:
@@ -490,8 +497,8 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
 
     return XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect
 
-def get_electronic_energy(xyz, path, file_name, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, unrestricted=None, \
-        is_QM_MM_INTERFACE=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None):
+def get_electronic_energy(xyz, path, file_name, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, unrestricted=None, gen_basis="", purecart=None,
+                          is_QM_MM_INTERFACE=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None):
     #file_name = 'output'
     if is_QM_MM_INTERFACE:
         # Create geometry format of QM/MM system 
@@ -509,12 +516,12 @@ def get_electronic_energy(xyz, path, file_name, ncpus, charge=None, multiplicity
             if i == len(QM_ATOMS)-1:
                 break
         QMMM_xyz_string += fixed_molecule_string
-        job = Job(QMMM_xyz_string, path, file_name,jobtype='sp', ncpus=ncpus, charge=charge, multiplicity=multiplicity, \
-            level_of_theory=level_of_theory, basis=basis, unrestricted=unrestricted, QM_atoms=QM_ATOMS, \
-            force_field_params=force_field_params, opt=opt, number_of_fixed_atoms=number_of_fixed_atoms)
+        job = Job(QMMM_xyz_string, path, file_name, jobtype='sp', ncpus=ncpus, charge=charge, multiplicity=multiplicity,
+                  level_of_theory=level_of_theory, basis=basis, unrestricted=unrestricted, gen_basis=gen_basis, purecart=purecart,
+                  QM_atoms=QM_ATOMS, force_field_params=force_field_params, opt=opt, number_of_fixed_atoms=number_of_fixed_atoms)
     else:
-        job = Job(xyz, path, file_name,jobtype='sp', ncpus=ncpus, charge=charge, multiplicity=multiplicity, \
-            level_of_theory=level_of_theory, basis=basis, unrestricted=unrestricted)
+        job = Job(xyz, path, file_name, jobtype='sp', ncpus=ncpus, charge=charge, multiplicity=multiplicity,
+                  level_of_theory=level_of_theory, basis=basis, unrestricted=unrestricted, gen_basis=gen_basis, purecart=purecart)
     
     # Write Q-Chem input file
     job.write_input_file()

@@ -261,16 +261,20 @@ def load_input_file(path, output_path=None):
     level_of_theory = local_context.get('level_of_theory', None)
     basis = local_context.get('basis', None)
     thresh = local_context.get('thresh', 0.01)
-    # coordinate_system include "Normal mode", "E-Optimized" and "E'-Optimized"
-    coordinate_system = local_context.get('coordinate_system', 'Normal')
-    if coordinate_system not in ["Normal mode", "E-Optimized", "E'-Optimized"]:
-        raise InputError("The value of coordinate_system should be Normal, E-Optimized or E'-Optimized.")
+    gen_basis = local_context.get('gen_basis', "")
+    purecart = local_context.get('purecart', None)
+    # coordinate_system include "Normal Mode", "E-Optimized" and "E'-Optimized"
+    coordinate_system = local_context.get('coordinate_system', 'Normal Mode')
+    if coordinate_system not in ["Normal Mode", "E-Optimized", "E'-Optimized"]:
+        raise InputError("The value of coordinate_system should be Normal Mode, E-Optimized or E'-Optimized.")
 
     for job in job_list:
         if isinstance(job, SamplingJob):
             job.level_of_theory = level_of_theory
             job.basis = basis
             job.thresh = thresh
+            job.gen_basis = gen_basis
+            job.purecart = purecart
             job.coordinate_system = coordinate_system
 
     return job_list, reaction_dict, species_dict, transition_state_dict

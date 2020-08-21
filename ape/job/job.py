@@ -8,7 +8,8 @@ from ape.job.inputs import fine, freq_fine, fine_zeolite, input_script
 from ape.exceptions import JobError
 
 class Job(object):
-    def __init__(self, xyz, path, file_name, jobtype, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, unrestricted=False, QM_atoms=None, force_field_params=None, opt=None, number_of_fixed_atoms=None):
+    def __init__(self, xyz, path, file_name, jobtype, ncpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, unrestricted=False, 
+                 gen_basis="", purecart=None, QM_atoms=None, force_field_params=None, opt=None, number_of_fixed_atoms=None):
         self.xyz = xyz
         self.path = path
         self.file_name = file_name
@@ -19,8 +20,11 @@ class Job(object):
         self.level_of_theory = level_of_theory
         self.basis = basis
         self.unrestricted = unrestricted
+        self.gen_basis = gen_basis
+        self.purecart = purecart
         self.is_QM_MM_INTERFACE = False
         self.number_of_fixed_atoms = number_of_fixed_atoms
+
 
         # QMMM parameter
         if QM_atoms is not None:
@@ -62,11 +66,19 @@ class Job(object):
             QM_atoms = ''
             force_field_params = ''
             opt = ''
+        
+        if self.purecart is not None:
+            fine_string += '\n   PURECART {}'.format(self.purecart)
+        
+        if self.level_of_theory in ['mp2']:
+            self.level_of_theory = 'method   ' + self.level_of_theory
+        else:
+            self.level_of_theory = 'exchange   ' + self.level_of_theory
 
         if self.jobtype in {'opt', 'ts', 'sp', 'freq'}:
-            script = input_script.format(jobtype=self.jobtype, level_of_theory=self.level_of_theory, basis=self.basis,\
-            unrestricted=self.unrestricted, fine=fine_string, QM_atoms=QM_atoms, force_field_params=force_field_params, opt=opt,\
-            charge=self.charge, multiplicity=self.multiplicity, xyz=self.xyz)
+            script = input_script.format(jobtype=self.jobtype, level_of_theory=self.level_of_theory, basis=self.basis, unrestricted=self.unrestricted,
+                                         fine=fine_string, gen_basis=self.gen_basis, QM_atoms=QM_atoms, force_field_params=force_field_params, opt=opt,
+                                         charge=self.charge, multiplicity=self.multiplicity, xyz=self.xyz)
         f = open(self.input_path, 'w')
         # logging.debug('self.input_path :',self.input_path))
         f.write(script)
