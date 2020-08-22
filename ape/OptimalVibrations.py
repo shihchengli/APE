@@ -65,7 +65,6 @@ class OptVib(object):
             logging.info('Optimization vibrational coordinates are found by rotating pairs of eigenvectors {} degree.'.format(angle/np.pi*180))
             U = self.rotation_matrix(angle, axis='z', natoms=self.natoms)
             unweighted_v = unweighted_v.dot(U)
-        raise
 
         return vib_freq, unweighted_v
 
@@ -125,20 +124,22 @@ class OptVib(object):
             for key in self.grid_of_hessians.keys():
                 dim = 3 * self.natoms
                 hessian = self.grid_of_hessians[key]
+                H = V.T.dot(hessian).dot(V)
                 for i in range(dim):
                     for j in range(dim):
                         if i < j:
-                            E += (hessian[i][j]) ** 2
+                            E += (H[i][j]) ** 2
         elif self.coordinate_system == "E'-Optimized":
-            H0 = self.grid_of_hessians[0]
+            H0 = V.T.dot(self.grid_of_hessians[0]).dot(V)
             for key in self.grid_of_hessians.keys():
                 if key == 0: continue
                 dim = 3 * self.natoms
                 hessian = self.grid_of_hessians[key]
+                H = V.T.dot(hessian).dot(V)
                 for i in range(dim):
                     for j in range(dim):
                         if i < j:
-                            E += (hessian[i][j] - H0[i][j]) ** 2
+                            E += (H[i][j] - H0[i][j]) ** 2
         else:
             raise InputError("The value of coordinate_system should be E-Optimized or E'-Optimized to produce optimal coordinates.")
         
