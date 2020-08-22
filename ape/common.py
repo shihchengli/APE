@@ -336,6 +336,9 @@ def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conforme
     nrow = B.shape[0]
     qk = np.zeros(nrow, dtype=int)
     qk[torsion_ind] = 1
+    
+    if internal.prim_coords[torsion_ind] > 0:
+        qk *= -1
 
     # Start to sample 1-D PES
     nsample = int(360 / scan_res) + 1
