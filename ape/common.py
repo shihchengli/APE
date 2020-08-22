@@ -260,6 +260,14 @@ def diagonalize_projected_hessian(conformer, hessian, linear, n_vib, rotors=[], 
     inertia = np.identity(n_atoms * 3, np.float64)
     proj = inertia - proj
     fm = np.dot(proj, np.dot(fm, proj))
+
+    # For diatomic molecule
+    if n_atoms == 2:
+        mass_3N_array = np.array([i for i in mass for j in range(3)])
+        mass_mat = np.diag(mass_3N_array)
+        inv_sq_mass_mat = np.linalg.inv(mass_mat ** 0.5)
+        fm = inv_sq_mass_mat.dot(hessian.dot(inv_sq_mass_mat))
+
     # Get eigenvalues of mass-weighted force constant matrix
     eig, v = np.linalg.eigh(fm)
     eig.sort()
