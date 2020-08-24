@@ -54,17 +54,20 @@ class OptVib(object):
                                                         self.rotors, get_weighted_vectors=True, label=self.label)
         vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib,
                                                                self.rotors, label=self.label)
-        angle_guess = 0
-        bounds = (0, 2*np.pi)
-        result = optimize.minimize_scalar(self.objectiveFunction, angle_guess,
-                                          bounds=bounds, method='bounded')
+        
+        b1 = (0, 2*np.pi)
+        b2 = (0, 2*np.pi)
+        b3 = (0, 2*np.pi)
+        bounds = (b1 ,b2 ,b3)
+        result = optimize.differential_evolution(self.objectiveFunction, bounds=bounds)
+
         if not result.success:
             logging.warning('Optimization to find optimal vibrational coordinates fails.')
         else:
-            angle = result.x
-            logging.info('Optimization vibrational coordinates are found by rotating pairs of eigenvectors {} degree.'.format(angle/np.pi*180))
-            U = self.rotation_matrix(angle, axis='z', natoms=self.natoms)
-            unweighted_v = unweighted_v.dot(U)
+            angles = result.x
+            logging.info('Optimization vibrational coordinates are found by rotating pairs of eigenvectors around x-axis {:.2f} degree, around y-axis {:.2f} degree and around z-axis {:.2f} degree.'.format(angles[0] / np.pi * 180, angles[1] / np.pi * 180, angles[2] / np.pi * 180))
+            U = self.rotation_matrix(angles, natoms=self.natoms)
+            unweighted_v = unweighted_v.dot(U.T)
 
         return vib_freq, unweighted_v
 
@@ -107,7 +110,7 @@ class OptVib(object):
             grid_of_hessians[mode] = fm
         return grid_of_hessians
 
-    def objectiveFunction(self, angle):
+    def objectiveFunction(self, angles):
         """
         To produce optimal coordinates, metrics which quantify off-diagonal couplings
         over a grid of Hessian matrices are minimized through unitary rotations of
@@ -118,8 +121,8 @@ class OptVib(object):
         2. coordinate_system == "E'-Optimized"
             Return the suml squared change in off-diagonal coupling
         """
-        U = self.rotation_matrix(angle, axis='z', natoms=self.natoms)
-        V = self.weighted_v.dot(U)
+        U = self.rotation_matrix(angles, natoms=self.natoms)
+        V = self.weighted_v.dot(U.T)
         E = 0
         if self.coordinate_system == "E-Optimized":
             for key in self.grid_of_hessians.keys():
@@ -146,23 +149,56 @@ class OptVib(object):
         
         return E
 
-    def rotation_matrix(self, angle, axis='z', natoms=1):
+    def rotation_matrix(self, angles, axis=None, natoms=1):
         """
-        Generate matrices for rotation by some angle around a axis.
+        Calculates and returns the rotation matrix defined by three angles of
+        rotation about the x, y, and z axes or one angle of rotation about a
+        given axis.
         """
-        s = np.sin(angle)
-        c = np.cos(angle)
-
-        i = 'xyz'.index(axis)
-        a1 = (i + 1) % 3
-        a2 = (i + 2) % 3
+        if axis is None:
+            Rx = np.array(
+                [[1.0, 0.0, 0.0],
+                [0.0, np.cos(angles[0]), -np.sin(angles[0])],
+                [0.0, np.sin(angles[0]), np.cos(angles[0])]]
+            )
+            Ry = np.array(
+                [[np.cos(angles[1]), 0.0, np.sin(angles[1])],
+                [0.0, 1.0, 0.0],
+                [-np.sin(angles[1]), 0.0, np.cos(angles[1])]]
+            )
+            Rz = np.array(
+                [[np.cos(angles[2]), -np.sin(angles[2]), 0.0],
+                [np.sin(angles[2]), np.cos(angles[2]), 0.0],
+                [0.0, 0.0, 1.0]]
+            )
+            R =  Rx.dot(Ry).dot(Rz)
+        else:
+            axis = axis/np.sqrt(axis.dot(axis))
+            x, y, z = axis[0], axis[1], axis[2]
+            angle = angles
+            R = np.array(
+                [[np.cos(angle) + x ** 2 * (1 - np.cos(angle)),
+                x * y * (1 - np.cos(angle)) - z * np.sin(angle),
+                x * z * (1 - np.cos(angle))+y * np.sin(angle)],
+                [y * x * (1 - np.cos(angle))+z * np.sin(angle),
+                np.cos(angle) + y ** 2 * (1 - np.cos(angle)),
+                y * z * (1 - np.cos(angle)) - x * np.sin(angle)],
+                [z * x * (1 - np.cos(angle)) - y * np.sin(angle),
+                z * y * (1 - np.cos(angle)) + x * np.sin(angle),
+                np.cos(angle) + z ** 2 * (1 - np.cos(angle))]]
+            )
+        
         dim = natoms * 3
-        R = np.zeros((dim, dim))
+        R_mat = np.zeros((dim, dim))
         for n in range(natoms):
-            R[..., i + 3 * n, i + 3 * n] = 1.
-            R[..., a1 + 3 * n, a1 + 3 * n] = c
-            R[..., a1 + 3 * n, a2 + 3 * n] = s
-            R[..., a2 + 3 * n, a1 + 3 * n] = -s
-            R[..., a2 + 3 * n, a2 + 3 * n] = c
+            R_mat[0 + 3 * n, 0 + 3 * n] = R[0 ,0]
+            R_mat[0 + 3 * n, 1 + 3 * n] = R[0 ,1]
+            R_mat[0 + 3 * n, 2 + 3 * n] = R[0 ,2]
+            R_mat[1 + 3 * n, 0 + 3 * n] = R[1 ,0]
+            R_mat[1 + 3 * n, 1 + 3 * n] = R[1 ,1]
+            R_mat[1 + 3 * n, 2 + 3 * n] = R[1 ,2]
+            R_mat[2 + 3 * n, 0 + 3 * n] = R[2 ,0]
+            R_mat[2 + 3 * n, 1 + 3 * n] = R[2 ,1]
+            R_mat[2 + 3 * n, 2 + 3 * n] = R[2 ,2]
 
-        return R
+        return R_mat
