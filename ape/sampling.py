@@ -235,12 +235,12 @@ class SamplingJob(object):
             logging.debug('\nVibrational coordinates setting...')
             if self.protocol == 'UMN' or self.n_rotors == 0:
                 rotors = []
-            path = os.path.join(self.output_directory, 'output_file', self.label, 'tmp')
+            optvib_path = os.path.join(self.output_directory, 'output_file', self.label, 'tmp')
             optvib = OptVib(self.symbols, self.nmode, self.coordinate_system, self.cart_coords, self.conformer, self.hessian,
-                            self.linearity, self.n_vib, rotors, self.label, path, self.ncpus, self.charge, self.spin_multiplicity, 
+                            self.linearity, self.n_vib, rotors, self.label, optvib_path, self.ncpus, self.charge, self.spin_multiplicity, 
                             self.level_of_theory, self.basis, self.unrestricted, self.gen_basis, self.purecart)
-            if not os.path.exists(path):
-                os.makedirs(path)
+            if not os.path.exists(optvib_path):
+                os.makedirs(optvib_path)
             vib_freq, unweighted_v = optvib.get_optvib()
 
         # Sample points along the 1-D PES of each vibration motion
