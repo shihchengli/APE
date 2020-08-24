@@ -20,7 +20,7 @@ from ape.InternalCoordinates import getXYZ
 from ape.exceptions import SamplingError
 
 def diagonalize_projected_hessian(conformer, hessian, linear, n_vib, rotors=[], get_projected_out_freqs=False,
-                                 get_projected_hessian=False, get_weighted_vectors=False, label=None):
+                                  get_mass_weighted_hessian=False, get_weighted_vectors=False, label=None):
     """
     For a given `conformer` with associated force constant matrix `hessian`, lists of
     rotor information `rotors`, `pivots`, and `top1`, and the linearity of the
@@ -268,23 +268,16 @@ def diagonalize_projected_hessian(conformer, hessian, linear, n_vib, rotors=[], 
         mass_mat = np.diag(mass_3N_array)
         inv_sq_mass_mat = np.linalg.inv(mass_mat ** 0.5)
         fm = inv_sq_mass_mat.dot(hessian.dot(inv_sq_mass_mat))
-        
-    hessian = fm.copy()
-    for i in range(n_atoms):
-        for j in range(n_atoms):
-            for u in range(3):
-                for v in range(3):
-                    hessian[3 * i + u, 3 * j + v] *= math.sqrt(mass[i] * mass[j])
 
-    if get_projected_hessian:
-        return hessian
+    if get_mass_weighted_hessian:
+        return fm
 
     # Get eigenvalues of mass-weighted force constant matrix
     eig, v = np.linalg.eigh(fm)
     eig.sort()
 
     if get_weighted_vectors:
-        return v
+        return v.T[-n_vib:]
 
     # Convert eigenvalues to vibrational frequencies in cm^-1
     # Only keep the modes that don't correspond to translation, rotation, or internal rotation

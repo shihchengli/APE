@@ -53,7 +53,7 @@ class OptVib(object):
         self.weighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, 
                                                         self.rotors, get_weighted_vectors=True, label=self.label)
         vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib,
-                                                            self.rotors, label=self.label)
+                                                               self.rotors, label=self.label)
         angle_guess = 0
         bounds = (0, 2*np.pi)
         result = optimize.minimize_scalar(self.objectiveFunction, angle_guess,
@@ -75,7 +75,8 @@ class OptVib(object):
         initial_geometry = self.cart_coords.copy()
         vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, self.rotors, label=self.label)
         grid_of_hessians = {}
-        grid_of_hessians[0] = deepcopy(self.hessian)
+        fm = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, self.rotors, get_mass_weighted_hessian=True, label=self.label)
+        grid_of_hessians[0] = deepcopy(fm)
         for i in range(self.nmode):
             if i in range(self.n_rotors): continue
             internal = deepcopy(self.internal_object)
@@ -102,8 +103,8 @@ class OptVib(object):
             output_file_path = os.path.join(self.path, '{}.q.out'.format(file_name))
             hessian = QChemLog(output_file_path).load_force_constant_matrix()
             if self.rotors != []:
-                hessian = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, self.rotors, get_projected_hessian=True, label=self.label)
-            grid_of_hessians[mode] = hessian
+                fm = diagonalize_projected_hessian(self.conformer, hessian, self.linearity, self.n_vib, self.rotors, get_mass_weighted_hessian=True, label=self.label)
+            grid_of_hessians[mode] = fm
         return grid_of_hessians
 
     def objectiveFunction(self, angle):
@@ -122,20 +123,20 @@ class OptVib(object):
         E = 0
         if self.coordinate_system == "E-Optimized":
             for key in self.grid_of_hessians.keys():
-                dim = 3 * self.natoms
+                dim = self.n_vib
                 hessian = self.grid_of_hessians[key]
-                H = V.T.dot(hessian).dot(V)
+                H = V.dot(hessian).dot(V.T) / ((2 * np.pi * constants.c * 100) ** 2)
                 for i in range(dim):
                     for j in range(dim):
                         if i < j:
                             E += (H[i][j]) ** 2
         elif self.coordinate_system == "E'-Optimized":
-            H0 = V.T.dot(self.grid_of_hessians[0]).dot(V)
+            H0 = V.dot(self.grid_of_hessians[0]).dot(V.T) / ((2 * np.pi * constants.c * 100) ** 2)
             for key in self.grid_of_hessians.keys():
                 if key == 0: continue
-                dim = 3 * self.natoms
+                dim = self.n_vib
                 hessian = self.grid_of_hessians[key]
-                H = V.T.dot(hessian).dot(V)
+                H = V.dot(hessian).dot(V.T) / ((2 * np.pi * constants.c * 100) ** 2)
                 for i in range(dim):
                     for j in range(dim):
                         if i < j:
