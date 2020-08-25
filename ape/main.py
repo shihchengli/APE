@@ -170,7 +170,7 @@ def initialize_log(verbose=logging.INFO, log_file=None):
 
 def log_header(level=logging.INFO, run_in_parallel=None, ncpus=None):
     """
-    Output a header containing identifying information about Arkane to the log.
+    Output a header containing identifying information about APE to the log.
     """
     logging.log(level, 'APE execution initiated at {0}'.format(time.asctime()))
     if run_in_parallel and ncpus is not None:
@@ -182,7 +182,7 @@ def log_header(level=logging.INFO, run_in_parallel=None, ncpus=None):
     logging.log(level, '#                                                              #')
     logging.log(level, '#              Automated Property Estimator (APE)              #')
     logging.log(level, '#                                                              #')
-    logging.log(level, '#   Developer: Shih-Cheng Li (r08524007@ntu.edu.tw)            #')
+    logging.log(level, '#   Developer: Shih-Cheng Li (f08524007@ntu.edu.tw)            #')
     logging.log(level, '#   P.I.:      Yi-Pei Li (yipeili@ntu.edu.tw)                  #')
     logging.log(level, '#   Website:   https://webpageprodvm.ntu.edu.tw/Li-group/      #')
     logging.log(level, '#                                                              #')
