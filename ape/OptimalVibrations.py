@@ -52,8 +52,8 @@ class OptVib(object):
         self.grid_of_hessians = self.get_grid_of_hessians()
         self.weighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, 
                                                         self.rotors, get_weighted_vectors=True, label=self.label)
-        vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib,
-                                                               self.rotors, label=self.label)
+        _, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib,
+                                                        self.rotors, label=self.label)
         
         b1 = (0, 2*np.pi)
         b2 = (0, 2*np.pi)
@@ -68,6 +68,12 @@ class OptVib(object):
             logging.info('Optimization vibrational coordinates are found by rotating pairs of eigenvectors around x-axis {:.2f} degree, around y-axis {:.2f} degree and around z-axis {:.2f} degree.'.format(angles[0] / np.pi * 180, angles[1] / np.pi * 180, angles[2] / np.pi * 180))
             U = self.rotation_matrix(angles, natoms=self.natoms)
             unweighted_v = unweighted_v.dot(U.T)
+            V = self.weighted_v.dot(U.T)
+            H = V.dot(self.grid_of_hessians[0]).dot(V.T)
+            vib_freq = []
+            for i in range(self.n_vib):
+                freq = np.sqrt(H[i][i]) / (2 * np.pi * constants.c * 100)
+                vib_freq.append(freq)
 
         return vib_freq, unweighted_v
 
@@ -80,8 +86,7 @@ class OptVib(object):
         grid_of_hessians = {}
         fm = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, self.rotors, get_mass_weighted_hessian=True, label=self.label)
         grid_of_hessians[0] = deepcopy(fm)
-        for i in range(self.nmode):
-            if i in range(self.n_rotors): continue
+        for i in range(self.n_vib):
             internal = deepcopy(self.internal_object)
             mode = i + 1
             vector = unweighted_v[i - self.n_rotors]
@@ -105,8 +110,7 @@ class OptVib(object):
             # Parse output file to get the hessian matrix
             output_file_path = os.path.join(self.path, '{}.q.out'.format(file_name))
             hessian = QChemLog(output_file_path).load_force_constant_matrix()
-            if self.rotors != []:
-                fm = diagonalize_projected_hessian(self.conformer, hessian, self.linearity, self.n_vib, self.rotors, get_mass_weighted_hessian=True, label=self.label)
+            fm = diagonalize_projected_hessian(self.conformer, hessian, self.linearity, self.n_vib, self.rotors, get_mass_weighted_hessian=True, label=self.label)
             grid_of_hessians[mode] = fm
         return grid_of_hessians
 
