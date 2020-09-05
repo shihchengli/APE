@@ -243,8 +243,6 @@ class SamplingJob(object):
             if not os.path.exists(optvib_path):
                 os.makedirs(optvib_path)
             vib_freq, unweighted_v = optvib.get_optvib()
-            vibration = HarmonicOscillator(frequencies=(vib_freq, "cm^-1"))
-            self.conformer.modes[2] = vibration
 
         # Sample points along the 1-D PES of each vibration motion
         for i in range(self.nmode):

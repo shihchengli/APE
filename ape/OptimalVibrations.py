@@ -47,6 +47,7 @@ class OptVib(object):
         """
         Algorithms for local and optimal vibrations.
         """
+        logging.info('{0} modes of {1} finding...'.format(self.coordinate_system, label))
         self.grid_of_hessians = self.get_grid_of_hessians()
         self.mwv = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, 
                                                  self.rotors, get_weighted_vectors=True, label=self.label)
@@ -130,7 +131,7 @@ class OptVib(object):
             hessian = QChemLog(output_file_path).load_force_constant_matrix()
             fm = diagonalize_projected_hessian(self.conformer, hessian, self.linearity, self.n_vib, self.rotors, get_mass_weighted_hessian=True, label=self.label)
             grid_of_hessians[mode] = fm
-            
+
         return grid_of_hessians
 
     def objectiveFunction(self, angle):
