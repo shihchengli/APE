@@ -17,6 +17,7 @@ class ThermoJob(Statmech):
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.coordinate_system = None
 
     def calcThermo(self, T, print_HOhf_result=True):
         P = self.P
@@ -177,6 +178,14 @@ class ThermoJob(Statmech):
             pass
         result += ')'
         f.write('{0}\n\n'.format(prettify(result)))
+
+        if self.coordinate_system in ["E-Optimized", "E'-Optimized"]:
+            from rmgpy.statmech.vibration import HarmonicOscillator
+            f.write('# {0}: Vibrational frequencies of optimal vibrational modes\n'.format(self.coordinate_system))
+            vib_freq = [round((self.mode_dict[key][mode]['K'] ** 1/2) / (2 * np.pi * constants.c * 100), 2) for key in self.mode_dict.keys()]
+            vibration = HarmonicOscillator(frequencies=(sorted(vib_freq), "cm^-1"))
+            f.write(vibration)
+            f.write('\n')
 
         for line in self.result_info:
             line = line + '\n'

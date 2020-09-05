@@ -276,6 +276,8 @@ def load_input_file(path, output_path=None):
             job.gen_basis = gen_basis
             job.purecart = purecart
             job.coordinate_system = coordinate_system
+        if isinstance(job, ThermoJob):
+            job.coordinate_system = coordinate_system
 
     return job_list, reaction_dict, species_dict, transition_state_dict
 
