@@ -47,7 +47,7 @@ class OptVib(object):
         """
         Algorithms for local and optimal vibrations.
         """
-        logging.info('{0} modes of {1} finding...'.format(self.coordinate_system, label))
+        logging.info('{0} modes of {1} finding...'.format(self.coordinate_system, self.label))
         self.grid_of_hessians = self.get_grid_of_hessians()
         self.mwv = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, 
                                                  self.rotors, get_weighted_vectors=True, label=self.label)
