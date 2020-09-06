@@ -184,7 +184,8 @@ class ThermoJob(Statmech):
             from rmgpy.statmech.vibration import HarmonicOscillator
             vib_freq = [round((self.mode_dict[key]['K'] ** 0.5) / (2 * np.pi * constants.c * 100), 2) for key in self.mode_dict.keys()]
             vibration = HarmonicOscillator(frequencies=(sorted(vib_freq), "cm^-1"))
-            f.write('# {0}: Vibrational frequencies of optimal vibrational modes\n{1!r}\n'.format(self.coordinate_system, vibration))
+            f.write(('# {0}: Vibrational frequencies of optimal vibrational modes\n'.format(self.coordinate_system)))
+            f.write(prettify('{0!r}\n'.format(vibration)))
 
         for line in self.result_info:
             line = line + '\n'
