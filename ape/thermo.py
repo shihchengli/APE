@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import math
+import numpy as np
 import logging
 
 import rmgpy.constants as constants
@@ -181,11 +182,9 @@ class ThermoJob(Statmech):
 
         if self.coordinate_system in ["E-Optimized", "E'-Optimized"]:
             from rmgpy.statmech.vibration import HarmonicOscillator
-            f.write('# {0}: Vibrational frequencies of optimal vibrational modes\n'.format(self.coordinate_system))
-            vib_freq = [round((self.mode_dict[key][mode]['K'] ** 1/2) / (2 * np.pi * constants.c * 100), 2) for key in self.mode_dict.keys()]
+            vib_freq = [round((self.mode_dict[key]['K'] ** 0.5) / (2 * np.pi * constants.c * 100), 2) for key in self.mode_dict.keys()]
             vibration = HarmonicOscillator(frequencies=(sorted(vib_freq), "cm^-1"))
-            f.write(vibration)
-            f.write('\n')
+            f.write('# {0}: Vibrational frequencies of optimal vibrational modes\n{1!r}\n'.format(self.coordinate_system, vibration))
 
         for line in self.result_info:
             line = line + '\n'
