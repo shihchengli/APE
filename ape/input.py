@@ -25,6 +25,7 @@ from ape.thermo import ThermoJob
 from ape.reaction import Reaction
 from ape.kinetics import KineticsJob
 from ape.exceptions import InputError
+from ape.job.inputs import rem_variable_list
 
 ################################################################################
 
@@ -258,23 +259,24 @@ def load_input_file(path, output_path=None):
             logging.error('The input file {0!r} was invalid:'.format(path))
             raise
     
-    level_of_theory = local_context.get('level_of_theory', None)
-    basis = local_context.get('basis', None)
-    thresh = local_context.get('thresh', 0.01)
     gen_basis = local_context.get('gen_basis', "")
-    purecart = local_context.get('purecart', None)
+    thresh = local_context.get('thresh', 0.01)
+    step_size_factor = local_context.get('step_size_factor', 1)
     # coordinate_system include "Normal Mode", "E-Optimized" and "E'-Optimized"
     coordinate_system = local_context.get('coordinate_system', 'Normal Mode')
+    rem_variables_dict = {}
+    for key in local_context.keys():
+        if key.upper() in rem_variable_list:
+            rem_variables_dict[key.upper()] = local_context.get(key)
     if coordinate_system not in ["Normal Mode", "E-Optimized", "E'-Optimized"]:
         raise InputError("The value of coordinate_system should be Normal Mode, E-Optimized or E'-Optimized.")
 
     for job in job_list:
         if isinstance(job, SamplingJob):
-            job.level_of_theory = level_of_theory
-            job.basis = basis
-            job.thresh = thresh
+            job.rem_variables_dict = rem_variables_dict
             job.gen_basis = gen_basis
-            job.purecart = purecart
+            job.thresh = thresh
+            job.step_size_factor = step_size_factor
             job.coordinate_system = coordinate_system
         if isinstance(job, ThermoJob):
             job.coordinate_system = coordinate_system

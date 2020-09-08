@@ -27,24 +27,22 @@ class SamplingJob(object):
     The SamplingJob class.
     """
 
-    def __init__(self, label=None, input_file=None, output_directory=None, protocol=None, spin_multiplicity=None, 
-                 optical_isomers=None, charge = None, level_of_theory=None, basis=None, gen_basis="", purecart=None,
-                 ncpus=None, is_ts=None, rotors=None, thresh=0.01, coordinate_system='Normal'):
-        self.input_file = input_file
+    def __init__(self, label=None, input_file=None, output_directory=None, protocol=None, spin_multiplicity=None, charge=None, 
+                 rem_variables_dict={}, gen_basis="", ncpus=None, is_ts=None, rotors=None, thresh=0.01, step_size_factor=1,
+                 coordinate_system='Normal Mode'):
         self.label = label
+        self.input_file = input_file
         self.output_directory = output_directory
         self.protocol = protocol
         self.spin_multiplicity = spin_multiplicity
-        self.optical_isomers = optical_isomers
         self.charge = charge
-        self.level_of_theory = level_of_theory
-        self.basis = basis
+        self.rem_variables_dict = rem_variables_dict
         self.gen_basis = gen_basis
-        self.purecart = purecart
         self.ncpus = ncpus
         self.is_ts = is_ts
         self.rotors = rotors
         self.thresh = thresh
+        self.step_size_factor = step_size_factor
         self.coordinate_system = coordinate_system
 
     def parse(self):
@@ -69,8 +67,6 @@ class SamplingJob(object):
         # Extract spin miltiplicity and number of optical isomers
         if self.spin_multiplicity is None:
             self.spin_multiplicity = self.conformer.spin_multiplicity
-        if self.optical_isomers is None:
-            self.optical_isomers = self.conformer.optical_isomers
 
         # Extract net charge from QChem output file
         if self.charge is None:
@@ -218,11 +214,11 @@ class SamplingJob(object):
                 int_freq = get_internal_rotation_freq(self.conformer, self.hessian, target_rotor, rotors, self.linearity, self.n_vib, is_QM_MM_INTERFACE=self.is_QM_MM_INTERFACE, label=self.label)
                 if self.is_QM_MM_INTERFACE:
                     XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.torsion_internal, self.conformer,
-                    int_freq, self.rotors_dict, scan_res, path, self.ncpus, self.charge, self.spin_multiplicity, self.level_of_theory, self.basis, self.unrestricted, self.gen_basis, self.purecart,
-                    self.is_QM_MM_INTERFACE, self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
+                    int_freq, self.rotors_dict, scan_res, path, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, self.is_QM_MM_INTERFACE, self.nHcap, 
+                    self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
                 else:
                     XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.torsion_internal, self.conformer,
-                    int_freq, self.rotors_dict, scan_res, path, self.ncpus, self.charge, self.spin_multiplicity, self.level_of_theory, self.basis, self.unrestricted, self.gen_basis, self.purecart)
+                    int_freq, self.rotors_dict, scan_res, path, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis)
                 xyz_dict[mode] = XyzDictOfEachMode
                 energy_dict[mode] = EnergyDictOfEachMode
                 mode_dict[mode] = ModeDictOfEachMode
@@ -237,9 +233,8 @@ class SamplingJob(object):
             if self.protocol == 'UMN' or self.n_rotors == 0:
                 rotors = []
             optvib_path = os.path.join(self.output_directory, 'output_file', self.label, 'tmp')
-            optvib = OptVib(self.symbols, self.nmode, self.coordinate_system, self.cart_coords, self.conformer, self.hessian,
-                            self.linearity, self.n_vib, rotors, self.label, optvib_path, self.ncpus, self.charge, self.spin_multiplicity, 
-                            self.level_of_theory, self.basis, self.unrestricted, self.gen_basis, self.purecart)
+            optvib = OptVib(self.symbols, self.nmode, self.coordinate_system, self.cart_coords, self.conformer, self.hessian, self.linearity, self.n_vib, rotors, 
+                            self.label, optvib_path, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis)
             if not os.path.exists(optvib_path):
                 os.makedirs(optvib_path)
             vib_freq, unweighted_v = optvib.get_optvib()
@@ -252,17 +247,17 @@ class SamplingJob(object):
             freq = vib_freq[i - self.n_rotors]
             magnitude = np.linalg.norm(vector)
             reduced_mass = magnitude ** -2 / constants.amu # in amu
-            step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (freq * 2 * np.pi * constants.c * 100)) * 10 ** 10 # in angstrom
+            step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (freq * 2 * np.pi * constants.c * 100)) * 10 ** 10 * self.step_size_factor # in angstrom
             normalizes_vector = vector / magnitude
             qj = np.matmul(self.internal.B, normalizes_vector)
             qj = qj.reshape(-1,)
             if self.is_QM_MM_INTERFACE:
                 XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass,
-                step_size, path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.level_of_theory, self.basis, self.unrestricted, self.gen_basis, self.purecart, self.is_QM_MM_INTERFACE,
+                step_size, path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, self.is_QM_MM_INTERFACE,
                 self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
             else:
                 XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, step_size,
-                path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.level_of_theory, self.basis, self.unrestricted, self.gen_basis, self.purecart)
+                path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis)
             xyz_dict[mode] = XyzDictOfEachMode
             energy_dict[mode] = EnergyDictOfEachMode
             mode_dict[mode] = ModeDictOfEachMode

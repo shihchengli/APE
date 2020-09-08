@@ -20,7 +20,7 @@ from ape.InternalCoordinates import get_RedundantCoords, getXYZ
 
 class OptVib(object):
     def __init__(self, symbols, nmode, coordinate_system, cart_coords, conformer, hessian, linearity, n_vib, rotors, label, path, ncpus, 
-                 charge=None, multiplicity=None, level_of_theory=None, basis=None, unrestricted=None, gen_basis="", purecart=None):
+                 charge=None, multiplicity=None, rem_variables_dict=None, gen_basis=""):
         self.symbols = symbols
         self.nmode = nmode
         self.coordinate_system = coordinate_system
@@ -35,11 +35,8 @@ class OptVib(object):
         self.ncpus = ncpus
         self.charge = charge
         self.multiplicity = multiplicity
-        self.level_of_theory = level_of_theory
-        self.basis = basis
-        self.unrestricted = unrestricted
+        self.rem_variables_dict = rem_variables_dict
         self.gen_basis = gen_basis
-        self.purecart = purecart
         self.n_rotors = len(self.rotors)
         self.internal_object = get_RedundantCoords(self.symbols, self.cart_coords)
 
@@ -117,8 +114,7 @@ class OptVib(object):
             xyz = getXYZ(self.symbols, cart_coords)
             file_name = mode
             job = Job(xyz, self.path, file_name, jobtype='freq', ncpus=self.ncpus, charge=self.charge, multiplicity=self.multiplicity,
-                      level_of_theory=self.level_of_theory, basis=self.basis, unrestricted=self.unrestricted, gen_basis=self.gen_basis,
-                      purecart=self.purecart)
+                      rem_variables_dict=self.rem_variables_dict, gen_basis=self.gen_basis)
 
             # Write Q-Chem input file
             job.write_input_file()
