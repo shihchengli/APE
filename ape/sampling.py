@@ -29,7 +29,7 @@ class SamplingJob(object):
 
     def __init__(self, label=None, input_file=None, output_directory=None, protocol=None, spin_multiplicity=None, charge=None, 
                  rem_variables_dict={}, gen_basis="", ncpus=None, is_ts=None, rotors=None, thresh=0.01, step_size_factor=1,
-                 coordinate_system='Normal Mode'):
+                 coordinate_system='Normal Mode', nnl=None):
         self.label = label
         self.input_file = input_file
         self.output_directory = output_directory
@@ -44,6 +44,7 @@ class SamplingJob(object):
         self.thresh = thresh
         self.step_size_factor = step_size_factor
         self.coordinate_system = coordinate_system
+        self.nnl = nnl
 
     def parse(self):
         """
@@ -161,7 +162,11 @@ class SamplingJob(object):
         # Extract imaginary frequency from transition state
         if self.is_ts:
             self.imaginary_frequency = Log.load_negative_frequency()
-            
+
+        # Determine max_loop
+        if self.nnl is not None:
+            self.max_nloop = int(1 / self.step_size_factor) * self.nnl
+
     def get_rotors_dict(self):
         """
         Determine possible unique rotors in the species to be treated as hindered rotors,
@@ -254,10 +259,10 @@ class SamplingJob(object):
             if self.is_QM_MM_INTERFACE:
                 XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass,
                 step_size, path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, self.is_QM_MM_INTERFACE,
-                self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
+                self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms, max_nloop=self.max_nloop)
             else:
                 XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, step_size,
-                path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis)
+                path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, max_nloop=self.max_nloop)
             xyz_dict[mode] = XyzDictOfEachMode
             energy_dict[mode] = EnergyDictOfEachMode
             mode_dict[mode] = ModeDictOfEachMode

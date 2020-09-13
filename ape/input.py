@@ -262,6 +262,7 @@ def load_input_file(path, output_path=None):
     gen_basis = local_context.get('gen_basis', "")
     thresh = local_context.get('cut_off_energy', 0.01)
     step_size_factor = local_context.get('step_size_factor', 1)
+    nnl = local_context.get('number_of_natural_length', None)
     # coordinate_system include "Normal Mode", "E-Optimized" and "E'-Optimized"
     coordinate_system = local_context.get('coordinate_system', 'Normal Mode')
     rem_variables_dict = {}
@@ -278,6 +279,7 @@ def load_input_file(path, output_path=None):
             job.thresh = thresh
             job.step_size_factor = step_size_factor
             job.coordinate_system = coordinate_system
+            job.nnl = nnl
         if isinstance(job, ThermoJob):
             job.coordinate_system = coordinate_system
 
