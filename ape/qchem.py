@@ -276,6 +276,27 @@ class QChemLog(ESSAdapter):
                                 # F[i*5+k,j] = F[j,i*5+k]
                     # Convert from atomic units (Hartree/Bohr_radius^2) to J/m^2
                     force *= 4.35974417e-18 / 5.291772108e-11 ** 2
+                if 'FINAL TENSOR RESULT' in line:
+                    force = np.zeros((n_rows, n_rows), np.float64)
+                    try:
+                        for i in range(int(n_atoms)):
+                            # Header row
+                            line = f.readline()
+                            # Matrix element rows
+                            for j in range(3):
+                                line = f.readline()
+                                line = f.readline()
+                                line = f.readline()
+                                for k in range(int(n_atoms)):
+                                    data = f.readline().split()
+                                    for l in range(3):
+                                        force[i * 3 + j, k * 3 + l] = float(data[l + 1])
+                    except (ValueError, IndexError):
+                        continue
+                    finally:
+                        # Convert from atomic units (Hartree/Bohr_radius^2) to J/m^2
+                        force *= 4.35974417e-18 / 5.291772108e-11 ** 2
+
                 line = f.readline()
 
         return force
