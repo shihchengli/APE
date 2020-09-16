@@ -262,8 +262,9 @@ def diagonalize_projected_hessian(conformer, hessian, linear, n_vib, rotors=[], 
     proj = inertia - proj
     fm = np.dot(proj, np.dot(fm, proj))
 
-    # For diatomic molecule
-    if n_atoms == 2:
+    # For linear molecule
+    # TODO It seems that the above code cannot handle linear molecules properly
+    if linear:
         mass_3N_array = np.array([i for i in mass for j in range(3)])
         mass_mat = np.diag(mass_3N_array)
         inv_sq_mass_mat = np.linalg.inv(mass_mat ** 0.5)
