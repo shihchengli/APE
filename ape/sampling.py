@@ -166,6 +166,8 @@ class SamplingJob(object):
         # Determine max_loop
         if self.nnl is not None:
             self.max_nloop = int(1 / self.step_size_factor) * self.nnl
+        else:
+            self.max_nloop = 200
 
     def get_rotors_dict(self):
         """

@@ -381,7 +381,7 @@ def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conforme
 def sampling_along_vibration(symbols, cart_coords, mode, internal_object, internal_vector, freq, reduced_mass, step_size, path,
                              thresh, ncpus, charge=None, multiplicity=None, rem_variables_dict=None, gen_basis="", 
                              is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, 
-                             fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None, max_nloop=50):
+                             fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None, max_nloop=200):
     XyzDictOfEachMode = {}
     EnergyDictOfEachMode = {}
     ModeDictOfEachMode = {}
