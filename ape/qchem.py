@@ -510,15 +510,17 @@ class QChemLog(ESSAdapter):
         """
         e_elect = None
         with open(self.path, 'r') as f:
-            a = b = c = 0
+            a = b = c = d = 0
             for line in f:
+                if 'CCSD(T) total energy' in line:
+                    a = float(line.split()[4]) * constants.E_h * constants.Na                
                 if 'MP2         total energy' in line:
-                    a = float(line.split()[4]) * constants.E_h * constants.Na
+                    b = float(line.split()[4]) * constants.E_h * constants.Na
                 if 'Final energy is' in line:
-                    b = float(line.split()[3]) * constants.E_h * constants.Na
+                    c = float(line.split()[3]) * constants.E_h * constants.Na
                 if 'Total energy in the final basis set' in line:
-                    c = float(line.split()[8]) * constants.E_h * constants.Na
-                e_elect = a or b or c
+                    d = float(line.split()[8]) * constants.E_h * constants.Na
+                e_elect = a or b or c or d
         if e_elect is None:
             raise LogError('Unable to find energy in QChem output file {0}.'.format(self.path))
         return e_elect
