@@ -238,7 +238,7 @@ class SamplingJob(object):
                 rotors = []
             optvib_path = os.path.join(self.output_directory, 'output_file', self.label, 'tmp')
             optvib = OptVib(self.symbols, self.nmode, self.coordinate_system, self.cart_coords, self.conformer, self.hessian, self.linearity, self.n_vib, rotors, 
-                            self.label, optvib_path, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis)
+                            self.label, optvib_path, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, self.nHcap)
             if not os.path.exists(optvib_path):
                 os.makedirs(optvib_path)
             vib_freq, unweighted_v = optvib.get_optvib()
@@ -254,7 +254,8 @@ class SamplingJob(object):
             step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (freq * 2 * np.pi * constants.c * 100)) * 10 ** 10 * self.step_size_factor # in angstrom
             normalizes_vector = vector / magnitude
             if self.internal.nHcap is not None:
-                normalizes_vector = np.concatenate((normalizes_vector, [0, 0, 0] * self.internal.nHcap), axis=None)
+                new_nHcap = self.internal.nHcap - self.nHcap
+                normalizes_vector = np.concatenate((normalizes_vector, [0, 0, 0] * new_nHcap), axis=None)
             qj = np.matmul(self.internal.B, normalizes_vector)
             qj = qj.reshape(-1,)
             if self.is_QM_MM_INTERFACE:
