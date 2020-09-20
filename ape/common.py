@@ -307,7 +307,7 @@ def get_internal_rotation_freq(conformer, hessian, target_rotor, rotors, linear,
 
 def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conformer, int_freq, rotors_dict, scan_res, 
                            path, ncpus, charge=None, multiplicity=None, rem_variables_dict=None, gen_basis="", 
-                           is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, 
+                           is_QM_MM_INTERFACE=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, 
                            fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None):
     XyzDictOfEachMode = {}
     EnergyDictOfEachMode = {}
@@ -380,7 +380,7 @@ def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conforme
 
 def sampling_along_vibration(symbols, cart_coords, mode, internal_object, internal_vector, freq, reduced_mass, step_size, path,
                              thresh, ncpus, charge=None, multiplicity=None, rem_variables_dict=None, gen_basis="", 
-                             is_QM_MM_INTERFACE=None, nHcap=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, 
+                             is_QM_MM_INTERFACE=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, 
                              fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None, max_nloop=200):
     XyzDictOfEachMode = {}
     EnergyDictOfEachMode = {}
@@ -445,7 +445,7 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
         # If the number of sampling point is over max load, please check if this job is normal
         sample += 1
         if sample > max_nloop:
-            logging.warning('The energy of the end point is not above the cutoff value {thresh} hartree. Please increase the max_nloop value or increase step_size.'.format(thresh=thresh))
+            logging.debug('The energy of the end point is not above the cutoff value {thresh} hartree. Please increase the max_nloop value or increase step_size.'.format(thresh=thresh))
             break
         
         # Update cartesian coordinate of each sampling point
@@ -494,7 +494,7 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
         # If the number of sampling point is over max load, please check if this job is normal
         sample -= 1
         if sample < -max_nloop:
-            logging.warning('The energy of the end point is not above the cutoff value {thresh} hartree. Please increase the max_nloop value or increase step_size.'.format(thresh=thresh))
+            logging.debug('The energy of the end point is not above the cutoff value {thresh} hartree. Please increase the max_nloop value or increase step_size.'.format(thresh=thresh))
             break
         
         # Update cartesian coordinate of each sampling point

@@ -109,6 +109,7 @@ class SamplingJob(object):
                 self.ncpus = 8
             self.zpe = Log.load_zero_point_energy()
         else:
+            self.nHcap = 0
             self.natom = Log.get_number_of_atoms()
             self.symbols = [symbol_by_number[i] for i in number]
             self.cart_coords = coordinates.reshape(-1,)
@@ -149,15 +150,11 @@ class SamplingJob(object):
             self.n_vib = 3 * self.natom - (5 if self.linearity else 6) - self.n_rotors - (1 if self.is_ts else 0)
 
         # Create RedundantCoords object
-        self.internal = get_RedundantCoords(self.symbols, self.cart_coords)
-        if self.is_QM_MM_INTERFACE:
-            self.internal.nHcap = self.nHcap
+        self.internal = get_RedundantCoords(self.symbols, self.cart_coords, nHcap=self.nHcap)
         
         # Create RedundantCoords object for torsional mode
         if self.protocol == 'UMVT':
-            self.torsion_internal = get_RedundantCoords(self.symbols, self.cart_coords, self.rotors_dict)
-            if self.is_QM_MM_INTERFACE:
-                self.torsion_internal.nHcap = self.nHcap
+            self.torsion_internal = get_RedundantCoords(self.symbols, self.cart_coords, self.rotors_dict, self.nHcap)
         
         # Extract imaginary frequency from transition state
         if self.is_ts:
@@ -221,7 +218,7 @@ class SamplingJob(object):
                 int_freq = get_internal_rotation_freq(self.conformer, self.hessian, target_rotor, rotors, self.linearity, self.n_vib, is_QM_MM_INTERFACE=self.is_QM_MM_INTERFACE, label=self.label)
                 if self.is_QM_MM_INTERFACE:
                     XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.torsion_internal, self.conformer,
-                    int_freq, self.rotors_dict, scan_res, path, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, self.is_QM_MM_INTERFACE, self.nHcap, 
+                    int_freq, self.rotors_dict, scan_res, path, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, self.is_QM_MM_INTERFACE, 
                     self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
                 else:
                     XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.torsion_internal, self.conformer,
@@ -256,12 +253,14 @@ class SamplingJob(object):
             reduced_mass = magnitude ** -2 / constants.amu # in amu
             step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (freq * 2 * np.pi * constants.c * 100)) * 10 ** 10 * self.step_size_factor # in angstrom
             normalizes_vector = vector / magnitude
+            if self.internal.nHcap is not None:
+                normalizes_vector = np.concatenate((normalizes_vector, [0, 0, 0] * self.internal.nHcap), axis=None)
             qj = np.matmul(self.internal.B, normalizes_vector)
             qj = qj.reshape(-1,)
             if self.is_QM_MM_INTERFACE:
                 XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass,
                 step_size, path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, self.is_QM_MM_INTERFACE,
-                self.nHcap, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms, max_nloop=self.max_nloop)
+                self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms, max_nloop=self.max_nloop)
             else:
                 XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, step_size,
                 path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, max_nloop=self.max_nloop)

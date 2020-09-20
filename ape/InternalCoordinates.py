@@ -17,12 +17,15 @@ import copy
 import attr
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
+from scipy.optimize import minimize
 
 from pysisyphus.constants import BOHR2ANG
 from pysisyphus.elem_data import VDW_RADII, COVALENT_RADII as CR
 from pysisyphus.intcoords.derivatives import d2q_b, d2q_a, d2q_d
 
 import pybel
+
+from ape.exceptions import SamplingError
 
 #Shih-Cheng Li
 def getXYZ(atoms, cart_coords):
@@ -54,7 +57,7 @@ def get_bond_indices(atoms, cart_coords):
     bond_indices = np.array(sorted(bond_indices))
     return bond_indices
 
-def get_RedundantCoords(atoms, cart_coords, rotors_dict=None):
+def get_RedundantCoords(atoms, cart_coords, rotors_dict=None, nHcap=0):
 
     def connect_fragments(internal, bond_indices):
         internal.bond_indices = get_bond_indices(atoms, cart_coords)
@@ -104,13 +107,29 @@ def get_RedundantCoords(atoms, cart_coords, rotors_dict=None):
             
             new_dihedral_indices.extend(list(scan_indices_set))
             internal.dihedral_indices = np.array(new_dihedral_indices)
-    
+
     internal = RedundantCoords(atoms, cart_coords)
     bond_indices = get_bond_indices(atoms, cart_coords)
     bond_indices = connect_fragments(internal, bond_indices)
     set_primitive_indices(internal, bond_indices)
     internal._prim_internals = internal.calculate(cart_coords)
     internal._prim_coords = np.array([pc.val for pc in internal._prim_internals])
+    invalid_bends_list = internal.invalid_bends_list
+
+    # If there are any bends over 170°, create pseudo hydrogen caps to describe the internal coordinates
+    if invalid_bends_list != []:
+        logging.info("Didn't create bend {0}. Because the angle is over 170°.".format(invalid_bends_list))
+        addHcap = AddHcap(cart_coords, bond_indices, invalid_bends_list)
+        cart_coords, new_nHcap = addHcap.add_Hcap_xyzs()
+        atoms = atoms + ['H'] * new_nHcap
+        internal = RedundantCoords(atoms, cart_coords)
+        internal.nHcap = nHcap + new_nHcap
+        bond_indices = get_bond_indices(atoms, cart_coords)
+        bond_indices = connect_fragments(internal, bond_indices)
+        set_primitive_indices(internal, bond_indices)
+        internal._prim_internals = internal.calculate(cart_coords)
+        internal._prim_coords = np.array([pc.val for pc in internal._prim_internals])
+
     return internal
 #Shih-Cheng Li
 
@@ -501,11 +520,13 @@ class RedundantCoords:
 
     def set_bending_indices(self, define_bends=None):
         bond_sets = {frozenset(bi) for bi in self.bond_indices}
+        self.invalid_bends_list = list()
         for bond_set1, bond_set2 in it.combinations(bond_sets, 2):
             union = bond_set1 | bond_set2
             if len(union) == 3:
                 as_tpl, _ = self.sort_by_central(bond_set1, bond_set2)
                 if not self.is_valid_bend(as_tpl):
+                    self.invalid_bends_list.append(as_tpl)
                     self.log(f"Didn't create bend ({as_tpl})")
                              # f" with value of {deg:.3f}°")
                     continue
@@ -835,7 +856,10 @@ class RedundantCoords:
             self._prim_coords = np.array(new_internals)
         self.log("")
         self.cart_coords = cur_cart_coords
-        return cur_cart_coords - prev_cart_coords
+        delta_x = (cur_cart_coords - prev_cart_coords)
+        if self.nHcap is not None:
+            delta_x = delta_x[:-self.nHcap * 3]
+        return delta_x
     
     def get_active_set(self, B, thresh=1e-6):
         """See [5] between Eq. (7) and Eq. (8) for advice regarding
@@ -853,3 +877,116 @@ class RedundantCoords:
         dihedrals = len(self.dihedral_indices)
         name = self.__class__.__name__
         return f"{name}({bonds} bonds, {bends} bends, {dihedrals} dihedrals)"
+
+###############################################################################
+
+class AddHcap(object):
+    """
+    Add hydrogen caps at chosen atoms.
+    """
+    def __init__(self, cart_coords, bond_indices, invalid_bends_list):
+        self.cart_coords = cart_coords
+        self.bond_indices = bond_indices
+        self.invalid_bends_list = invalid_bends_list
+    
+    #def find_middle_atoms_inds(self):
+    #    """
+    #    Return a list of indices of the middle atom.
+    #    """
+    #    middle_atoms_inds = list()
+    #    bond_sets = {frozenset(bi) for bi in self.bond_indices}
+    #    for bond_set1, bond_set2 in it.combinations(bond_sets, 2):
+    #        collection = bond_set1 & bond_set2
+    #        if len(collection) == 1:
+    #            (central, ) = collection
+    #            middle_atoms_inds.append(central)
+    #    return middle_atoms_inds
+
+    def add_Hcap_xyzs(self):
+        """
+        Find the set of xyz of the hydrogrn caps.
+        """
+        invalid_bends_list = self.invalid_bends_list
+        nHcap = len(invalid_bends_list) * 3
+        self.new_cart_coords = self.cart_coords.copy()
+        for i, bend in enumerate(invalid_bends_list):
+            self.ind = bend[1]
+            self.bend = bend
+            Hxyz_guess = np.repeat(self.new_cart_coords[self.ind * 3:self.ind * 3 + 3], 3) + np.array([1.09, 0, 0, 0, 1.09, 0, 0, 0, 1.09])
+            result = minimize(self.objectiveFunction, Hxyz_guess, method='SLSQP',
+                            constraints=[
+                            {'type': 'eq', 'fun': self.constraintFunction1},
+                            {'type': 'eq', 'fun': self.constraintFunction2},
+                            {'type': 'eq', 'fun': self.constraintFunction3},
+                            {'type': 'eq', 'fun': self.constraintFunction4}
+                            ])
+            Hxyzs = result.x
+            self.new_cart_coords = np.concatenate((self.new_cart_coords, Hxyzs), axis=None)
+        return self.new_cart_coords, nHcap
+    
+    def objectiveFunction(self, Hxyzs):
+        """
+        Sum of the distance between hydrogen caps and other atoms.
+        """
+        val = 0
+        for i, xyz in enumerate(self.new_cart_coords.reshape(-1, 3)):
+            for j in range(3):
+                val += np.sqrt(np.sum((xyz - Hxyzs[j * 3:j * 3 + 3]) ** 2))
+        
+        val += np.sqrt(np.sum((Hxyzs[0:3]-Hxyzs[3:6]) ** 2))
+        val += np.sqrt(np.sum((Hxyzs[3:6]-Hxyzs[6:9]) ** 2))
+        val += np.sqrt(np.sum((Hxyzs[6:9]-Hxyzs[0:3]) ** 2))
+        return -val
+    
+    def constraintFunction1(self, Hxyzs):
+        """
+        The distance between first hydrogen cap and the chosen atom is 1.09 Å.
+        """
+        Hxyz = Hxyzs[0:3]
+        center = self.cart_coords[self.ind * 3:self.ind * 3 + 3]
+        distance = np.sqrt(np.sum((center - Hxyz) ** 2))
+        return distance - 1.09
+    
+    def constraintFunction2(self, Hxyzs):
+        """
+        The distance between second hydrogen cap and the chosen atom is 1.09 Å.
+        """
+        Hxyz = Hxyzs[3:6]
+        center = self.cart_coords[self.ind * 3:self.ind * 3 + 3]
+        distance = np.sqrt(np.sum((center - Hxyz) ** 2))
+        return distance - 1.09
+
+    def constraintFunction3(self, Hxyzs):
+        """
+        The distance between third hydrogen cap and the chosen atom is 1.09 Å.
+        """
+        Hxyz = Hxyzs[6:9]
+        center = self.cart_coords[self.ind * 3:self.ind * 3 + 3]
+        distance = np.sqrt(np.sum((center - Hxyz) ** 2))
+        return distance - 1.09
+
+    def constraintFunction4(self, Hxyzs):
+        """
+        Let the vector from the chosen atom to the hydrogen cap is perpendicular to the bond vector.
+        """
+        # Check if the central aton of this bending mode is connected only by two atoms
+        # Since the invalid bending mode is determined by whether its angle is over 170° or not
+        # ,the central atom of the nearly linear bending should only be connected by two atoms :)
+        n = 0
+        for bond in self.bond_indices:
+            if self.ind in bond: n += 1
+        if n != 2:
+            # If this error happens, please post an issue on GitHub page, I will fix it...
+            raise SamplingError('Hydrogen caps adding fails...')
+
+        atomB_ind, atomA_ind, atomC_ind = self.bend
+        bond_vector = self.cart_coords[atomB_ind * 3:atomB_ind * 3 + 3] - self.cart_coords[atomA_ind * 3:atomA_ind * 3 + 3]
+        bond_vector /= np.linalg.norm(bond_vector)
+        val = 0
+        for i in range(3):
+            A2H_vector = Hxyzs[i * 3:i * 3 + 3] - self.cart_coords[atomA_ind * 3:atomA_ind * 3 + 3]
+            A2H_vector /= np.linalg.norm(A2H_vector)
+            val += bond_vector.dot(A2H_vector)
+        return val
+
+        
