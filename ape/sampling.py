@@ -151,11 +151,11 @@ class SamplingJob(object):
             self.n_vib = 3 * self.natom - (5 if self.linearity else 6) - self.n_rotors - (1 if self.is_ts else 0)
 
         # Create RedundantCoords object
-        self.internal = get_RedundantCoords(self.symbols, self.cart_coords, nHcap=self.nHcap, imaginary_bonds=self.imaginary_bonds)
+        self.internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords, nHcap=self.nHcap, imaginary_bonds=self.imaginary_bonds)
         
         # Create RedundantCoords object for torsional mode
         if self.protocol == 'UMVT':
-            self.torsion_internal = get_RedundantCoords(self.symbols, self.cart_coords, self.rotors_dict, self.nHcap, imaginary_bonds=self.imaginary_bonds)
+            self.torsion_internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords, self.rotors_dict, self.nHcap, imaginary_bonds=self.imaginary_bonds)
         
         # Extract imaginary frequency from transition state
         if self.is_ts:
@@ -197,6 +197,7 @@ class SamplingJob(object):
         The energy cutoff energy could be changed by defining the value of thresh.
         The dictionary of sampling geometries, calculated energies and mode information will be returned.
         """
+        logging.info('Sampling {}...'.format(self.label))
         xyz_dict = {}
         energy_dict = {}
         mode_dict = {}

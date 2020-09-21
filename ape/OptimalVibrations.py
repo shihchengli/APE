@@ -40,7 +40,7 @@ class OptVib(object):
         self.gen_basis = gen_basis
         self.n_rotors = len(self.rotors)
         self.nHcap = nHcap
-        self.internal_object = get_RedundantCoords(self.symbols, self.cart_coords, nHcap=self.nHcap, imaginary_bonds=self.imaginary_bonds)
+        self.internal_object = get_RedundantCoords(self.label, self.symbols, self.cart_coords, nHcap=self.nHcap, imaginary_bonds=self.imaginary_bonds)
 
     def get_optvib(self):
         """
