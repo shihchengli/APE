@@ -20,7 +20,7 @@ from ape.InternalCoordinates import get_RedundantCoords, getXYZ
 
 class OptVib(object):
     def __init__(self, symbols, nmode, coordinate_system, cart_coords, conformer, hessian, linearity, n_vib, rotors, label, path, ncpus, 
-                 charge=None, multiplicity=None, rem_variables_dict=None, gen_basis="", nHcap=0):
+                 imaginary_bonds=None, charge=None, multiplicity=None, rem_variables_dict=None, gen_basis="", nHcap=0):
         self.symbols = symbols
         self.nmode = nmode
         self.coordinate_system = coordinate_system
@@ -33,13 +33,14 @@ class OptVib(object):
         self.label = label
         self.path = path
         self.ncpus = ncpus
+        self.imaginary_bonds = imaginary_bonds
         self.charge = charge
         self.multiplicity = multiplicity
         self.rem_variables_dict = rem_variables_dict
         self.gen_basis = gen_basis
         self.n_rotors = len(self.rotors)
         self.nHcap = nHcap
-        self.internal_object = get_RedundantCoords(self.symbols, self.cart_coords, nHcap=self.nHcap)
+        self.internal_object = get_RedundantCoords(self.symbols, self.cart_coords, nHcap=self.nHcap, imaginary_bonds=self.imaginary_bonds)
 
     def get_optvib(self):
         """

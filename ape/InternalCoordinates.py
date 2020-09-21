@@ -46,7 +46,7 @@ def geo_to_pybel_mol(atoms, cart_coords):
     PYMol = pybel.readstring('xyz', xyz)
     return PYMol
 
-def get_bond_indices(atoms, cart_coords):
+def get_bond_indices(atoms, cart_coords, imaginary_bonds=None):
     PYMol = geo_to_pybel_mol(atoms, cart_coords)
     OBMol = PYMol.OBMol
     reactant_bond = sorted(
@@ -54,10 +54,18 @@ def get_bond_indices(atoms, cart_coords):
             for bond in pybel.ob.OBMolBondIter(OBMol)]
     )
     bond_indices = [sorted(np.array([bond[0],bond[1]])) for bond in reactant_bond]
+
+    # Add bond indices of imaginary bonds
+    if imaginary_bonds is not None:
+        for bond_indice in imaginary_bonds:
+            bond_indice = sorted([bond_indice[0] - 1, bond_indice[1] - 1])
+            if bond_indice not in bond_indices:
+                bond_indices.append(bond_indice)
+
     bond_indices = np.array(sorted(bond_indices))
     return bond_indices
 
-def get_RedundantCoords(atoms, cart_coords, rotors_dict=None, nHcap=0):
+def get_RedundantCoords(atoms, cart_coords, rotors_dict=None, nHcap=0, imaginary_bonds=None):
 
     def connect_fragments(internal, bond_indices):
         internal.bond_indices = get_bond_indices(atoms, cart_coords)
@@ -109,7 +117,7 @@ def get_RedundantCoords(atoms, cart_coords, rotors_dict=None, nHcap=0):
             internal.dihedral_indices = np.array(new_dihedral_indices)
 
     internal = RedundantCoords(atoms, cart_coords)
-    bond_indices = get_bond_indices(atoms, cart_coords)
+    bond_indices = get_bond_indices(atoms, cart_coords, imaginary_bonds)
     bond_indices = connect_fragments(internal, bond_indices)
     set_primitive_indices(internal, bond_indices)
     internal._prim_internals = internal.calculate(cart_coords)
@@ -124,7 +132,7 @@ def get_RedundantCoords(atoms, cart_coords, rotors_dict=None, nHcap=0):
         atoms = atoms + ['H'] * new_nHcap
         internal = RedundantCoords(atoms, cart_coords)
         internal.nHcap = nHcap + new_nHcap
-        bond_indices = get_bond_indices(atoms, cart_coords)
+        bond_indices = get_bond_indices(atoms, cart_coords, imaginary_bonds)
         bond_indices = connect_fragments(internal, bond_indices)
         set_primitive_indices(internal, bond_indices)
         internal._prim_internals = internal.calculate(cart_coords)

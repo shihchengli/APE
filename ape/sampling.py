@@ -28,8 +28,8 @@ class SamplingJob(object):
     """
 
     def __init__(self, label=None, input_file=None, output_directory=None, protocol=None, spin_multiplicity=None, charge=None, 
-                 rem_variables_dict={}, gen_basis="", ncpus=None, is_ts=None, rotors=None, thresh=0.01, step_size_factor=1,
-                 coordinate_system='Normal Mode', nnl=None):
+                 rem_variables_dict={}, gen_basis="", ncpus=None, is_ts=None, imaginary_bonds=None, rotors=None, thresh=0.01,
+                 step_size_factor=1, coordinate_system='Normal Mode', nnl=None):
         self.label = label
         self.input_file = input_file
         self.output_directory = output_directory
@@ -40,6 +40,7 @@ class SamplingJob(object):
         self.gen_basis = gen_basis
         self.ncpus = ncpus
         self.is_ts = is_ts
+        self.imaginary_bonds = imaginary_bonds
         self.rotors = rotors
         self.thresh = thresh
         self.step_size_factor = step_size_factor
@@ -150,11 +151,11 @@ class SamplingJob(object):
             self.n_vib = 3 * self.natom - (5 if self.linearity else 6) - self.n_rotors - (1 if self.is_ts else 0)
 
         # Create RedundantCoords object
-        self.internal = get_RedundantCoords(self.symbols, self.cart_coords, nHcap=self.nHcap)
+        self.internal = get_RedundantCoords(self.symbols, self.cart_coords, nHcap=self.nHcap, imaginary_bonds=self.imaginary_bonds)
         
         # Create RedundantCoords object for torsional mode
         if self.protocol == 'UMVT':
-            self.torsion_internal = get_RedundantCoords(self.symbols, self.cart_coords, self.rotors_dict, self.nHcap)
+            self.torsion_internal = get_RedundantCoords(self.symbols, self.cart_coords, self.rotors_dict, self.nHcap, imaginary_bonds=self.imaginary_bonds)
         
         # Extract imaginary frequency from transition state
         if self.is_ts:
@@ -238,7 +239,7 @@ class SamplingJob(object):
                 rotors = []
             optvib_path = os.path.join(self.output_directory, 'output_file', self.label, 'tmp')
             optvib = OptVib(self.symbols, self.nmode, self.coordinate_system, self.cart_coords, self.conformer, self.hessian, self.linearity, self.n_vib, rotors, 
-                            self.label, optvib_path, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, self.nHcap)
+                            self.label, optvib_path, self.ncpus, self.imaginary_bonds, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, self.nHcap)
             if not os.path.exists(optvib_path):
                 os.makedirs(optvib_path)
             vib_freq, unweighted_v = optvib.get_optvib()

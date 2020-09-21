@@ -142,6 +142,7 @@ def transitionState(label, *args, **kwargs):
         protocol = 'UMVT'
         E0 = None
         rotors = None
+        imaginary_bonds = None
         for key, value in kwargs.items():
             if key == 'protocol':
                 protocol = value.upper()
@@ -149,6 +150,8 @@ def transitionState(label, *args, **kwargs):
                 E0 = value
             elif key == 'rotors':
                 rotors = value
+            elif key == 'imaginary_bonds':
+                imaginary_bonds = value
             else:
                 raise TypeError('species() got an unexpected keyword argument {0!r}.'.format(key))
         
@@ -158,6 +161,7 @@ def transitionState(label, *args, **kwargs):
         job.protocol = protocol
         ts.conformer.E0 = E0
         job.rotors = rotors
+        job.imaginary_bonds = imaginary_bonds
 
     return ts
 
