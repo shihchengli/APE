@@ -65,7 +65,7 @@ def get_bond_indices(atoms, cart_coords, imaginary_bonds=None):
     bond_indices = np.array(sorted(bond_indices))
     return bond_indices
 
-def get_RedundantCoords(atoms, cart_coords, rotors_dict=None, nHcap=0, imaginary_bonds=None):
+def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, imaginary_bonds=None):
 
     def connect_fragments(internal, bond_indices):
         internal.bond_indices = get_bond_indices(atoms, cart_coords)
@@ -126,7 +126,7 @@ def get_RedundantCoords(atoms, cart_coords, rotors_dict=None, nHcap=0, imaginary
 
     # If there are any bends over 170°, create pseudo hydrogen caps to describe the internal coordinates
     if invalid_bends_list != []:
-        logging.info("Didn't create bend {0}. Because the angle is over 170°.".format(invalid_bends_list))
+        logging.info("Didn't create bend {0} for {1}.".format(invalid_bends_list, label))
         addHcap = AddHcap(cart_coords, bond_indices, invalid_bends_list)
         cart_coords, new_nHcap = addHcap.add_Hcap_xyzs()
         atoms = atoms + ['H'] * new_nHcap
@@ -164,7 +164,7 @@ class RedundantCoords:
 
     RAD_175 = 3.05432619
     RAD_5 = 0.08726646
-    BEND_MIN_DEG = 45
+    BEND_MIN_DEG = 15
     BEND_MAX_DEG = 170
 
     def __init__(self, atoms, cart_coords, bond_factor=1.3,
@@ -800,10 +800,13 @@ class RedundantCoords:
         target_bends = target_internals[len(bond):-(len(dihedrals))]
         for i, target_bend in enumerate(target_bends):
             if target_bend > np.pi:
+                # TODO solve target_bend > np.pi situation
                 # target_bends[i] = 2*np.pi - target_bends[i]
                 # self.shift_pi.append(i)
                 # A bug need to be fixed
-                raise Exception('A sampling bending angel is over 180 degrees in this mode !')
+                raise Exception('A sampling bending angel is over 180°.')
+            elif target_bend <= 0:
+                raise Exception('A sampling bending angel is below 0° .')
 
         B_prim = self.B_prim
         # Bt_inv may be overriden in other coordiante systems so we
