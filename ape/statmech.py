@@ -46,6 +46,7 @@ class Statmech(object):
     def calcThermoOfEachMode(self, eig, N, mode, T):
         beta = 1/(constants.kB*T) * constants.E_h
         Q = 0
+        Q_vib = 0
         E = 0
         dQ = 0
         ddQ = 0
@@ -55,11 +56,17 @@ class Statmech(object):
             dQ += Ei*exp(-beta*Ei)*beta/T
             ddQ += -2*Ei*exp(-beta*Ei)*beta/pow(T,2) + pow(Ei,2)*exp(-beta*Ei)*pow(beta,2)/pow(T,2)
             E += Ei*exp(-beta*Ei)
+            if i == 0:
+                zpve = Ei
+            # Measuring energy relative to the zero point vibration frequency
+            dE = Ei - zpve
+            Q_vib += exp(-beta*dE)
         E /= Q
         is_tors = True if self.mode_dict[mode]['mode'] == 'tors' else False
         if is_tors:
             omega = self.mode_dict[mode]['symmetry_number']
             Q /= omega
+            Q_vib /= omega
             dQ /= omega
             ddQ /= omega
 
@@ -71,7 +78,7 @@ class Statmech(object):
         S = (E - F)/T
         Cv = (2/Q*dQ - T*pow(dQ/Q,2) + T/Q*ddQ)/beta
 
-        return v, E0, E, S, F, Q, Cv
+        return v, E0, E, S, F, Q, Q_vib, Cv
 
     def SolvEig(self, mode, T):
         Nbasis = 50
@@ -86,7 +93,7 @@ class Statmech(object):
             Nbasis_prev = Nbasis
             H_prev = deepcopy(H)
             eig, v =np.linalg.eigh(H)
-            v, E0, E, S, F, Q, Cv = self.calcThermoOfEachMode(eig, Nbasis, mode, T)
+            v, E0, E, S, F, Q, Q_vib, Cv = self.calcThermoOfEachMode(eig, Nbasis, mode, T)
 
             if Qold == np.log(sys.float_info[0]):
                 self.result_info.append("# \n# \t %d \t\t-\t\t-" % Nbasis) #first run
@@ -120,4 +127,4 @@ class Statmech(object):
             
             Qold = Q
             vold = v
-        return v, E0, E, S, F, Q, Cv
+        return v, E0, E, S, F, Q, Q_vib, Cv

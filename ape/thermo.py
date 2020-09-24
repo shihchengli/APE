@@ -44,12 +44,12 @@ class ThermoJob(Statmech):
 
         for mode in sorted(self.mode_dict.keys()):
             self.result_info.append("\n# \t********** Mode {} **********".format(mode))
-            v, e0, E, S, F, Q, Cv = self.SolvEig(mode, T)
+            v, e0, E, S, F, Q, Q_vib, Cv = self.SolvEig(mode, T)
             ZPE += e0
             E_int += E
             S_int += S
             # F_int += F
-            Q_int *= Q
+            Q_int *= Q_vib
             Cv_int += Cv
 
         self.result_info.append("\n# \t********** Final results **********\n\n")
@@ -116,12 +116,12 @@ class ThermoJob(Statmech):
 
         for mode in sorted(self.mode_dict.keys()):
             self.result_info.append("\n# \t********** Mode ",mode," **********\n\n")
-            v, e0, E, S, F, Q, Cv = self.SolvEig(mode, T)
+            v, e0, E, S, F, Q, Q_vib, Cv = self.SolvEig(mode, T)
             ZPE += e0
             E_int += E
             S_int += S
             # F_int += F
-            # Q_int *= Q
+            # Q_int *= Q_vib
             Cv_int += Cv
 
         self.result_info.append("\n# \t********** Final results **********\n#\n")
