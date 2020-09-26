@@ -27,7 +27,6 @@ import pybel
 
 from ape.exceptions import SamplingError
 
-#Shih-Cheng Li
 def getXYZ(atoms, cart_coords):
     """
     Return a string of the molecule in the XYZ file format.
@@ -65,30 +64,9 @@ def get_bond_indices(atoms, cart_coords, imaginary_bonds=None):
     bond_indices = np.array(sorted(bond_indices))
     return bond_indices
 
-def get_intco_log(internal):
-    log = "\t-------Internal Coordinate-------\n"
-    log += "\t -------------------------------\n"
-    log += "\t Coordinate                Value\n"
-    log += "\t ----------                -----\n"
-    bonds, bends, dihedrals = internal.prim_indices
-    for i, bond in enumerate(bonds):
-        bond_string = str(tuple(bond + 1)).replace(" ", "")
-        value = internal.prim_coords[i]
-        log += '\t R{:15s}={:>14.6f}\n'.format(bond_string, value)
-    for i, bend in enumerate(bends):
-        bend_string = str(tuple(bend + 1)).replace(" ", "")
-        value = internal.prim_coords[len(bonds) + i] / np.pi * 180
-        log += '\t B{:15s}={:>14.6f}\n'.format(bend_string, value)
-    for i, dihedral in enumerate(dihedrals):
-        dihedral_string = str(tuple(dihedral + 1)).replace(" ", "")
-        value = internal.prim_coords[len(bonds) + len(bends) + i] / np.pi * 180
-        log += '\t D{:15s}={:>14.6f}\n'.format(dihedral_string, value)
-    log += "\t -------------------------------\n"
-    return log
+def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, natoms_adsorbate=0, imaginary_bonds=None, save_log=True):
 
-def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, imaginary_bonds=None):
-
-    def connect_fragments(internal, bond_indices):
+    def connect_fragments(atoms, cart_coords, internal, bond_indices, save_log=True):
         internal.bond_indices = get_bond_indices(atoms, cart_coords)
         coords3d = cart_coords.reshape(-1, 3)
         # Condensed distance matrix
@@ -109,7 +87,8 @@ def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, im
         # create interfragment bonds between all of them.
         if len(fragments) != 1:
             interfragment_inds = internal.connect_fragments(cdm, fragments)
-            logging.info('Add interfragment bonds between {}'.format([(ind[0] + 1, ind[1] + 1) for ind in interfragment_inds]))
+            if save_log:
+                logging.info('Add interfragment bonds between {}'.format([(ind[0] + 1, ind[1] + 1) for ind in interfragment_inds]))
             bond_indices = np.concatenate((bond_indices, interfragment_inds))
         return bond_indices
 
@@ -138,11 +117,32 @@ def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, im
             
             new_dihedral_indices.extend(list(scan_indices_set))
             internal.dihedral_indices = np.array(new_dihedral_indices)
+    
+    # For QMMM system
+    if natoms_adsorbate != 0:
+        # Fragment 1: Adsorbate
+        internal_1 = RedundantCoords(atoms[:natoms_adsorbate], cart_coords[:natoms_adsorbate * 3])
+        bond_indices_1 = get_bond_indices(atoms[:natoms_adsorbate], cart_coords[:natoms_adsorbate * 3])
+        bond_indices_1 = connect_fragments(atoms[:natoms_adsorbate], cart_coords[:natoms_adsorbate * 3], internal_1, bond_indices_1, save_log=False)
 
+        # Fragment 2: Active site w/ hydrogen caps
+        internal_2 = RedundantCoords(atoms[natoms_adsorbate:], cart_coords[natoms_adsorbate * 3:])
+        bond_indices_2 = get_bond_indices(atoms[natoms_adsorbate:], cart_coords[natoms_adsorbate * 3:])
+        bond_indices_2 = connect_fragments(atoms[natoms_adsorbate:], cart_coords[natoms_adsorbate * 3:], internal_2, bond_indices_2, save_log=False)
+
+        # User defined imaginary bonds
+        imaginary_bonds_indice = [sorted([bond_indice[0] - 1, bond_indice[1] - 1]) for bond_indice in imaginary_bonds]
+
+        # Concatecate to get the bond indices of QMMM system
+        bond_indices = np.concatenate((bond_indices_1, bond_indices_2 + natoms_adsorbate, imaginary_bonds_indice))
+        bond_indices = np.unique(bond_indices, axis=0)
+    else:
+        bond_indices = get_bond_indices(atoms, cart_coords, imaginary_bonds)
+    
+    # Setup RedundantCoords object
     internal = RedundantCoords(atoms, cart_coords)
     internal.nHcap = nHcap
-    bond_indices = get_bond_indices(atoms, cart_coords, imaginary_bonds)
-    bond_indices = connect_fragments(internal, bond_indices)
+    bond_indices = connect_fragments(atoms, cart_coords, internal, bond_indices)
     set_primitive_indices(internal, bond_indices)
     internal._prim_internals = internal.calculate(cart_coords)
     internal._prim_coords = np.array([pc.val for pc in internal._prim_internals])
@@ -150,21 +150,23 @@ def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, im
 
     # Add dummy atoms to handle molecules with nearly linear bend
     if invalid_bends_list != []:
-        logging.info("Didn't create bend {0} for {1}".format([(bend[0] + 1, bend[1] + 1, bend[2] + 1) for bend in invalid_bends_list], label))
-        addHcap = AddHcap(cart_coords, bond_indices, invalid_bends_list)
+        if save_log:
+            logging.info("Didn't create bend {0} for {1}".format([(bend[0] + 1, bend[1] + 1, bend[2] + 1) for bend in invalid_bends_list], label))
+        addHcap = AddHcap(cart_coords, bond_indices, invalid_bends_list, save_log)
         cart_coords, new_primes, new_nHcap = addHcap.add_Hcap_xyzs()
         atoms = atoms + ['H'] * new_nHcap
         internal = RedundantCoords(atoms, cart_coords)
         internal.nHcap = nHcap + new_nHcap
         internal.number_of_dummy_atom = new_nHcap
-        bond_indices = get_bond_indices(atoms, cart_coords, imaginary_bonds)
-        bond_indices = connect_fragments(internal, bond_indices)
-        set_primitive_indices(internal, bond_indices, define_prims=new_primes)
+        stretches, bends, dihedrals = internal.sort_by_prim_type(new_primes)
+        bond_indices = np.concatenate((bond_indices,stretches))
+        bond_indices = connect_fragments(atoms, cart_coords, internal, bond_indices)
+        define_primes = bends + dihedrals
+        set_primitive_indices(internal, bond_indices, define_prims=define_primes)
         internal._prim_internals = internal.calculate(cart_coords)
         internal._prim_coords = np.array([pc.val for pc in internal._prim_internals])
 
     return internal
-#Shih-Cheng Li
 
 def get_cov_radii_sum_array(atoms, coords):
     coords3d = coords.reshape(-1, 3)
@@ -220,9 +222,9 @@ class RedundantCoords:
         self._prim_internals = self.calculate(self.cart_coords)
         self._prim_coords = np.array([pc.val for pc in self._prim_internals])
 
-        self.nHcap = None #Shih-Cheng Li
-        self.number_of_dummy_atom = None #Shih-Cheng Li
-        self.shift_pi = list() #Shih-Cheng Li
+        self.nHcap = None
+        self.number_of_dummy_atom = None
+        self.shift_pi = list()
 
     def log(self, message):
         #logger = logging.getLogger("internal_coords")
@@ -284,12 +286,10 @@ class RedundantCoords:
         """Wilson B-Matrix"""
         return np.array([c.grad for c in self.calculate(self.cart_coords)])
 
-    #Shih-Cheng Li
     @property
     def B_indices(self):
         """Wilson B-Matrix indices"""
         return [c.inds.tolist() for c in self.calculate(self.cart_coords)]
-    #Shih-Cheng Li
 
     @property
     def B(self):
@@ -438,7 +438,7 @@ class RedundantCoords:
             indices = [(i1, i2) for i1, i2 in it.product(frag1, frag2)]
             distances = np.array([dist_mat[ind] for ind in indices])
             min_index = indices[distances.argmin()]
-            interfragment_indices.append(min_index)
+            interfragment_indices.append(sorted(min_index))
         # Or as Philipp proposed: two loops over the fragments and only
         # generate interfragment distances. So we get a full matrix with
         # the original indices but only the required distances.
@@ -914,6 +914,27 @@ class RedundantCoords:
         dihedrals = len(self.dihedral_indices)
         name = self.__class__.__name__
         return f"{name}({bonds} bonds, {bends} bends, {dihedrals} dihedrals)"
+    
+    def get_intco_log(self):
+        log = "\t-------Internal Coordinate-------\n"
+        log += "\t -------------------------------\n"
+        log += "\t Coordinate                Value\n"
+        log += "\t ----------                -----\n"
+        bonds, bends, dihedrals = self.prim_indices
+        for i, bond in enumerate(bonds):
+            bond_string = str(tuple(bond + 1)).replace(" ", "")
+            value = self.prim_coords[i]
+            log += '\t R{:15s}={:>14.6f}\n'.format(bond_string, value)
+        for i, bend in enumerate(bends):
+            bend_string = str(tuple(bend + 1)).replace(" ", "")
+            value = self.prim_coords[len(bonds) + i] / np.pi * 180
+            log += '\t B{:15s}={:>14.6f}\n'.format(bend_string, value)
+        for i, dihedral in enumerate(dihedrals):
+            dihedral_string = str(tuple(dihedral + 1)).replace(" ", "")
+            value = self.prim_coords[len(bonds) + len(bends) + i] / np.pi * 180
+            log += '\t D{:15s}={:>14.6f}\n'.format(dihedral_string, value)
+        log += "\t -------------------------------\n"
+        return log
 
 ###############################################################################
 
@@ -921,16 +942,18 @@ class AddHcap(object):
     """
     Add dummy atoms to handle linear molecules or molecules with nearly linear bend.
     """
-    def __init__(self, cart_coords, bond_indices, invalid_bends_list):
+    def __init__(self, cart_coords, bond_indices, invalid_bends_list, save_log=True):
         self.cart_coords = cart_coords
         self.bond_indices = bond_indices
         self.invalid_bends_list = invalid_bends_list
+        self.save_log = save_log
 
     def add_Hcap_xyzs(self):
         """
         Find the set of xyz of the dummy atoms.
         """
-        logging.info('Adding dummy atoms...')
+        if self.save_log:
+            logging.info('Adding dummy atoms...')
         invalid_bends_list = self.invalid_bends_list
         nHcap = len(invalid_bends_list)
         self.new_cart_coords = self.cart_coords.copy()
@@ -949,10 +972,12 @@ class AddHcap(object):
             self.new_cart_coords = np.concatenate((self.new_cart_coords, Hxyzs), axis=None)
             
             dummy_atom_ind = len(self.cart_coords) // 3 + i
-            self.new_primes.extend([[terminal1, central, dummy_atom_ind],
+            self.new_primes.extend([[central, dummy_atom_ind],
+                                    [terminal1, central, dummy_atom_ind],
                                     [terminal2, central, dummy_atom_ind],
                                     [terminal1, central, dummy_atom_ind, terminal2]])
-            logging.info('Create a improper dihedral of ({0}, {1}, {2}, {3})'.format(terminal1 + 1, central + 1, dummy_atom_ind + 1, terminal2 + 1))
+            if self.save_log:
+                logging.info('Create a improper dihedral of ({0}, {1}, {2}, {3})'.format(terminal1 + 1, central + 1, dummy_atom_ind + 1, terminal2 + 1))
         return self.new_cart_coords, self.new_primes, nHcap
     
     def objectiveFunction(self, Hxyzs):
