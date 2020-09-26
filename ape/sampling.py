@@ -18,7 +18,7 @@ from arc.species.species import ARCSpecies
 
 from ape.qchem import QChemLog
 from ape.common import diagonalize_projected_hessian, get_internal_rotation_freq, sampling_along_torsion, sampling_along_vibration
-from ape.InternalCoordinates import get_RedundantCoords, getXYZ, get_intco_log
+from ape.InternalCoordinates import get_RedundantCoords, getXYZ
 from ape.OptimalVibrations import OptVib
 from ape.exceptions import InputError
 
@@ -47,7 +47,7 @@ class SamplingJob(object):
         self.coordinate_system = coordinate_system
         self.nnl = nnl
 
-    def parse(self):
+    def parse(self, save_log=True):
         """
         Parse QChem output file and crate the variables the sampling job needed.
         """
@@ -80,6 +80,8 @@ class SamplingJob(object):
         # Log some information related to QM/MM system
         self.is_QM_MM_INTERFACE = Log.is_QM_MM_INTERFACE()
         if self.is_QM_MM_INTERFACE:
+            if self.coordinate_system != 'Normal Mode':
+                raise NotImplementedError('{} not yet implemented for QMMM system.'.format(self.coordinate_system))
             self.QM_ATOMS = Log.get_QM_ATOMS()
             self.number_of_fixed_atoms = Log.get_number_of_atoms() - len(Log.get_QM_ATOMS())
             self.ISOTOPES = Log.get_ISOTOPES()
@@ -96,9 +98,11 @@ class SamplingJob(object):
             self.conformer.coordinates = (self.QM_coord, "angstroms")
             self.conformer.mass = (self.QM_mass, "amu")
             xyz = ''
+            self.natoms_adsorbate = 0
             for i in range(len(self.QM_ATOMS)):
                 if self.QM_USER_CONNECT[i].endswith('0  0  0  0'):
                     xyz += '{}\t{}\t\t{}\t\t{}'.format(self.symbols[i], self.cart_coords[3 * i], self.cart_coords[3 * i + 1], self.cart_coords[3 * i + 2])
+                    self.natoms_adsorbate += 1
                     if i != self.natom-1: xyz += '\n'
             self.xyz = xyz
             if self.xyz == '':
@@ -111,6 +115,7 @@ class SamplingJob(object):
             self.zpe = Log.load_zero_point_energy()
         else:
             self.nHcap = 0
+            self.natoms_adsorbate = 0
             self.natom = Log.get_number_of_atoms()
             self.symbols = [symbol_by_number[i] for i in number]
             self.cart_coords = coordinates.reshape(-1,)
@@ -151,11 +156,11 @@ class SamplingJob(object):
             self.n_vib = 3 * self.natom - (5 if self.linearity else 6) - self.n_rotors - (1 if self.is_ts else 0)
 
         # Create RedundantCoords object
-        self.internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords, nHcap=self.nHcap, imaginary_bonds=self.imaginary_bonds)
+        self.internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords, nHcap=self.nHcap, natoms_adsorbate=self.natoms_adsorbate, imaginary_bonds=self.imaginary_bonds, save_log=save_log)
         
         # Create RedundantCoords object for torsional mode
         if self.protocol == 'UMVT':
-            self.torsion_internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords, self.rotors_dict, self.nHcap, imaginary_bonds=self.imaginary_bonds)
+            self.torsion_internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords, self.rotors_dict, self.nHcap, self.natoms_adsorbate, imaginary_bonds=self.imaginary_bonds, save_log=save_log)
         
         # Extract imaginary frequency from transition state
         if self.is_ts:
@@ -209,7 +214,7 @@ class SamplingJob(object):
         
         # Determine the vibrational frequency and directional vector of each vibrational normal mode
         if self.protocol == 'UMVT' and self.n_rotors != 0:
-            logging.info(get_intco_log(self.torsion_internal))
+            logging.info(self.torsion_internal.get_intco_log())
             rotors = [[rotor['pivots'], rotor['top']] for rotor in self.rotors_dict.values()]
             vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, rotors, label=self.label)
             logging.debug('\nFrequencies(cm-1) from projected Hessian: {}'.format(vib_freq))
@@ -231,7 +236,7 @@ class SamplingJob(object):
                 mode_dict[mode] = ModeDictOfEachMode
         
         elif self.protocol == 'UMN' or self.n_rotors == 0:
-            logging.info(get_intco_log(self.internal))
+            logging.info(self.internal.get_intco_log())
             vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, label=self.label)
             logging.debug('\nVibrational frequencies of normal modes: {}'.format(vib_freq))
         
