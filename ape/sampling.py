@@ -18,7 +18,7 @@ from arc.species.species import ARCSpecies
 
 from ape.qchem import QChemLog
 from ape.common import diagonalize_projected_hessian, get_internal_rotation_freq, sampling_along_torsion, sampling_along_vibration
-from ape.InternalCoordinates import get_RedundantCoords, getXYZ
+from ape.InternalCoordinates import get_RedundantCoords, getXYZ, get_intco_log
 from ape.OptimalVibrations import OptVib
 from ape.exceptions import InputError
 
@@ -209,6 +209,7 @@ class SamplingJob(object):
         
         # Determine the vibrational frequency and directional vector of each vibrational normal mode
         if self.protocol == 'UMVT' and self.n_rotors != 0:
+            logging.info(get_intco_log(self.torsion_internal))
             rotors = [[rotor['pivots'], rotor['top']] for rotor in self.rotors_dict.values()]
             vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, rotors, label=self.label)
             logging.debug('\nFrequencies(cm-1) from projected Hessian: {}'.format(vib_freq))
@@ -230,6 +231,7 @@ class SamplingJob(object):
                 mode_dict[mode] = ModeDictOfEachMode
         
         elif self.protocol == 'UMN' or self.n_rotors == 0:
+            logging.info(get_intco_log(self.internal))
             vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, label=self.label)
             logging.debug('\nVibrational frequencies of normal modes: {}'.format(vib_freq))
         

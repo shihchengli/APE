@@ -65,6 +65,27 @@ def get_bond_indices(atoms, cart_coords, imaginary_bonds=None):
     bond_indices = np.array(sorted(bond_indices))
     return bond_indices
 
+def get_intco_log(internal):
+    log = "\t-------Internal Coordinate-------\n"
+    log += "\t -------------------------------\n"
+    log += "\t Coordinate                Value\n"
+    log += "\t ----------                -----\n"
+    bonds, bends, dihedrals = internal.prim_indices
+    for i, bond in enumerate(bonds):
+        bond_string = str(tuple(bond + 1)).replace(" ", "")
+        value = internal.prim_coords[i]
+        log += '\t R{:15s}={:>14.6f}\n'.format(bond_string, value)
+    for i, bend in enumerate(bends):
+        bend_string = str(tuple(bend + 1)).replace(" ", "")
+        value = internal.prim_coords[len(bonds) + i] / np.pi * 180
+        log += '\t B{:15s}={:>14.6f}\n'.format(bend_string, value)
+    for i, dihedral in enumerate(dihedrals):
+        dihedral_string = str(tuple(dihedral + 1)).replace(" ", "")
+        value = internal.prim_coords[len(bonds) + len(bends) + i] / np.pi * 180
+        log += '\t D{:15s}={:>14.6f}\n'.format(dihedral_string, value)
+    log += "\t -------------------------------\n"
+    return log
+
 def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, imaginary_bonds=None):
 
     def connect_fragments(internal, bond_indices):
@@ -88,6 +109,7 @@ def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, im
         # create interfragment bonds between all of them.
         if len(fragments) != 1:
             interfragment_inds = internal.connect_fragments(cdm, fragments)
+            logging.info('Add interfragment bonds between {}'.format([(ind[0] + 1, ind[1] + 1) for ind in interfragment_inds]))
             bond_indices = np.concatenate((bond_indices, interfragment_inds))
         return bond_indices
 
@@ -100,14 +122,14 @@ def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, im
         internal.set_dihedral_indices(dihedrals)
         dihedral_indices = internal.dihedral_indices
         if rotors_dict is not None and rotors_dict != []:
-            pivots_list = [set([rotors_dict[i]['pivots'][0]-1,
-                            rotors_dict[i]['pivots'][1]-1])
+            pivots_list = [set([rotors_dict[i]['pivots'][0] - 1,
+                            rotors_dict[i]['pivots'][1] - 1])
                             for i in rotors_dict]
             
             scan_indices_set = set()
             for i in rotors_dict:
                 scan = rotors_dict[i]['scan']
-                scan_indices_set.add((scan[0]-1,scan[1]-1,scan[2]-1,scan[3]-1))
+                scan_indices_set.add((scan[0] - 1, scan[1] - 1, scan[2] - 1, scan[3] - 1))
             
             new_dihedral_indices = []
             for ind in dihedral_indices:
@@ -118,6 +140,7 @@ def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, im
             internal.dihedral_indices = np.array(new_dihedral_indices)
 
     internal = RedundantCoords(atoms, cart_coords)
+    internal.nHcap = nHcap
     bond_indices = get_bond_indices(atoms, cart_coords, imaginary_bonds)
     bond_indices = connect_fragments(internal, bond_indices)
     set_primitive_indices(internal, bond_indices)
@@ -127,12 +150,13 @@ def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, im
 
     # Add dummy atoms to handle molecules with nearly linear bend
     if invalid_bends_list != []:
-        logging.info("Didn't create bend {0} for {1}".format(invalid_bends_list, label))
+        logging.info("Didn't create bend {0} for {1}".format([(bend[0] + 1, bend[1] + 1, bend[2] + 1) for bend in invalid_bends_list], label))
         addHcap = AddHcap(cart_coords, bond_indices, invalid_bends_list)
         cart_coords, new_primes, new_nHcap = addHcap.add_Hcap_xyzs()
         atoms = atoms + ['H'] * new_nHcap
         internal = RedundantCoords(atoms, cart_coords)
         internal.nHcap = nHcap + new_nHcap
+        internal.number_of_dummy_atom = new_nHcap
         bond_indices = get_bond_indices(atoms, cart_coords, imaginary_bonds)
         bond_indices = connect_fragments(internal, bond_indices)
         set_primitive_indices(internal, bond_indices, define_prims=new_primes)
@@ -144,7 +168,7 @@ def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, im
 
 def get_cov_radii_sum_array(atoms, coords):
     coords3d = coords.reshape(-1, 3)
-    atom_indices = list(it.combinations(range(len(coords3d)),2))
+    atom_indices = list(it.combinations(range(len(coords3d)), 2))
     atom_indices = np.array(atom_indices, dtype=int)
     cov_rad_sums = list()
     for i, j in atom_indices:
@@ -197,6 +221,7 @@ class RedundantCoords:
         self._prim_coords = np.array([pc.val for pc in self._prim_internals])
 
         self.nHcap = None #Shih-Cheng Li
+        self.number_of_dummy_atom = None #Shih-Cheng Li
         self.shift_pi = list() #Shih-Cheng Li
 
     def log(self, message):
@@ -805,9 +830,9 @@ class RedundantCoords:
                 # target_bends[i] = 2*np.pi - target_bends[i]
                 # self.shift_pi.append(i)
                 # A bug need to be fixed
-                raise Exception('A sampling bending angel is over 180°.')
+                raise Exception('A sampling bending angel of ({}) is over 180°.'.format([i[0] + 1, i[1] + 1, i[2] + 1]))
             elif target_bend <= 0:
-                raise Exception('A sampling bending angel is below 0° .')
+                raise Exception('A sampling bending angel of ({}) is below 0°.'.format([i[0] + 1, i[1] + 1, i[2] + 1]))
 
         B_prim = self.B_prim
         # Bt_inv may be overriden in other coordiante systems so we
@@ -822,7 +847,7 @@ class RedundantCoords:
         for i in range(nloop):
             cart_step = Bt_inv_prim.T.dot(remaining_int_step)
             if self.nHcap is not None:
-                cart_step[-(self.nHcap*3):] = 0 # to creat the QMMM boundary in QMMM system # Shih-Cheng Li
+                cart_step[-(self.nHcap * 3):] = 0 # frozen the positions of dummy atoms and hydrogen caps of QMMM system
             # Recalculate exact Bt_inv every cycle. Costly.
             # cart_step = self.Bt_inv.T.dot(remaining_int_step)
             cart_rms = np.sqrt(np.mean(cart_step**2))
@@ -869,8 +894,8 @@ class RedundantCoords:
         self.log("")
         self.cart_coords = cur_cart_coords
         delta_x = (cur_cart_coords - prev_cart_coords)
-        if self.nHcap is not None:
-            delta_x = delta_x[:-self.nHcap * 3]
+        if self.number_of_dummy_atom is not None:
+            delta_x = delta_x[:-self.number_of_dummy_atom * 3]
         return delta_x
     
     def get_active_set(self, B, thresh=1e-6):
