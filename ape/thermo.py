@@ -106,7 +106,7 @@ class ThermoJob(Statmech):
     def calcQMMMThermo(self, T, print_HOhf_result=True):
         P = self.P
         conformer = self.conformer
-        logging.info("Calculate internal E, S")
+        # logging.info("Calculate internal E, S")
         ZPE = 0
         E_int = 0
         S_int = 0
@@ -156,7 +156,6 @@ class ThermoJob(Statmech):
 
         conformer = self.conformer
         coordinates = conformer.coordinates.value_si * 1e10
-        number = conformer.number.value_si
 
         f.write('# Coordinates for {0} in Input Orientation (angstroms):\n'.format(self.label))
         for i in range(coordinates.shape[0]):
