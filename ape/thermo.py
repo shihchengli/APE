@@ -115,7 +115,7 @@ class ThermoJob(Statmech):
         Cv_int = 0
 
         for mode in sorted(self.mode_dict.keys()):
-            self.result_info.append("\n# \t********** Mode ",mode," **********\n\n")
+            self.result_info.append("\n# \t********** Mode {} **********".format(mode))
             v, e0, E, S, F, Q, Q_vib, Cv = self.SolvEig(mode, T)
             ZPE += e0
             E_int += E

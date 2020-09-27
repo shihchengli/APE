@@ -131,10 +131,13 @@ def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, na
         bond_indices_2 = connect_fragments(atoms[natoms_adsorbate:], cart_coords[natoms_adsorbate * 3:], internal_2, bond_indices_2, save_log=False)
 
         # User defined imaginary bonds
-        imaginary_bonds_indice = [sorted([bond_indice[0] - 1, bond_indice[1] - 1]) for bond_indice in imaginary_bonds]
+        if imaginary_bonds is not None:
+            imaginary_bonds_indice = [sorted([bond_indice[0] - 1, bond_indice[1] - 1]) for bond_indice in imaginary_bonds]
+            bond_indices = np.concatenate((bond_indices_1, bond_indices_2 + natoms_adsorbate, imaginary_bonds_indice))
+        else:
+            bond_indices = np.concatenate((bond_indices_1, bond_indices_2 + natoms_adsorbate))
 
         # Concatecate to get the bond indices of QMMM system
-        bond_indices = np.concatenate((bond_indices_1, bond_indices_2 + natoms_adsorbate, imaginary_bonds_indice))
         bond_indices = np.unique(bond_indices, axis=0)
     else:
         bond_indices = get_bond_indices(atoms, cart_coords, imaginary_bonds)
@@ -142,7 +145,7 @@ def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, na
     # Setup RedundantCoords object
     internal = RedundantCoords(atoms, cart_coords)
     internal.nHcap = nHcap
-    bond_indices = connect_fragments(atoms, cart_coords, internal, bond_indices)
+    bond_indices = connect_fragments(atoms, cart_coords, internal, bond_indices, save_log=save_log)
     set_primitive_indices(internal, bond_indices)
     internal._prim_internals = internal.calculate(cart_coords)
     internal._prim_coords = np.array([pc.val for pc in internal._prim_internals])
@@ -160,7 +163,7 @@ def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, na
         internal.number_of_dummy_atom = new_nHcap
         stretches, bends, dihedrals = internal.sort_by_prim_type(new_primes)
         bond_indices = np.concatenate((bond_indices,stretches))
-        bond_indices = connect_fragments(atoms, cart_coords, internal, bond_indices)
+        bond_indices = connect_fragments(atoms, cart_coords, internal, bond_indices, save_log=save_log)
         define_primes = bends + dihedrals
         set_primitive_indices(internal, bond_indices, define_prims=define_primes)
         internal._prim_internals = internal.calculate(cart_coords)
