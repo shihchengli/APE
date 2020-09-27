@@ -828,14 +828,15 @@ class RedundantCoords:
 
         target_bends = target_internals[len(bond):-(len(dihedrals))]
         for i, target_bend in enumerate(target_bends):
+            bendi = tuple(bend[i] + 1)
             if target_bend > np.pi:
                 # TODO solve target_bend > np.pi situation
                 # target_bends[i] = 2*np.pi - target_bends[i]
                 # self.shift_pi.append(i)
                 # A bug need to be fixed
-                raise Exception('A sampling bending angel of ({}) is over 180°.'.format([i[0] + 1, i[1] + 1, i[2] + 1]))
+                raise Exception('A sampling bending angel of {} is over 180°.'.format(bendi))
             elif target_bend <= 0:
-                raise Exception('A sampling bending angel of ({}) is below 0°.'.format([i[0] + 1, i[1] + 1, i[2] + 1]))
+                raise Exception('A sampling bending angel of {} is below 0°.'.format(bendi))
 
         B_prim = self.B_prim
         # Bt_inv may be overriden in other coordiante systems so we
@@ -849,7 +850,7 @@ class RedundantCoords:
         nloop = 1000
         for i in range(nloop):
             cart_step = Bt_inv_prim.T.dot(remaining_int_step)
-            if self.nHcap is not None:
+            if self.nHcap != 0:
                 cart_step[-(self.nHcap * 3):] = 0 # frozen the positions of dummy atoms and hydrogen caps of QMMM system
             # Recalculate exact Bt_inv every cycle. Costly.
             # cart_step = self.Bt_inv.T.dot(remaining_int_step)
