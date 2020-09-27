@@ -484,7 +484,7 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
             if sample != -1:
                 # Terminating sampling when the potential change of the current step is smaller than the change of the previous step
                 if EnergyDictOfEachMode[sample] - EnergyDictOfEachMode[sample + 1] < EnergyDictOfEachMode[sample + 1] - EnergyDictOfEachMode[sample + 2]:
-                    logging.info('Sampling of mode {} in positive direction is terminated at the classical turning points.'.format(mode))
+                    logging.info('Sampling of mode {} in negative direction is terminated at the classical turning points.'.format(mode))
                     break
 
         # Check if energy rises above a cutoff energy
