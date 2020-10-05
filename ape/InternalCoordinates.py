@@ -811,7 +811,7 @@ class RedundantCoords:
         new_internals[-len(dihedrals):] = new_dihedrals
         return new_internals
 
-    def transform_int_step(self, dq_in, ensure_convergence=False):
+    def transform_int_step(self, dq_in, ensure_convergence=True):
         """
         This is always done in primitive internal coordinates so care
         has to be taken that the supplied step is given in primitive internal
