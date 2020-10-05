@@ -451,7 +451,7 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
         # If the number of sampling point is over max load, please check if this job is normal
         sample += 1
         if sample > max_nloop:
-            logging.debug('The energy of the end point is not above the cutoff value {thresh} hartree. Please increase the max_nloop value or increase step_size.'.format(thresh=thresh))
+            logging.debug('The energy of the endpoint is below the cutoff value {thresh} hartree.'.format(thresh=thresh))
             break
         
         # Update cartesian coordinate of each sampling point
@@ -502,7 +502,7 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
         # If the number of sampling point is over max load, please check if this job is normal
         sample -= 1
         if sample < -max_nloop:
-            logging.debug('The energy of the end point is not above the cutoff value {thresh} hartree. Please increase the max_nloop value or increase step_size.'.format(thresh=thresh))
+            logging.debug('The energy of the endpoint is below the cutoff value {thresh} hartree.'.format(thresh=thresh))
             break
         
         # Update cartesian coordinate of each sampling point

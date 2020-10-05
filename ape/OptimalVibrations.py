@@ -96,12 +96,14 @@ class OptVib(object):
         """
         Hessians are generated on a grid of one point per vibrational mode.
         """
+        logging.info('A grid of Hessians generating...\n')
         initial_geometry = self.cart_coords.copy()
         vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, self.rotors, label=self.label)
         grid_of_hessians = {}
         fm = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, self.rotors, get_mass_weighted_hessian=True, label=self.label)
         grid_of_hessians[0] = deepcopy(fm)
         for i in range(self.n_vib):
+            logging.info('Sampling Mode {mode}'.format(mode=i+1))
             internal = deepcopy(self.internal_object)
             mode = i + 1
             vector = unweighted_v[i - self.n_rotors]
