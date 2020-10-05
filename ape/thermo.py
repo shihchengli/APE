@@ -116,6 +116,7 @@ class ThermoJob(Statmech):
 
         for mode in sorted(self.mode_dict.keys()):
             self.result_info.append("\n# \t********** Mode {} **********".format(mode))
+            logging.info('Mode: {}'.format(mode))
             v, e0, E, S, F, Q, Q_vib, Cv = self.SolvEig(mode, T)
             ZPE += e0
             E_int += E
@@ -195,6 +196,7 @@ class ThermoJob(Statmech):
     def execute(self):
         logging.info('Calculate thermodynamics for {0}...'.format(self.label))
         for T in self.Tlist:
+            logging.info('Calculate thermodynamics for {0} at {1} K'.format(self.label, T))
             self.result_info.append('\n\n# Thermodynamics for {0} at {1} K:\n'.format(self.label, T))
             if self.is_QM_MM_INTERFACE:
                 self.calcQMMMThermo(T=T, print_HOhf_result=True)

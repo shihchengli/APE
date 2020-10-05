@@ -811,96 +811,204 @@ class RedundantCoords:
         new_internals[-len(dihedrals):] = new_dihedrals
         return new_internals
 
-    def transform_int_step(self, step, cart_rms_thresh=1e-15):
-        """This is always done in primitive internal coordinates so care
+    def transform_int_step(self, dq_in, ensure_convergence=False):
+        """
+        This is always done in primitive internal coordinates so care
         has to be taken that the supplied step is given in primitive internal
-        coordinates."""
+        coordinates.
+        """
+        logging.info('\n\tBack-transformation to cartesian coordinates...')
+        q_orig = self.prim_coords.copy()
+        geom_orig = self.cart_coords.copy()
+        q_target = q_orig + dq_in
+
+        dq = dq_in.copy()
+        conv = False  # is back-transformation converged?
+
+        if ensure_convergence:
+            cnt = -1
+
+            while not conv:
+                cnt += 1
+                if cnt > 0:
+                    logging.info("\tReducing step-size by a factor of {:d}.".format(2 * cnt))
+                    dq[:] = dq_in / (2.0 * cnt)
+                
+                conv, dx = self.back_transformation(dq)
+
+                if not conv:
+                    if cnt == 5:
+                        logging.warning(
+                            "\tUnable to back-transform even 1/10th of the desired step rigorously."
+                            + "\tContinuing with best (small) step")
+                    else:
+                        self._prim_coords = q_orig
+                        self.cart_coords = geom_orig
+            
+                if conv and cnt > 0:  # We were able to take a modest step.  Try to complete it.
+                    logging.info(
+                        "\tAble to take a small step; trying another partial back-transformations.\n")
+
+                    for j in range(1, 2 * cnt):
+                        logging.info("\tMini-step {:d} of {:d}.\n".format(j + 1, 2 * cnt))
+                        dq[:] = dq_in / (2 * cnt)
+
+                        conv, mdx = self.back_transformation(dq)
+                        dx += mdx
+
+                        if not conv:
+                            self._prim_coords = q_orig
+                            self.cart_coords = geom_orig                            
+                            if cnt == 5:
+                                logging.warning(
+                                    "\tCouldn't converge this mini-step; quitting with previous geometry.\n")
+                                # raise SamplingError('Couldn\'t converge to targeted internal coordinate even with 1/10th of the desired step.')
+                                dq = dq_in.copy()
+                                conv, dx = self.back_transformation(dq)
+                                conv = True
+                            break
+        
+        else:  # try to back-transform, but continue even if desired dq is not achieved
+            conv, dx = self.back_transformation(dq)
+        
+        intco_lbls, qShow_orig, qShow_target, dqShow, qShow_final = [], [], [], [], []
+        bonds, bends, dihedrals = self.prim_indices
+        for i, bond in enumerate(bonds):
+            q = self.prim_coords[i]
+            intco_lbls.append('R' + str(tuple(bond + 1)).replace(" ", ""))
+            qShow_orig.append(q_orig[i])
+            qShow_target.append(q_target[i])
+            dqShow.append(q - qShow_orig[i])
+            qShow_final.append(q)
+        for i, bend in enumerate(bends):
+            q = self.prim_coords[len(bonds) + i] * 180 / np.pi
+            intco_lbls.append('B' + str(tuple(bend + 1)).replace(" ", ""))
+            qShow_orig.append(q_orig[len(bonds) + i] * 180 / np.pi)
+            qShow_target.append(q_target[len(bonds) + i] * 180 / np.pi)
+            dqShow.append(q - qShow_orig[len(bonds) + i])
+            qShow_final.append(q)
+        for i, dihedral in enumerate(dihedrals):
+            q = self.prim_coords[len(bonds) + len(bends) + i] * 180 / np.pi
+            intco_lbls.append('D' + str(tuple(dihedral + 1)).replace(" ", ""))
+            qShow_orig.append(q_orig[len(bonds) + len(bends) + i] * 180 / np.pi)
+            qShow_target.append(q_target[len(bonds) + len(bends) + i] * 180 / np.pi)
+            dqShow.append(q - qShow_orig[len(bonds) + len(bends) + i])
+            qShow_final.append(q)        
+        
+        # Make sure final Dq is actual change
+        frag_report = "\tReport of back-transformation: (au)\n"
+        frag_report += "\n\t int                       q_final      q_target         Error\n"
+        frag_report += "\t -------------------------------------------------------------\n"
+        for i in range(len(dq_in)):
+            frag_report += ("\t %-16s=%16.6f%14.6f%14.6f\n"
+                           % (intco_lbls[i], qShow_final[i], qShow_target[i], (qShow_final[i] - qShow_target[i])))
+        frag_report += "\t -------------------------------------------------------------\n"
+        logging.debug(frag_report)
+
+        coordinate_change_report = (
+            "\n\t---Internal Coordinate Step in ANG or DEG, aJ/ANG or AJ/DEG ---\n")
+        coordinate_change_report += (
+            "\t -------------------------------------------------------------\n")
+        coordinate_change_report += (
+            "\t Coordinate               Previous        Change           New\n")
+        coordinate_change_report += (
+            "\t ----------               --------        ------        ------\n")
+        for i in range(len(dq_in)):
+            coordinate_change_report += ("\t %-16s=%16.6f%14.6f%14.6f\n"
+                                        % (intco_lbls[i], qShow_orig[i], dqShow[i], qShow_final[i]))
+        coordinate_change_report += (
+            "\t -------------------------------------------------------------\n")
+        logging.info(coordinate_change_report)
+        return dx
+
+    def back_transformation(self, dq, bt_dx_conv=1.0e-6, bt_max_iter=100):
+
+        dx_rms_last = -1
+
+        q_orig = self.prim_coords.copy()
+        q_target = q_orig + dq        
+
+        prev_geom = self.cart_coords.copy() # cart geometry to start each iter
+        geom = self.cart_coords.copy()
 
         bond, bend, dihedrals = self.prim_indices
         # for i in set(self.shift_pi):
         #        step[len(bond)+i] *= -1
-
-        remaining_int_step = step
-        prev_cart_coords = copy.deepcopy(self.cart_coords)
-        cur_cart_coords = self.cart_coords.copy()
-        cur_internals = self.prim_coords
-        target_internals = cur_internals + step
-
-        target_bends = target_internals[len(bond):-(len(dihedrals))]
+        target_bends = q_target[len(bond):-(len(dihedrals))]
         for i, target_bend in enumerate(target_bends):
             bendi = tuple(bend[i] + 1)
             if target_bend > np.pi:
                 # TODO solve target_bend > np.pi situation
                 # target_bends[i] = 2*np.pi - target_bends[i]
                 # self.shift_pi.append(i)
-                # A bug need to be fixed
                 raise Exception('A sampling bending angel of {} is over 180°.'.format(bendi))
             elif target_bend <= 0:
                 raise Exception('A sampling bending angel of {} is below 0°.'.format(bendi))
 
         B_prim = self.B_prim
-        # Bt_inv may be overriden in other coordiante systems so we
-        # calculate it 'manually' here.
         Bt_inv_prim = np.linalg.pinv(B_prim.dot(B_prim.T)).dot(B_prim)
 
-        last_rms = 9999
-        prev_internals = cur_internals
-        self.backtransform_failed = True
-        self.prev_cross = None
-        nloop = 1000
-        for i in range(nloop):
-            cart_step = Bt_inv_prim.T.dot(remaining_int_step)
+        prev_q = q_orig
+
+        bt_iter_continue = True
+        bt_converged = False
+        bt_iter_cnt = 0
+
+        while bt_iter_continue:
+
+            dx = Bt_inv_prim.T.dot(dq)
+
+            # Frozen the positions of dummy atoms and hydrogen caps of QMMM system
             if self.nHcap != 0:
-                cart_step[-(self.nHcap * 3):] = 0 # frozen the positions of dummy atoms and hydrogen caps of QMMM system
-            # Recalculate exact Bt_inv every cycle. Costly.
-            # cart_step = self.Bt_inv.T.dot(remaining_int_step)
-            cart_rms = np.sqrt(np.mean(cart_step**2))
+                dx[-(self.nHcap * 3):] = 0 
+
             # Update cartesian coordinates
-            cur_cart_coords += cart_step
+            geom += dx
+            dx_rms = np.sqrt(np.mean(dx ** 2))
+    
+            # Met convergence thresholds
+            if dx_rms < bt_dx_conv:
+                bt_converged = True
+                bt_iter_continue = False
+            # No further progress toward convergence
+            elif (np.absolute(dx_rms - dx_rms_last) < 1.0e-7
+                  or bt_iter_cnt >= bt_max_iter or dx_rms > 100.0):
+                bt_converged = False
+                bt_iter_continue = False
+
+            dx_rms_last = dx_rms
+
             # Determine new internal coordinates
-            new_internals = self.update_internals(cur_cart_coords, prev_internals)
-            remaining_int_step = target_internals - new_internals
-            internal_rms = np.sqrt(np.mean(remaining_int_step**2))
-            self.log(f"Cycle {i}: rms(Δcart)={cart_rms:1.4e}, "
-                     f"rms(Δinternal) = {internal_rms:1.5e}"
-            )
+            new_q = self.update_internals(geom, prev_q)
+            dq[:] = q_target - new_q
 
-            # This assumes the first cart_rms won't be > 9999 ;)
-            if (cart_rms < last_rms):
-                # Store results of the conversion cycle for laster use, if
-                # the internal-cartesian-transformation goes bad.
-                best_cycle = (copy.deepcopy(cur_cart_coords), copy.deepcopy(new_internals.copy()))
-                best_cycle_ind = i
-                last_rms = cart_rms
-                ratio = 1
-            elif i != 0:
-                cur_cart_coords, new_internals = best_cycle
-                remaining_int_step = target_internals - new_internals
-                # Reduce the moving step to avoid failing
-                ratio *= 2
-                remaining_int_step /= ratio
-                if ratio > 16:
-                    break
-                else:
-                    continue
-            else:
-                raise Exception("Internal-cartesian back-transformation already "
-                                "failed in the first step. Aborting!"
-                )
-            prev_internals = new_internals
+            dq_rms = np.sqrt(np.mean(dq ** 2))     
+            if bt_iter_cnt == 0 or dq_rms < best_dq_rms:  # short circuit evaluation
+                best_cycle = (copy.deepcopy(geom), copy.deepcopy(new_q))
+                best_dq_rms = dq_rms
+            
+            bt_iter_cnt += 1
+            prev_q = new_q
 
-            last_rms = cart_rms
-            if cart_rms < cart_rms_thresh:
-                self.log("Internal to cartesian transformation converged!")
-                self.backtransform_failed = False
-                break
-            self._prim_coords = np.array(new_internals)
-        self.log("")
-        self.cart_coords = cur_cart_coords
-        delta_x = (cur_cart_coords - prev_cart_coords)
+        if bt_converged:
+            logging.info("\tSuccessfully converged to displaced geometry.")
+        else:
+            logging.warning("\tUnable to completely converge to displaced geometry.")
+        
+        if dq_rms > best_dq_rms:
+            # logging.warning("\tPrevious geometry is closer to target in internal coordinates,"
+            #                 + " so using that one.\n")
+            # logging.warning("\tBest geometry has RMS(Delta(q)) = %8.2e\n" % best_dq_rms)
+            geom, new_q = best_cycle
+
+        self._prim_coords = np.array(new_q)
+        self.cart_coords = geom
+        
+        dx = (geom - prev_geom)
         if self.number_of_dummy_atom is not None:
-            delta_x = delta_x[:-self.number_of_dummy_atom * 3]
-        return delta_x
+            dx = dx[:-self.number_of_dummy_atom * 3]
+
+        return bt_converged, dx
     
     def get_active_set(self, B, thresh=1e-6):
         """See [5] between Eq. (7) and Eq. (8) for advice regarding

@@ -65,7 +65,7 @@ class Job(object):
             success = log.job_is_finished()
         if success:
             file_name = '{}.q.out'.format(self.file_name)
-            logging.info('{} exists, so this calculation is passed !'.format(file_name))
+            logging.debug('{} exists, so this calculation is passed!'.format(file_name))
         else:
             proc = subprocess.Popen(['qchem -nt {cpus} {input_path} {output_path}'.format(cpus=self.ncpus, input_path=self.input_path, output_path=self.output_path)], shell=True)
             proc.wait()

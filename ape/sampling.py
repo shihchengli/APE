@@ -227,10 +227,10 @@ class SamplingJob(object):
                 if self.is_QM_MM_INTERFACE:
                     XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.torsion_internal, self.conformer,
                     int_freq, self.rotors_dict, scan_res, path, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, self.is_QM_MM_INTERFACE, 
-                    self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms)
+                    self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms, self.label)
                 else:
                     XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.torsion_internal, self.conformer,
-                    int_freq, self.rotors_dict, scan_res, path, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis)
+                    int_freq, self.rotors_dict, scan_res, path, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, label=self.label)
                 xyz_dict[mode] = XyzDictOfEachMode
                 energy_dict[mode] = EnergyDictOfEachMode
                 mode_dict[mode] = ModeDictOfEachMode
@@ -238,7 +238,9 @@ class SamplingJob(object):
         elif self.protocol == 'UMN' or self.n_rotors == 0:
             logging.info(self.internal.get_intco_log())
             vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, label=self.label)
-            logging.debug('\nVibrational frequencies of normal modes: {}'.format(vib_freq))
+            logging.debug('Vibrational frequencies of normal modes')
+            for vib in vib_freq:
+                logging.debug(vib)
         
         # Optimizing vibrational coordinates to modulate intermode coupling
         if self.coordinate_system != 'Normal Mode':

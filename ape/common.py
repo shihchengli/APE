@@ -308,7 +308,8 @@ def get_internal_rotation_freq(conformer, hessian, target_rotor, rotors, linear,
 def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conformer, int_freq, rotors_dict, scan_res, 
                            path, ncpus, charge=None, multiplicity=None, rem_variables_dict=None, gen_basis="", 
                            is_QM_MM_INTERFACE=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, 
-                           fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None):
+                           fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None, label=None):
+    logging.info('Sampling Mode {}'.format(mode))
     XyzDictOfEachMode = {}
     EnergyDictOfEachMode = {}
     ModeDictOfEachMode = {}
@@ -342,6 +343,7 @@ def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conforme
         qk *= -1
 
     # Start to sample 1-D PES
+    logging.info('direction = 1')
     nsample = int(360 / scan_res) + 1
     initial_geometry = cart_coords.copy()
     cart_coords = initial_geometry.copy()
@@ -363,7 +365,9 @@ def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conforme
         if sample == 0:
             EnergyDictOfEachMode[sample] = 0
             min_elect = e_elec
-        else: EnergyDictOfEachMode[sample] = e_elec - min_elect
+        else:
+            logging.info('ngrid = {}'.format(sample))
+            EnergyDictOfEachMode[sample] = e_elec - min_elect
         
         # Update cartesian coordinate of each sampling point
         cart_coords += internal.transform_int_step((qk * step_size).reshape(-1,))
@@ -371,9 +375,9 @@ def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conforme
     # Determine the symmetry number of this internal rotation, and save the result
     if fail_in_torsion_sampling is False:
         v_list = [i * (constants.E_h * constants.Na) for i in EnergyDictOfEachMode.values()] # in J/mol
-        label = 'tors_{}'.format(mode)
         symmetry_number = determine_rotor_symmetry(v_list, label, pivots)
         # symmetry_number = 3
+        logging.info('\n')
         ModeDictOfEachMode['symmetry_number'] = symmetry_number
 
     return XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect
@@ -382,6 +386,7 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
                              thresh, ncpus, charge=None, multiplicity=None, rem_variables_dict=None, gen_basis="", 
                              is_QM_MM_INTERFACE=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, 
                              fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None, max_nloop=200):
+    logging.info('Sampling Mode {}'.format(mode))
     XyzDictOfEachMode = {}
     EnergyDictOfEachMode = {}
     ModeDictOfEachMode = {}
@@ -401,6 +406,7 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
     internal = copy.deepcopy(internal_object)
 
     # Sample points in positive direction
+    logging.info('direction = 1')
     sample = 0
     while True:
         xyz = getXYZ(symbols, cart_coords)
@@ -426,7 +432,7 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
                 logging.info('Sampling of mode {} in positive direction is terminated at the classical turning points.'.format(mode))
                 break
         # Not include the wrong sampling point in sampling 1D-PES
-        elif e_elec - min_elect > 10:
+        elif e_elec - min_elect > 1:
             logging.warning('The potential energy of this point is too large. Sampling of point {} in mode {} might fail.'.format(sample, mode))
             break
         else:
@@ -449,9 +455,11 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
             break
         
         # Update cartesian coordinate of each sampling point
+        logging.info('ngrid = {}'.format(sample))
         cart_coords += internal.transform_int_step((qj * step_size).reshape(-1,))
     
     # Sample points in negative direction
+    logging.info('direction = -1')
     cart_coords = initial_geometry.copy()
     internal = copy.deepcopy(internal_object)  
     cart_coords += internal.transform_int_step((-qj * step_size).reshape(-1,))
@@ -475,7 +483,7 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
                 logging.info('Sampling of mode {} in negative direction is terminated at the classical turning points.'.format(mode))
                 break
         # Not include the wrong sampling point in sampling 1D-PES
-        elif e_elec - min_elect > 10:
+        elif e_elec - min_elect > 1:
             logging.warning('The potential energy of this point is too large. Sampling of point {} in mode {} might fail.'.format(sample, mode))
             break
         else:
@@ -498,6 +506,7 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
             break
         
         # Update cartesian coordinate of each sampling point
+        logging.info('ngrid = {}'.format(sample))
         cart_coords += internal.transform_int_step((-qj * step_size).reshape(-1,))
 
     return XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect
