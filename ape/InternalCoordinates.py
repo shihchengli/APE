@@ -837,13 +837,14 @@ class RedundantCoords:
                 conv, dx = self.back_transformation(dq)
 
                 if not conv:
+                    self._prim_coords = q_orig
+                    self.cart_coords = geom_orig
                     if cnt == 5:
                         logging.warning(
                             "\tUnable to back-transform even 1/10th of the desired step rigorously."
-                            + "\tContinuing with best (small) step")
-                    else:
-                        self._prim_coords = q_orig
-                        self.cart_coords = geom_orig
+                            + "\tQuitting with previous geometry.")
+                        conv, dx = self.back_transformation(dq)
+                        break
             
                 if conv and cnt > 0:  # We were able to take a modest step.  Try to complete it.
                     logging.info(
