@@ -7,6 +7,7 @@ import math
 import rmgpy.constants as constants
 from rmgpy.exceptions import ReactionError
 from rmgpy.reaction import Reaction as rmg_Reaction
+from rmgpy.statmech.vibration import HarmonicOscillator
 
 from ape.thermo import ThermoJob
 
@@ -27,6 +28,10 @@ class Reaction(object):
             thermo = ThermoJob(spec.label, spec.path, output_directory=self.output_directory, frequency_scale_factor=self.frequency_scale_factor)
             thermo.load_save()
             spec.conformer.E0 = thermo.conformer.E0
+            for mode in spec.conformer.modes:
+                if isinstance(mode, HarmonicOscillator):
+                    frequencies = mode.frequencies.value_si
+                    mode.frequencies = (frequencies * self.frequency_scale_factor, "cm^-1")
         rxn = rmg_Reaction(label=self.label, reactants=self.reactants, products=self.products, transition_state=self.transition_state)
         return rxn
     
