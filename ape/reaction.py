@@ -11,19 +11,20 @@ from rmgpy.reaction import Reaction as rmg_Reaction
 from ape.thermo import ThermoJob
 
 class Reaction(object):
-    def __init__(self, label='', reactants=None, products=None, transition_state=None, output_directory=None):
+    def __init__(self, label='', reactants=None, products=None, transition_state=None, output_directory=None, frequency_scale_factor=1):
         self.label = label
         self.reactants = reactants
         self.products = products
         self.transition_state = transition_state
         self.output_directory = output_directory
+        self.frequency_scale_factor = frequency_scale_factor
         self.kinetics = None
         self.thermo_dict = {}
     
     def rmg_Reaction(self):
         specs = self.reactants + self.products + [self.transition_state]
         for spec in specs:
-            thermo = ThermoJob(spec.label, spec.path, output_directory=self.output_directory)
+            thermo = ThermoJob(spec.label, spec.path, output_directory=self.output_directory, frequency_scale_factor=frequency_scale_factor)
             thermo.load_save()
             spec.conformer.E0 = thermo.conformer.E0
         rxn = rmg_Reaction(label=self.label, reactants=self.reactants, products=self.products, transition_state=self.transition_state)
@@ -35,7 +36,7 @@ class Reaction(object):
         for spec in specs:
             logging.debug('    Calculating thermodynamics properties for {0} at {1} K'.format(spec.label, T))
             self.thermo_dict[T][spec.label] = {}
-            thermo = ThermoJob(spec.label, spec.path, output_directory=self.output_directory, P=P)
+            thermo = ThermoJob(spec.label, spec.path, output_directory=self.output_directory, P=P, frequency_scale_factor=frequency_scale_factor)
             thermo.load_save()
             E0, E, S, F, Q, Cv = thermo.calcThermo(T, print_HOhf_result=False)
             self.thermo_dict[T][spec.label]['E0'] = E0

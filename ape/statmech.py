@@ -7,6 +7,7 @@ from numpy import exp
 from copy import deepcopy
 
 import rmgpy.constants as constants
+from rmgpy.statmech.vibration import HarmonicOscillator
 
 from ape.sampling import SamplingJob
 from ape.FitPES import from_sampling_result, cubic_spline_interpolations
@@ -16,12 +17,13 @@ class Statmech(object):
     """
     A class to solve shrodinger equation, evaluate partition function and related properties of 1-D PES by using statistical thermodynamics
     """
-    def __init__(self, label, input_file, output_directory, Tlist=[298.15], P=100000, zpe_of_Hohf=None):
+    def __init__(self, label, input_file, output_directory, Tlist=[298.15], P=100000, frequency_scale_factor=1, zpe_of_Hohf=None):
         self.label = label
         self.input_file = input_file
         self.output_directory = output_directory
         self.Tlist = Tlist
         self.P = P
+        self.frequency_scale_factor = frequency_scale_factor
         self.result_info = list()
     
     def load_save(self):
@@ -33,6 +35,10 @@ class Statmech(object):
         self.zpe_of_Hohf = self.sampling.zpe
         e0 = self.min_elect * constants.E_h * constants.Na + self.sampling.zpe
         self.conformer.E0 = (e0, "J/mol")
+        for mode in self.conformer.modes:
+            if isinstance(mode, HarmonicOscillator):
+                frequencies = mode.frequencies.value_si
+                mode.frequencies = (frequencies * self.frequency_scale_factor, "cm^-1")
         self.spin_multiplicity = self.conformer.spin_multiplicity
         self.optical_isomers =self.conformer.optical_isomers
         self.symbols = self.sampling.symbols

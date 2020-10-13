@@ -279,6 +279,7 @@ def load_input_file(path, output_path=None):
             rem_variables_dict[key.upper()] = local_context.get(key)
     if coordinate_system not in ["Normal Mode", "E-Optimized", "E'-Optimized"]:
         raise InputError("The value of coordinate_system should be Normal Mode, E-Optimized or E'-Optimized.")
+    frequency_scale_factor = local_context.get('frequency_scale_factor', 1)
 
     for job in job_list:
         if isinstance(job, SamplingJob):
@@ -290,6 +291,9 @@ def load_input_file(path, output_path=None):
             job.nnl = nnl
         if isinstance(job, ThermoJob):
             job.coordinate_system = coordinate_system
+            job.frequency_scale_factor = frequency_scale_factor
+        if isinstance(job, KineticsJob):
+            job.reaction.frequency_scale_factor = frequency_scale_factor
 
     return job_list, reaction_dict, species_dict, transition_state_dict
 
