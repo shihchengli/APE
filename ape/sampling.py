@@ -96,6 +96,7 @@ class SamplingJob(object):
             self.symbols = Log.QM_atom
             self.cart_coords = self.QM_coord.reshape(-1,)
             self.conformer.coordinates = (self.QM_coord, "angstroms")
+            self.conformer.number = number[:self.natom]
             self.conformer.mass = (self.QM_mass, "amu")
             xyz = ''
             self.natoms_adsorbate = 0

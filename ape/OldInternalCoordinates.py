@@ -5,24 +5,23 @@
 # [3] https://doi.org/10.1016/0009-2614(95)00646-L lindh model hessian
 # [4] 10.1002/(SICI)1096-987X(19990730)20:10<1067::AID-JCC9>3.0.CO;2-V
 #     Handling of corner cases
-# [5] https://doi.org/10.1063/1.462844 , Pulay 1992
+# [5] https://doi.org/10.1063/1.462844
 
-import math
+from collections import namedtuple
+from functools import reduce
 import itertools as it
 import logging
+import typing
 import copy
 
+import attr
 import numpy as np
+from scipy.spatial.distance import pdist, squareform
+from scipy.optimize import minimize
 
-from pysisyphus.linalg import svd_inv
-from pysisyphus.intcoords import Stretch, Torsion
-from pysisyphus.intcoords.update import transform_int_step
-from pysisyphus.intcoords.eval import (
-    eval_primitives,
-    check_primitives,
-)
-from pysisyphus.intcoords.setup import setup_redundant, get_primitives, PrimTypes
-from pysisyphus.intcoords.valid import 
+from pysisyphus.constants import BOHR2ANG
+from pysisyphus.elem_data import VDW_RADII, COVALENT_RADII as CR
+from pysisyphus.intcoords.derivatives import d2q_b, d2q_a, d2q_d
 
 import pybel
 
@@ -172,147 +171,68 @@ def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, na
 
     return internal
 
+def get_cov_radii_sum_array(atoms, coords):
+    coords3d = coords.reshape(-1, 3)
+    atom_indices = list(it.combinations(range(len(coords3d)), 2))
+    atom_indices = np.array(atom_indices, dtype=int)
+    cov_rad_sums = list()
+    for i, j in atom_indices:
+        atom1 = atoms[i].lower()
+        atom2 = atoms[j].lower()
+        cov_rad_sums.append(CR[atom1] + CR[atom2])
+    cov_rad_sums = np.array(cov_rad_sums)
+    return cov_rad_sums
+
+@attr.s(auto_attribs=True)
+class PrimitiveCoord:
+    inds : typing.List[int]
+    val : float
+    grad : np.ndarray
+
+
 class RedundantCoords:
-    def __init__(
-        self,
-        atoms,
-        coords3d,
-        bond_factor=1.3,
-        typed_prims=None,
-        define_prims=None,
-        bonds_only=False,
-        check_bends=True,
-        rebuild=True,
-        bend_min_deg=15,
-        dihed_max_deg=175.0,
-        lb_min_deg=175.0,
-        weighted=False,
-        min_weight=0.3,
-        # Corresponds to a threshold of 1e-7 for eigenvalues of G, as proposed by
-        # Pulay in [5].
-        svd_inv_thresh=3.16e-4,
-    ):
+
+    RAD_175 = 3.05432619
+    RAD_5 = 0.08726646
+    BEND_MIN_DEG = 15
+    BEND_MAX_DEG = 170
+
+    def __init__(self, atoms, cart_coords, bond_factor=1.3,
+                 prim_indices=None, define_prims=None):
         self.atoms = atoms
-        self.coords3d = np.reshape(coords3d, (-1, 3)).copy()
+        self.cart_coords = cart_coords
         self.bond_factor = bond_factor
         self.define_prims = define_prims
-        self.bonds_only = bonds_only
-        self.check_bends = check_bends
-        self.rebuild = rebuild
-        self.bend_min_deg = bend_min_deg
-        self.dihed_max_deg = dihed_max_deg
-        self.lb_min_deg = lb_min_deg
-        self.weighted = weighted
-        self.min_weight = float(min_weight)
-        assert self.min_weight > 0.0, "min_weight must be a positive rational!"
-        self.svd_inv_thresh = svd_inv_thresh
 
-        self._B_prim = None
-        # Lists for the other types of primitives will be created afterwards.
-        # Linear bends may have been disabled, so we create the list here.
-        self.linear_bend_indices = list()
-        self.logger = logging.getLogger("internal_coords")
+        self.bond_indices = list()
+        self.bending_indices = list()
+        self.dihedral_indices = list()
+        self.hydrogen_bond_indices = list()
 
-        if self.weighted:
-            self.log(
-                "Coordinate weighting requested, min_weight="
-                f"{self.min_weight:.2f}. Calculating bond factor."
-            )
-            # Screening function is
-            #   ρ(d) = exp(-(d/sum_cov_rad - 1)
-            #
-            # Swart proposed a min_weight of ρ(d) = 0.3. With this we can
-            # calculate the appropriate factor for the bond detection.
-            # d = (1 - ln(0.3)) * sum_cov_rad
-            # bond_factor = (1 - ln(0.3)) ≈ 2.204
-            #
-            # The snippet below prints weights and corresponding bond_factors.
-            # [f"{w:.2f}: {1-np.log(w):.4f}" for w in np.linspace(0.3, 1, 25)]
-            self.bond_factor = -math.log(self.min_weight) + 1
-        self.log(f"Using a factor of {self.bond_factor:.6f} for bond detection.")
-        self.log(f"Using svd_inv_thresh={self.svd_inv_thresh:.4e} for inversions.")
-
-        # Set up primitive coordinate indices
-        if typed_prims is None:
-            self.set_primitive_indices(
-                self.atoms,
-                self.coords3d,
-            )
-        # Use supplied typed_prims
+        if prim_indices is None:
+            self.set_primitive_indices(self.define_prims)
         else:
-            self.log(f"{len(typed_prims)} primitives were supplied. Checking them.")
-            valid_typed_prims = check_typed_prims(
-                self.coords3d,
-                typed_prims,
-                bend_min_deg=self.bend_min_deg,
-                dihed_max_deg=self.dihed_max_deg,
-                lb_min_deg=self.lb_min_deg,
-                check_bends=self.check_bends,
-            )
-            self.log(
-                f"{len(valid_typed_prims)} primitives are valid at the current Cartesians."
-            )
-            if len(valid_typed_prims) != len(typed_prims):
-                self.log("Invalid primitives:")
-                for i, invalid_prim in enumerate(set(typed_prims) - set(valid_typed_prims)):
-                    self.log(f"\t{i:02d}: {invalid_prim}")
-            self.typed_prims = valid_typed_prims
-            self.set_inds_from_typed_prims(self.typed_prims)
-
-        self.primitives = get_primitives(
-            self.coords3d,
-            self.typed_prims,
-            logger=self.logger,
-        )
-        if self.bonds_only:
-            self.bending_indices = list()
-            self.dihedral_indices = list()
-            self.linear_bend_indices = list()
-            self.primitives = [
-                prim for prim in self.primitives if isinstance(prim, Stretch)
-            ]
-        check_primitives(self.coords3d, self.primitives, logger=self.logger)
-
-        self._prim_internals = self.eval(self.coords3d)
-        self._prim_coords = np.array(
-            [prim_int.val for prim_int in self._prim_internals]
-        )
-
-        bonds = len(self.bond_indices)
-        bends = len(self.bending_indices) + len(self.linear_bend_indices)
-        dihedrals = len(self.dihedral_indices)
-        assert bonds + bends + dihedrals == len(self.primitives)
-        self._bonds_slice = slice(bonds)
-        self._bends_slice = slice(bonds, bonds + bends)
-        self._dihedrals_slice = slice(bonds + bends, bonds + bends + dihedrals)
-        self.backtransform_counter = 0
+            to_arr = lambda _: np.array(list(_), dtype=int)
+            bonds, bends, dihedrals = prim_indices
+            # We accept all bond indices. What could possibly go wrong?! :)
+            self.bond_indices = to_arr(bonds)
+            valid_bends = [inds for inds in bends
+                           if self.is_valid_bend(inds)]
+            self.bending_indices = to_arr(valid_bends)
+            valid_dihedrals = [inds for inds in dihedrals if
+                               self.is_valid_dihedral(inds)]
+            self.dihedral_indices = to_arr(valid_dihedrals)
+        self._prim_internals = self.calculate(self.cart_coords)
+        self._prim_coords = np.array([pc.val for pc in self._prim_internals])
 
         self.nHcap = None
         self.number_of_dummy_atom = None
         self.shift_pi = list()
 
     def log(self, message):
+        #logger = logging.getLogger("internal_coords")
         #logger.debug(message)
         pass
-
-    @property
-    def coords3d(self):
-        return self._coords3d
-
-    @coords3d.setter
-    def coords3d(self, coords3d):
-        self._coords3d = coords3d.reshape(-1, 3)
-        self._B_prim = None
-        self._prim_coords = None
-        self._prim_internals = None
-
-    @property
-    def primitives(self):
-        return self._primitives
-
-    @primitives.setter
-    def primitives(self, primitives):
-        self._primitives = primitives
 
     @property
     def prim_indices(self):
@@ -323,58 +243,51 @@ class RedundantCoords:
         return set([tuple(prim_ind) for prim_ind in it.chain(*self.prim_indices)])
 
     @property
-    def prim_internals(self):
-        if self._prim_internals is None:
-            self._prim_internals = self.eval(self.coords3d)
-        return self._prim_internals
-
-    @prim_internals.setter
-    def prim_internals(self, prim_internals):
-        self._prim_internals = prim_internals
-
-    @property
     def prim_coords(self):
-        return np.array([prim_int.val for prim_int in self.prim_internals])
-
-    def return_inds(self, slice_):
-        return np.array([prim_int.indices for prim_int in self.prim_internals[slice_]])
-
-    @property
-    def bonds(self):
-        return self.prim_internals[self._bonds_slice]
-
-    @property
-    def bends(self):
-        return self.prim_internals[self._bends_slice]
-
-    @property
-    def dihedrals(self):
-        return self.prim_internals[self._dihedrals_slice]
+        if self._prim_coords is None:
+           self._prim_coords = np.array(
+                            [pc.val for pc in self.calculate(self.cart_coords)]
+            )
+        return self._prim_coords
 
     @property
     def coords(self):
         return self.prim_coords
 
     @property
+    def coord_indices(self):
+        ic_ind_tuples = [tuple(ic.inds) for ic in self._prim_internals]
+        return {ic_inds: i for i, ic_inds in enumerate(ic_ind_tuples)}
+
+    @property
     def dihed_start(self):
         return len(self.bond_indices) + len(self.bending_indices)
 
     def get_index_of_prim_coord(self, prim_ind):
-        """Index of primitive internal for the given atom indices."""
+        """Index of primitive internal for the given atom indices.
+
+        TODO: simplify this so when we get a prim_ind of len 2
+        (bond) we don't have to check the bending and dihedral indices."""
+  
         prim_ind_set = set(prim_ind)
-        for i, prim in enumerate(self.primitives):
-            if set(prim.indices) == prim_ind_set:
-                return i
-        self.log(f"Primitive internal with indices {prim_ind} " "is not defined!")
-        return None
+        indices = [i for i, pi in enumerate(it.chain(*self.prim_indices))
+                 if set(pi) == prim_ind_set]
+        index = None
+        try:
+            index = indices[0]
+        except IndexError:
+            self.log(f"Primitive internal with indices {prim_ind} "
+                      "is not defined!")
+        return index
+
+    @property
+    def c3d(self):
+        return self.cart_coords.reshape(-1, 3)
 
     @property
     def B_prim(self):
         """Wilson B-Matrix"""
-        if self._B_prim is None:
-            self._B_prim = np.array([prim_int.grad for prim_int in self.prim_internals])
-
-        return self._B_prim
+        return np.array([c.grad for c in self.calculate(self.cart_coords)])
 
     @property
     def B_indices(self):
@@ -386,33 +299,17 @@ class RedundantCoords:
         """Wilson B-Matrix"""
         return self.B_prim
 
-    def inv_B(self, B):
-        return B.T.dot(svd_inv(B.dot(B.T), thresh=self.svd_inv_thresh, hermitian=True))
-        # return B.T.dot(self.pinv(B.dot(B.T)))
-
-    def inv_Bt(self, B):
-        return svd_inv(B.dot(B.T), thresh=self.svd_inv_thresh, hermitian=True).dot(B)
-        # return self.pinv(B.dot(B.T)).dot(B)
-
-    @property
-    def Bt_inv_prim(self):
-        """Transposed generalized inverse of the primitive Wilson B-Matrix."""
-        return self.inv_Bt(self.B_prim)
-
     @property
     def Bt_inv(self):
         """Transposed generalized inverse of the Wilson B-Matrix."""
-        return self.inv_Bt(self.B)
-
-    @property
-    def B_inv_prim(self):
-        """Generalized inverse of the primitive Wilson B-Matrix."""
-        return self.inv_B(self.B_prim)
+        B = self.B
+        return np.linalg.pinv(B.dot(B.T)).dot(B)
 
     @property
     def B_inv(self):
         """Generalized inverse of the Wilson B-Matrix."""
-        return self.inv_B(self.B)
+        B = self.B
+        return B.T.dot(np.linalg.pinv(B.dot(B.T)))
 
     @property
     def P(self):
@@ -424,30 +321,29 @@ class RedundantCoords:
         return self.Bt_inv.dot(cart_forces)
 
     def get_K_matrix(self, int_gradient=None):
-        if int_gradient is not None:
-            assert len(int_gradient) == len(self._primitives)
-
-        size_ = self.coords3d.size
+        assert len(int_gradient) == len(self._prim_internals)
+        size_ = self.cart_coords.size
         if int_gradient is None:
             return np.zeros((size_, size_))
 
+        dg_funcs = {
+            2: d2q_b,
+            3: d2q_a,
+            4: d2q_d,
+        }
+        def grad_deriv_wrapper(inds):
+            coords_flat = self.c3d[inds].flatten()
+            dgrad = dg_funcs[len(inds)](*coords_flat)
+            return dgrad
+
         K_flat = np.zeros(size_ * size_)
-        coords3d = self.coords3d
-        for primitive, int_grad_item in zip(self.primitives, int_gradient):
+        for pc, int_grad_item in zip(self._prim_internals, int_gradient):
             # Contract with gradient
-            val = np.rad2deg(primitive.calculate(coords3d))
-            # self.log(f"K, {primitive}={val:.2f}°")
-            # The generated code (d2q_d) seems unstable for these values...
-            if isinstance(primitive, Torsion) and ((abs(val) < 1) or (abs(val) > 179)):
-                self.log(f"Skipped 2nd derivative of {primitive} with val={val:.2f}°")
-                continue
-            # 2nd derivative of normal, but linear, bends is undefined.
             try:
-                dg = int_grad_item * primitive.jacobian(coords3d)
+                dg = int_grad_item * grad_deriv_wrapper(pc.inds)
             except (ValueError, ZeroDivisionError) as err:
-                self.log(
-                    "Error in calculation of 2nd derivative of primitive "
-                    f"internal {primitive.indices}."
+                self.log( "Error in calculation of 2nd derivative of primitive "
+                         f"internal {pc.inds}."
                 )
                 continue
             # Depending on the type of internal coordinate dg is a flat array
@@ -460,104 +356,446 @@ class RedundantCoords:
             # As for now we build up the K matrix as flat array. To add the dg
             # entries at the appropriate places in K_flat we have to calculate
             # the corresponding flat indices of dg in K_flat.
-            cart_inds = list(
-                it.chain(*[range(3 * i, 3 * i + 3) for i in primitive.indices])
-            )
-            flat_inds = [
-                row * size_ + col for row, col in it.product(cart_inds, cart_inds)
-            ]
+            cart_inds = list(it.chain(*[range(3*i,3*i+3) for i in pc.inds]))
+            flat_inds = [row*size_ + col for row, col in it.product(cart_inds, cart_inds)]
             K_flat[flat_inds] += dg
         K = K_flat.reshape(size_, size_)
         return K
 
-    def log_int_grad_msg(self, int_gradient):
-        if int_gradient is None:
-            self.log(
-                "Supplied 'int_gradient' is None. K matrix will be zero, "
-                "so derivatives of the\nWilson-B-matrix are neglected in "
-                "Hessian transformation."
-            )
-
     def transform_hessian(self, cart_hessian, int_gradient=None):
-        """Transform Cartesian Hessian to internal coordinates."""
-        self.log_int_grad_msg(int_gradient)
+        if int_gradient is None:
+            self.log("Supplied 'int_gradient' is None. K matrix will be zero, "
+                     "so derivatives of the Wilson-B-matrix are neglected in "
+                     "the hessian transformation."
+            )
         K = self.get_K_matrix(int_gradient)
-        return self.Bt_inv_prim.dot(cart_hessian - K).dot(self.B_inv_prim)
-
-    def backtransform_hessian(self, redund_hessian, int_gradient=None):
-        """Transform Hessian in internal coordinates to Cartesians."""
-        self.log_int_grad_msg(int_gradient)
-        K = self.get_K_matrix(int_gradient)
-        return self.B.T.dot(redund_hessian).dot(self.B) + K
+        return self.Bt_inv.dot(cart_hessian-K).dot(self.B_inv)
 
     def project_hessian(self, H, shift=1000):
         """Expects a hessian in internal coordinates. See Eq. (11) in [1]."""
         P = self.P
-        return P.dot(H).dot(P) + shift * (np.eye(P.shape[0]) - P)
+        return P.dot(H).dot(P) + shift*(np.eye(P.shape[0]) - P)
 
     def project_vector(self, vector):
         """Project supplied vector onto range of B."""
+        P = self.P
         return self.P.dot(vector)
 
-    def set_inds_from_typed_prims(self, typed_prims):
-        linear_bend_types = (PrimTypes.LINEAR_BEND, PrimTypes.LINEAR_BEND_COMPLEMENT)
-        per_type = {
-            2: list(),
-            3: list(),
-            4: list(),
-            "linear_bend": list(),
-            "hydrogen_bond": list(),
+    def set_rho(self):
+        # TODO: remove this as it is already in optimizers/guess_hessians
+        atoms = [a.lower() for a in self.atoms]
+        cov_radii = np.array([CR[a.lower()] for a in atoms])
+        rref = np.array([r1+r2
+                         for r1, r2 in it.combinations(cov_radii, 2)])
+        coords3d = self.cart_coords.reshape(-1, 3)
+        cdm = pdist(coords3d)
+        self.rho = squareform(np.exp(-cdm/rref + 1))
+
+    def get_initial_hessian(self):
+        # TODO: remove this as it is already in optimizers/guess_hessians
+        self.set_rho()
+        k_dict = {
+            2: 0.35,
+            3: 0.15,
+            4: 0.005,
         }
-        for type_, *indices in typed_prims:
-            key = len(indices)
-            if type_ in (linear_bend_types):
-                key = "linear_bend"
-            per_type[key].append(indices)
+        k_diag = list()
+        for primitive in self._prim_internals:
+            rho_product = 1
+            for i in range(primitive.inds.size-1):
+                i1, i2 = primitive.inds[i:i+2]
+                rho_product *= self.rho[i1, i2]
+            k_diag.append(k_dict[len(primitive.inds)] * rho_product)
+        return np.diagflat(k_diag)
 
-            # Also keep hydrogen bonds
-            if type_ == PrimTypes.HYDROGEN_BOND:
-                per_type["hydrogen_bond"].append(indices)
+    def merge_fragments(self, fragments):
+        """Merge a list of sets."""
+        # Hold the final fragments that can't be merged further, as they
+        # contain distinct atoms.
+        merged = list()
+        while len(fragments) > 0:
+            popped = fragments.pop(0)
+            # Look for an intersection between the popped unmerged fragment
+            # and the remaining unmerged fragments.
+            for frag in fragments:
+                if popped & frag:
+                    fragments.remove(frag)
+                    # If a intersecting unmerged fragment is found merge
+                    # both fragments and append them at the end.
+                    fragments.append(popped | frag)
+                    break
+            else:
+                # Add the unmerged fragment into merged if it doesn't
+                # intersect with any other unmerged fragment.
+                merged.append(popped)
+        return merged
 
-        self.bond_indices = per_type[2]
-        self.bending_indices = per_type[3]
-        self.dihedral_indices = per_type[4]
-        self.linear_bend_indices = per_type["linear_bend"]
-        self.hydrogen_bond_indices = per_type["hydrogen_bond"]
+    def connect_fragments(self, cdm, fragments):
+        """Determine the smallest interfragment bond for a list
+        of fragments and a condensed distance matrix."""
+        dist_mat = squareform(cdm)
+        interfragment_indices = list()
+        for frag1, frag2 in it.combinations(fragments, 2):
+            arr1 = np.array(list(frag1))[None,:]
+            arr2 = np.array(list(frag2))[:,None]
+            indices = [(i1, i2) for i1, i2 in it.product(frag1, frag2)]
+            distances = np.array([dist_mat[ind] for ind in indices])
+            min_index = indices[distances.argmin()]
+            interfragment_indices.append(sorted(min_index))
+        # Or as Philipp proposed: two loops over the fragments and only
+        # generate interfragment distances. So we get a full matrix with
+        # the original indices but only the required distances.
+        return interfragment_indices
 
-        # TODO
-        # self.fragments = coord_info.fragments
+    def set_hydrogen_bond_indices(self, bond_indices):
+        coords3d = self.cart_coords.reshape(-1, 3)
+        tmp_sets = [frozenset(bi) for bi in bond_indices]
+        # Check for hydrogen bonds as described in [1] A.1 .
+        # Find hydrogens bonded to small electronegative atoms X = (N, O
+        # F, P, S, Cl).
+        hydrogen_inds = [i for i, a in enumerate(self.atoms)
+                         if a.lower() == "h"]
+        x_inds = [i for i, a in enumerate(self.atoms)
+                  if a.lower() in "n o f p s cl".split()]
+        hydrogen_bond_inds = list()
+        for h_ind, x_ind in it.product(hydrogen_inds, x_inds):
+            as_set = set((h_ind, x_ind))
+            if not as_set in tmp_sets:
+                continue
+            # Check if distance of H to another electronegative atom Y is
+            # greater than the sum of their covalent radii but smaller than
+            # the 0.9 times the sum of their van der Waals radii. If the
+            # angle X-H-Y is greater than 90° a hydrogen bond is asigned.
+            y_inds = set(x_inds) - set((x_ind, ))
+            for y_ind in y_inds:
+                y_atom = self.atoms[y_ind].lower()
+                cov_rad_sum = CR["h"] + CR[y_atom]
+                distance = self.calc_stretch(coords3d, (h_ind, y_ind))
+                vdw = 0.9 * (VDW_RADII["h"] + VDW_RADII[y_atom])
+                angle = self.calc_bend(coords3d, (x_ind, h_ind, y_ind))
+                if (cov_rad_sum < distance < vdw) and (angle > np.pi/2):
+                    self.hydrogen_bond_indices.append((h_ind, y_ind))
+                    self.log("Added hydrogen bond between {h_ind} and {y_ind}")
+        self.hydrogen_bond_indices = np.array(self.hydrogen_bond_indices)
 
-    def set_primitive_indices(
-        self,
-        atoms,
-        coords3d,
-    ):
-        coord_info = setup_redundant(
-            atoms,
-            coords3d,
-            factor=self.bond_factor,
-            define_prims=self.define_prims,
-            min_deg=self.bend_min_deg,
-            dihed_max_deg=self.dihed_max_deg,
-            lb_min_deg=self.lb_min_deg,
-            min_weight=self.min_weight if self.weighted else None,
-            logger=self.logger,
+    def set_bond_indices(self, define_bonds=None, factor=None):
+        """
+        Default factor of 1.3 taken from [1] A.1.
+        Gaussian uses somewhat less, like 1.2, or different radii than we do.
+        """
+        bond_factor = factor if factor else self.bond_factor
+        coords3d = self.cart_coords.reshape(-1, 3)
+        # Condensed distance matrix
+        cdm = pdist(coords3d)
+        # Generate indices corresponding to the atom pairs in the
+        # condensed distance matrix cdm.
+        atom_indices = list(it.combinations(range(len(coords3d)),2))
+        atom_indices = np.array(atom_indices, dtype=int)
+        cov_rad_sums = get_cov_radii_sum_array(self.atoms, self.cart_coords)
+        cov_rad_sums *= bond_factor
+        bond_flags = cdm <= cov_rad_sums
+        bond_indices = atom_indices[bond_flags]
+
+
+        if define_bonds:
+            bond_indices = np.concatenate(((bond_indices, define_bonds)), axis=0)
+
+        self.bare_bond_indices = bond_indices
+
+
+        # Look for hydrogen bonds
+        self.set_hydrogen_bond_indices(bond_indices)
+        if self.hydrogen_bond_indices.size > 0:
+            bond_indices = np.concatenate((bond_indices,
+                                           self.hydrogen_bond_indices))
+
+        # Merge bond index sets into fragments
+        bond_ind_sets = [frozenset(bi) for bi in bond_indices]
+        fragments = self.merge_fragments(bond_ind_sets)
+
+        # Look for unbonded single atoms and create fragments for them.
+        bonded_set = set(tuple(bond_indices.flatten()))
+        unbonded_set = set(range(len(self.atoms))) - bonded_set
+        fragments.extend(
+            [frozenset((atom, )) for atom in unbonded_set]
+        )
+        self.fragments = fragments
+
+        # Check if there are any disconnected fragments. If there are some
+        # create interfragment bonds between all of them.
+        if len(fragments) != 1:
+            interfragment_inds = self.connect_fragments(cdm, fragments)
+            bond_indices = np.concatenate((bond_indices, interfragment_inds))
+
+        self.bond_indices = np.unique(bond_indices, axis=0)
+
+    def are_parallel(self, vec1, vec2, angle_ind=None, thresh=1e-6):
+        dot = max(min(vec1.dot(vec2), 1), -1)
+        rad = np.arccos(dot)#vec1.dot(vec2))
+        # angle > 175°
+        if abs(rad) > self.RAD_175:
+            # self.log(f"Nearly linear angle {angle_ind}: {np.rad2deg(rad)}")
+            ind_str = f" ({angle_ind})" if (angle_ind is not None) else ""
+            self.log(f"Nearly linear angle{ind_str}: {np.rad2deg(rad)}")
+        return abs(rad) > (np.pi - thresh)
+
+    def sort_by_central(self, set1, set2):
+        """Determines a common index in two sets and returns a length 3
+        tuple with the central index at the middle position and the two
+        terminal indices as first and last indices."""
+        central_set = set1 & set2
+        union = set1 | set2
+        assert len(central_set) == 1
+        terminal1, terminal2 = union - central_set
+        (central, ) = central_set
+        return (terminal1, central, terminal2), central
+
+    def is_valid_bend(self, bend_ind):
+        val = self.calc_bend(self.c3d, bend_ind)
+        deg = np.rad2deg(val)
+        return self.BEND_MIN_DEG <= deg <= self.BEND_MAX_DEG
+
+    def set_bending_indices(self, define_bends=None):
+        bond_sets = {frozenset(bi) for bi in self.bond_indices}
+        self.invalid_bends_list = list()
+        for bond_set1, bond_set2 in it.combinations(bond_sets, 2):
+            union = bond_set1 | bond_set2
+            if len(union) == 3:
+                as_tpl, _ = self.sort_by_central(bond_set1, bond_set2)
+                if not self.is_valid_bend(as_tpl):
+                    self.invalid_bends_list.append(as_tpl)
+                    self.log(f"Didn't create bend ({as_tpl})")
+                             # f" with value of {deg:.3f}°")
+                    continue
+                self.bending_indices.append(as_tpl)
+        self.bending_indices = np.array(self.bending_indices, dtype=int)
+
+        if define_bends:
+            bis = np.concatenate(( (self.bending_indices, define_bends)), axis=0)
+            self.bending_indices = np.unique(bis, axis=0)
+
+    def is_valid_dihedral(self, dihedral_ind, thresh=1e-6):
+        # Check for linear atoms
+        first_angle = self.calc_bend(self.c3d, dihedral_ind[:3])
+        second_angle = self.calc_bend(self.c3d, dihedral_ind[1:])
+        pi_thresh = np.pi - thresh
+        return ((abs(first_angle) < pi_thresh)
+                and (abs(second_angle) < pi_thresh)
         )
 
-        self.typed_prims = coord_info.typed_prims
-        self.set_inds_from_typed_prims(self.typed_prims)
+    def set_dihedral_indices(self, define_dihedrals=None):
+        dihedral_sets = list()
+        self.dihedral_list = list()
+        def set_dihedral_index(dihedral_ind):
+            dihedral_set = set(dihedral_ind)
+            self.dihedral_list.append(dihedral_ind)  #contain repeated dihedral indices
+            # Check if this dihedral is already present
+            if dihedral_set in dihedral_sets:
+                return
+            # Assure that the angles are below 175° (3.054326 rad)
+            if not self.is_valid_dihedral(dihedral_ind, thresh=0.0873):
+                self.log("Skipping generation of dihedral "
+                               f"{dihedral_ind} as some of the the atoms "
+                                "are linear."
+                )
+                return
+            self.dihedral_indices.append(dihedral_ind)
+            dihedral_sets.append(dihedral_set)
 
-        self.fragments = coord_info.fragments
+        improper_dihedrals = list()
+        coords3d = self.cart_coords.reshape(-1, 3)
+        for bond, bend in it.product(self.bond_indices, self.bending_indices):
+            central = bend[1]
+            bend_set = set(bend)
+            bond_set = set(bond)
+            # Check if the two sets share one common atom. If not continue.
+            intersect = bend_set & bond_set
+            if len(intersect) != 1:
+                continue
+            # When the common atom is a terminal atom of the bend, that is
+            # it's not the central atom of the bend, we create a
+            # proper dihedral. Before we create any improper dihedrals we
+            # create these proper dihedrals.
+            if central not in bond_set:
+                # The new terminal atom in the dihedral is the one that
+                # doesn' intersect.
+                terminal = tuple(bond_set - intersect)[0]
+                intersecting_atom = tuple(intersect)[0]
+                if intersecting_atom == bend[0]:
+                    dihedral_ind = [terminal] + bend.tolist()
+                else:
+                    dihedral_ind = bend.tolist() + [terminal]
+                set_dihedral_index(dihedral_ind)
+            # If the common atom is the central atom we try to form an out
+            # of plane bend / improper torsion. They may be created later on.
+            else:
+                fourth_atom = list(bond_set - intersect)
+                dihedral_ind = bend.tolist() + fourth_atom
+                # This way dihedrals may be generated that contain linear
+                # atoms and these would be undefinied. So we check for this.
+                dihed = self.calc_dihedral(coords3d, dihedral_ind)
+                if not np.isnan(dihed):
+                    improper_dihedrals.append(dihedral_ind)
+                else:
+                    self.log("Dihedral {dihedral_ind} is undefinied. Skipping it!")
 
-    def eval(self, coords3d, attr=None):
-        prim_internals = eval_primitives(coords3d, self.primitives)
+        # Now try to create the remaining improper dihedrals.
+        if (len(self.atoms) >= 4) and (len(self.dihedral_indices) == 0):
+            for improp in improper_dihedrals:
+                set_dihedral_index(improp)
+            self.log("Permutational symmetry not considerd in "
+                            "generation of improper dihedrals.")
 
-        if attr is not None:
-            return np.array(
-                [getattr(prim_internal, attr) for prim_internal in prim_internals]
-            )
+        self.dihedral_indices = np.array(self.dihedral_indices)
 
-        return prim_internals
+        if define_dihedrals:
+            dis = np.concatenate(((self.dihedral_indices, define_dihedrals)), axis=0)
+            self.dihedral_indices = np.unique(dis, axis=0)
+
+    def sort_by_prim_type(self, to_sort):
+        by_prim_type = [[], [], []]
+        if to_sort is None:
+            to_sort = list()
+        for item in to_sort:
+            len_ = len(item)
+            by_prim_type[len_-2].append(item)
+        return by_prim_type
+
+    def set_primitive_indices(self, define_prims=None):
+        stretches, bends, dihedrals = self.sort_by_prim_type(define_prims)
+        self.set_bond_indices(stretches)
+        self.set_bending_indices(bends)
+        self.set_dihedral_indices(dihedrals)
+
+    def calculate(self, coords, attr=None):
+        coords3d = coords.reshape(-1, 3)
+        def per_type(func, ind):
+            val, grad = func(coords3d, ind, True)
+            return PrimitiveCoord(ind, val, grad)
+        self.bonds = list()
+        self.bends = list()
+        self.dihedrals = list()
+        for ind in self.bond_indices:
+            bonds = per_type(self.calc_stretch, ind)
+            self.bonds.append(bonds)
+        for ind in self.bending_indices:
+            bend = per_type(self.calc_bend, ind)
+            self.bends.append(bend)
+        for ind in self.dihedral_indices:
+            dihedral = per_type(self.calc_dihedral, ind)
+            self.dihedrals.append(dihedral)
+        int_coords = self.bonds + self.bends + self.dihedrals
+        if attr:
+            return np.array([getattr(ic,attr) for ic in int_coords])
+        return int_coords
+
+    def calculate_val_diffs(self, coords1, coords2):
+        vals1 = np.array(self.calculate(coords1, attr="val"))
+        vals2 = np.array(self.calculate(coords2, attr="val"))
+        return vals1-vals2
+
+    def calc_stretch(self, coords3d, bond_ind, grad=False):
+        n, m = bond_ind
+        bond = coords3d[m] - coords3d[n]
+        bond_length = np.linalg.norm(bond)
+        if grad:
+            bond_normed = bond / bond_length
+            row = np.zeros_like(coords3d)
+            # 1 / -1 correspond to the sign factor [1] Eq. 18
+            row[m,:] =  bond_normed
+            row[n,:] = -bond_normed
+            row = row.flatten()
+            return bond_length, row
+        return bond_length
+
+    def calc_bend(self, coords3d, angle_ind, grad=False):
+        m, o, n = angle_ind
+        u_dash = coords3d[m] - coords3d[o]
+        v_dash = coords3d[n] - coords3d[o]
+        u_norm = np.linalg.norm(u_dash)
+        v_norm = np.linalg.norm(v_dash)
+        u = u_dash / u_norm
+        v = v_dash / v_norm
+        angle_rad = np.arccos(u.dot(v))
+        if grad:
+            # Eq. (24) in [1]
+            if self.are_parallel(u, v, angle_ind):
+                tmp_vec = np.array((1, -1, 1))
+                par = self.are_parallel(u, tmp_vec) and self.are_parallel(v, tmp_vec)
+                tmp_vec = np.array((-1, 1, 1)) if par else tmp_vec
+                w_dash = np.cross(u, tmp_vec)
+            else:
+                w_dash = np.cross(u, v)
+            w_norm = np.linalg.norm(w_dash)
+            w = w_dash / w_norm
+            uxw = np.cross(u, w)
+            wxv = np.cross(w, v)
+
+            row = np.zeros_like(coords3d)
+            #                  |  m  |  n  |  o  |
+            # -----------------------------------
+            # sign_factor(amo) |  1  |  0  | -1  | first_term
+            # sign_factor(ano) |  0  |  1  | -1  | second_term
+            first_term = uxw / u_norm
+            second_term = wxv / v_norm
+            row[m,:] = first_term
+            row[o,:] = -first_term - second_term
+            row[n,:] = second_term
+            row = row.flatten()
+            return angle_rad, row
+        return angle_rad
+
+    def calc_dihedral(self, coords3d, dihedral_ind, grad=False, cos_tol=1e-9):
+        m, o, p, n = dihedral_ind
+        u_dash = coords3d[m] - coords3d[o]
+        v_dash = coords3d[n] - coords3d[p]
+        w_dash = coords3d[p] - coords3d[o]
+        u_norm = np.linalg.norm(u_dash)
+        v_norm = np.linalg.norm(v_dash)
+        w_norm = np.linalg.norm(w_dash)
+        u = u_dash / u_norm
+        v = v_dash / v_norm
+        w = w_dash / w_norm
+        phi_u = np.arccos(u.dot(w))
+        phi_v = np.arccos(-w.dot(v))
+        uxw = np.cross(u, w)
+        vxw = np.cross(v, w)
+        cos_dihed = uxw.dot(vxw)/(np.sin(phi_u)*np.sin(phi_v))
+
+        # Restrict cos_dihed to [-1, 1]
+        if cos_dihed >= 1 - cos_tol:
+            dihedral_rad = 0
+        elif cos_dihed <= -1 + cos_tol:
+            dihedral_rad = np.arccos(-1)
+        else:
+            dihedral_rad = np.arccos(cos_dihed)
+
+        if dihedral_rad != np.pi:
+            # wxv = np.cross(w, v)
+            # if wxv.dot(u) < 0:
+            if vxw.dot(u) < 0:
+                dihedral_rad *= -1
+        if grad:
+            row = np.zeros_like(coords3d)
+            #                  |  m  |  n  |  o  |  p  |
+            # ------------------------------------------
+            # sign_factor(amo) |  1  |  0  | -1  |  0  | 1st term
+            # sign_factor(apn) |  0  | -1  |  0  |  1  | 2nd term
+            # sign_factor(aop) |  0  |  0  |  1  | -1  | 3rd term
+            # sign_factor(apo) |  0  |  0  | -1  |  1  | 4th term
+            sin2_u = np.sin(phi_u)**2
+            sin2_v = np.sin(phi_v)**2
+            first_term  = uxw/(u_norm*sin2_u)
+            second_term = vxw/(v_norm*sin2_v)
+            third_term  = uxw*np.cos(phi_u)/(w_norm*sin2_u)
+            fourth_term = -vxw*np.cos(phi_v)/(w_norm*sin2_v)
+            row[m,:] = first_term
+            row[n,:] = -second_term
+            row[o,:] = -first_term + third_term - fourth_term
+            row[p,:] = second_term - third_term + fourth_term
+            row = row.flatten()
+            return dihedral_rad, row
+        return dihedral_rad
 
     def update_internals(self, new_cartesians, prev_internals):
         new_internals = self.calculate(new_cartesians, attr="val")
@@ -575,8 +813,9 @@ class RedundantCoords:
 
     def transform_int_step(self, dq_in, ensure_convergence=True):
         """
-        Transformation is done in primitive internals, so int_step must be given
-        in primitive internals and not in DLC!
+        This is always done in primitive internal coordinates so care
+        has to be taken that the supplied step is given in primitive internal
+        coordinates.
         """
         logging.info('\n\tBack-transformation to cartesian coordinates...')
         q_orig = self.prim_coords.copy()
@@ -771,6 +1010,16 @@ class RedundantCoords:
             dx = dx[:-self.number_of_dummy_atom * 3]
 
         return bt_converged, dx
+    
+    def get_active_set(self, B, thresh=1e-6):
+        """See [5] between Eq. (7) and Eq. (8) for advice regarding
+        the threshold."""
+        G = B.dot(B.T)
+        eigvals, eigvectors = np.linalg.eigh(G)
+
+        nonzero_inds = np.abs(eigvals) > thresh
+        active_eigvals = eigvals[nonzero_inds]
+        return eigvectors[:,nonzero_inds]
 
     def __str__(self):
         bonds = len(self.bond_indices)
@@ -778,7 +1027,7 @@ class RedundantCoords:
         dihedrals = len(self.dihedral_indices)
         name = self.__class__.__name__
         return f"{name}({bonds} bonds, {bends} bends, {dihedrals} dihedrals)"
-
+    
     def get_intco_log(self):
         log = "\t-------Internal Coordinate-------\n"
         log += "\t -------------------------------\n"
