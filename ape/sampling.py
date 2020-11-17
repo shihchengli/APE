@@ -11,6 +11,8 @@ from time import gmtime, strftime
 import rmgpy.constants as constants
 from rmgpy.statmech import HarmonicOscillator
 
+from pysisyphus.constants import BOHR2ANG
+
 from arkane.common import symbol_by_number
 from arkane.statmech import is_linear
 
@@ -28,8 +30,8 @@ class SamplingJob(object):
     """
 
     def __init__(self, label=None, input_file=None, output_directory=None, protocol=None, spin_multiplicity=None, charge=None, 
-                 rem_variables_dict={}, gen_basis="", ncpus=None, is_ts=None, imaginary_bonds=None, rotors=None, thresh=0.01,
-                 step_size_factor=1, coordinate_system='Normal Mode', nnl=None):
+                 rem_variables_dict={}, gen_basis="", ncpus=None, is_ts=None, rotors=None, thresh=0.01, step_size_factor=1, 
+                 coordinate_system='Normal Mode', nnl=None):
         self.label = label
         self.input_file = input_file
         self.output_directory = output_directory
@@ -40,14 +42,13 @@ class SamplingJob(object):
         self.gen_basis = gen_basis
         self.ncpus = ncpus
         self.is_ts = is_ts
-        self.imaginary_bonds = imaginary_bonds
         self.rotors = rotors
         self.thresh = thresh
         self.step_size_factor = step_size_factor
         self.coordinate_system = coordinate_system
         self.nnl = nnl
 
-    def parse(self, save_log=True):
+    def parse(self):
         """
         Parse QChem output file and crate the variables the sampling job needed.
         """
@@ -99,11 +100,9 @@ class SamplingJob(object):
             self.conformer.number = number[:self.natom]
             self.conformer.mass = (self.QM_mass, "amu")
             xyz = ''
-            self.natoms_adsorbate = 0
             for i in range(len(self.QM_ATOMS)):
                 if self.QM_USER_CONNECT[i].endswith('0  0  0  0'):
                     xyz += '{}\t{}\t\t{}\t\t{}'.format(self.symbols[i], self.cart_coords[3 * i], self.cart_coords[3 * i + 1], self.cart_coords[3 * i + 2])
-                    self.natoms_adsorbate += 1
                     if i != self.natom-1: xyz += '\n'
             self.xyz = xyz
             if self.xyz == '':
@@ -116,7 +115,6 @@ class SamplingJob(object):
             self.zpe = Log.load_zero_point_energy()
         else:
             self.nHcap = 0
-            self.natoms_adsorbate = 0
             self.natom = Log.get_number_of_atoms()
             self.symbols = [symbol_by_number[i] for i in number]
             self.cart_coords = coordinates.reshape(-1,)
@@ -157,11 +155,11 @@ class SamplingJob(object):
             self.n_vib = 3 * self.natom - (5 if self.linearity else 6) - self.n_rotors - (1 if self.is_ts else 0)
 
         # Create RedundantCoords object
-        self.internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords, nHcap=self.nHcap, natoms_adsorbate=self.natoms_adsorbate, imaginary_bonds=self.imaginary_bonds, save_log=save_log)
+        self.internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, nHcap=self.nHcap)
         
         # Create RedundantCoords object for torsional mode
         if self.protocol == 'UMVT':
-            self.torsion_internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords, self.rotors_dict, self.nHcap, self.natoms_adsorbate, imaginary_bonds=self.imaginary_bonds, save_log=save_log)
+            self.torsion_internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, self.rotors_dict, self.nHcap)
         
         # Extract imaginary frequency from transition state
         if self.is_ts:
@@ -250,7 +248,7 @@ class SamplingJob(object):
                 rotors = []
             optvib_path = os.path.join(self.output_directory, 'output_file', self.label, 'tmp')
             optvib = OptVib(self.symbols, self.nmode, self.coordinate_system, self.cart_coords, self.conformer, self.hessian, self.linearity, self.n_vib, rotors, 
-                            self.label, optvib_path, self.ncpus, self.imaginary_bonds, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, self.nHcap)
+                            self.label, optvib_path, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, self.nHcap)
             if not os.path.exists(optvib_path):
                 os.makedirs(optvib_path)
             vib_freq, unweighted_v = optvib.get_optvib()
@@ -265,10 +263,7 @@ class SamplingJob(object):
             reduced_mass = magnitude ** -2 / constants.amu # in amu
             step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (freq * 2 * np.pi * constants.c * 100)) * 10 ** 10 * self.step_size_factor # in angstrom
             normalizes_vector = vector / magnitude
-            if self.internal.nHcap is not None:
-                new_nHcap = self.internal.nHcap - self.nHcap
-                normalizes_vector = np.concatenate((normalizes_vector, [0, 0, 0] * new_nHcap), axis=None)
-            qj = np.matmul(self.internal.B, normalizes_vector)
+            qj = np.matmul(self.internal.B, normalizes_vector/BOHR2ANG)
             qj = qj.reshape(-1,)
             if self.is_QM_MM_INTERFACE:
                 XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass,

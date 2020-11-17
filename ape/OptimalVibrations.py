@@ -12,6 +12,8 @@ from scipy import optimize
 
 import rmgpy.constants as constants
 
+from pysisyphus.constants import BOHR2ANG
+
 from ape.job.job import Job
 from ape.qchem import QChemLog
 from ape.exceptions import InputError, ConvergeError
@@ -20,7 +22,7 @@ from ape.InternalCoordinates import get_RedundantCoords, getXYZ
 
 class OptVib(object):
     def __init__(self, symbols, nmode, coordinate_system, cart_coords, conformer, hessian, linearity, n_vib, rotors, label, path, ncpus, 
-                 imaginary_bonds=None, charge=None, multiplicity=None, rem_variables_dict=None, gen_basis="", nHcap=0):
+                 charge=None, multiplicity=None, rem_variables_dict=None, gen_basis="", nHcap=0):
         self.symbols = symbols
         self.nmode = nmode
         self.coordinate_system = coordinate_system
@@ -33,14 +35,13 @@ class OptVib(object):
         self.label = label
         self.path = path
         self.ncpus = ncpus
-        self.imaginary_bonds = imaginary_bonds
         self.charge = charge
         self.multiplicity = multiplicity
         self.rem_variables_dict = rem_variables_dict
         self.gen_basis = gen_basis
         self.n_rotors = len(self.rotors)
         self.nHcap = nHcap
-        self.internal_object = get_RedundantCoords(self.label, self.symbols, self.cart_coords, nHcap=self.nHcap, imaginary_bonds=self.imaginary_bonds)
+        self.internal_object = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, nHcap=self.nHcap)
 
     def get_optvib(self):
         """
@@ -112,12 +113,9 @@ class OptVib(object):
             reduced_mass = magnitude ** -2 / constants.amu # in amu
             step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (freq * 2 * np.pi * constants.c * 100)) * 10 ** 10 # in angstrom
             normalizes_vector = vector / magnitude
-            if internal.nHcap is not None:
-                new_nHcap = internal.nHcap - self.nHcap
-                normalizes_vector = np.concatenate((normalizes_vector, [0, 0, 0] * new_nHcap), axis=None)
-            qj = np.matmul(internal.B, normalizes_vector)
+            qj = np.matmul(internal.B, normalizes_vector/BOHR2ANG)
             qj = qj.reshape(-1,)
-            cart_coords = initial_geometry + internal.transform_int_step((qj * step_size).reshape(-1,))
+            cart_coords = initial_geometry + internal.transform_int_step((qj * step_size).reshape(-1,)) * BOHR2ANG
             xyz = getXYZ(self.symbols, cart_coords)
             file_name = mode
             job = Job(xyz, self.path, file_name, jobtype='freq', ncpus=self.ncpus, charge=self.charge, multiplicity=self.multiplicity,

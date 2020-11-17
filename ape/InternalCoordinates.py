@@ -22,9 +22,9 @@ from pysisyphus.intcoords.eval import (
     check_primitives,
 )
 from pysisyphus.intcoords.setup import setup_redundant, get_primitives, PrimTypes
-from pysisyphus.intcoords.valid import 
-
-import pybel
+from pysisyphus.intcoords.valid import check_typed_prims
+from pysisyphus.intcoords.update import update_internals
+from pysisyphus.constants import BOHR2ANG
 
 from ape.exceptions import SamplingError
 
@@ -39,136 +39,37 @@ def getXYZ(atoms, cart_coords):
         if i != natom-1: xyz += '\n'
     return xyz
 
-def geo_to_pybel_mol(atoms, cart_coords):
-    xyz = getXYZ(atoms, cart_coords)
-    natom = len(atoms)
-    xyz = str(natom) + '\n\n' + xyz
-    PYMol = pybel.readstring('xyz', xyz)
-    return PYMol
+def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0):
 
-def get_bond_indices(atoms, cart_coords, imaginary_bonds=None):
-    PYMol = geo_to_pybel_mol(atoms, cart_coords)
-    OBMol = PYMol.OBMol
-    reactant_bond = sorted(
-        [(bond.GetBeginAtomIdx() - 1, bond.GetEndAtomIdx() - 1, bond.GetBondOrder())
-            for bond in pybel.ob.OBMolBondIter(OBMol)]
-    )
-    bond_indices = [sorted(np.array([bond[0],bond[1]])) for bond in reactant_bond]
+    def set_typed_prims(internal, rotors_dict):
 
-    # Add bond indices of imaginary bonds
-    if imaginary_bonds is not None:
-        for bond_indice in imaginary_bonds:
-            bond_indice = sorted([bond_indice[0] - 1, bond_indice[1] - 1])
-            if bond_indice not in bond_indices:
-                bond_indices.append(bond_indice)
+        pivots_list = [set([rotors_dict[i]['pivots'][0] - 1,
+                        rotors_dict[i]['pivots'][1] - 1])
+                        for i in rotors_dict]
 
-    bond_indices = np.array(sorted(bond_indices))
-    return bond_indices
-
-def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, natoms_adsorbate=0, imaginary_bonds=None, save_log=True):
-
-    def connect_fragments(atoms, cart_coords, internal, bond_indices, save_log=True):
-        internal.bond_indices = get_bond_indices(atoms, cart_coords)
-        coords3d = cart_coords.reshape(-1, 3)
-        # Condensed distance matrix
-        cdm = pdist(coords3d)
-        # Merge bond index sets into fragments
-        bond_ind_sets = [frozenset(bi) for bi in bond_indices]
-        fragments = internal.merge_fragments(bond_ind_sets)
-
-        # Look for unbonded single atoms and create fragments for them.
-        bonded_set = set(tuple(bond_indices.flatten()))
-        unbonded_set = set(range(len(internal.atoms))) - bonded_set
-        fragments.extend(
-            [frozenset((atom, )) for atom in unbonded_set]
-        )
-        internal.fragments = fragments
-
-        # Check if there are any disconnected fragments. If there are some
-        # create interfragment bonds between all of them.
-        if len(fragments) != 1:
-            interfragment_inds = internal.connect_fragments(cdm, fragments)
-            if save_log:
-                logging.info('Add interfragment bonds between {}'.format([(ind[0] + 1, ind[1] + 1) for ind in interfragment_inds]))
-            bond_indices = np.concatenate((bond_indices, interfragment_inds))
-        return bond_indices
-
-    def set_primitive_indices(internal, bond_indices, define_prims=None):
-        stretches, bends, dihedrals = internal.sort_by_prim_type(define_prims)
-        internal.bond_indices = bond_indices
-        internal.bending_indices = list()
-        internal.set_bending_indices(bends)
-        internal.dihedral_indices = list()
-        internal.set_dihedral_indices(dihedrals)
         dihedral_indices = internal.dihedral_indices
-        if rotors_dict is not None and rotors_dict != []:
-            pivots_list = [set([rotors_dict[i]['pivots'][0] - 1,
-                            rotors_dict[i]['pivots'][1] - 1])
-                            for i in rotors_dict]
-            
-            scan_indices_set = set()
-            for i in rotors_dict:
-                scan = rotors_dict[i]['scan']
-                scan_indices_set.add((scan[0] - 1, scan[1] - 1, scan[2] - 1, scan[3] - 1))
-            
-            new_dihedral_indices = []
-            for ind in dihedral_indices:
-                if set(ind[1:3]) not in pivots_list:
-                    new_dihedral_indices.append(ind)
-            
-            new_dihedral_indices.extend(list(scan_indices_set))
-            internal.dihedral_indices = np.array(new_dihedral_indices)
+        new_typed_prims = list()
+        for typed_prim in internal.typed_prims:
+            type_, *indices = typed_prim
+            if len(indices) == 4:
+                if set(indices[1:3]) in pivots_list:
+                    print(indices)
+                    continue
+            new_typed_prims.append(typed_prim)
+        
+        for rotor in rotors_dict.values():
+            scan = rotor['scan']
+            typed_prim = (PrimTypes.PROPER_DIHEDRAL, scan[0] - 1, scan[1] - 1, scan[2] - 1, scan[3] - 1)
+            new_typed_prims.append(typed_prim)
+
+        return new_typed_prims
     
-    # For QMMM system
-    if natoms_adsorbate != 0:
-        # Fragment 1: Adsorbate
-        internal_1 = RedundantCoords(atoms[:natoms_adsorbate], cart_coords[:natoms_adsorbate * 3])
-        bond_indices_1 = get_bond_indices(atoms[:natoms_adsorbate], cart_coords[:natoms_adsorbate * 3])
-        bond_indices_1 = connect_fragments(atoms[:natoms_adsorbate], cart_coords[:natoms_adsorbate * 3], internal_1, bond_indices_1, save_log=False)
-
-        # Fragment 2: Active site w/ hydrogen caps
-        internal_2 = RedundantCoords(atoms[natoms_adsorbate:], cart_coords[natoms_adsorbate * 3:])
-        bond_indices_2 = get_bond_indices(atoms[natoms_adsorbate:], cart_coords[natoms_adsorbate * 3:])
-        bond_indices_2 = connect_fragments(atoms[natoms_adsorbate:], cart_coords[natoms_adsorbate * 3:], internal_2, bond_indices_2, save_log=False)
-
-        # User defined imaginary bonds
-        if imaginary_bonds is not None:
-            imaginary_bonds_indice = [sorted([bond_indice[0] - 1, bond_indice[1] - 1]) for bond_indice in imaginary_bonds]
-            bond_indices = np.concatenate((bond_indices_1, bond_indices_2 + natoms_adsorbate, imaginary_bonds_indice))
-        else:
-            bond_indices = np.concatenate((bond_indices_1, bond_indices_2 + natoms_adsorbate))
-
-        # Concatecate to get the bond indices of QMMM system
-        bond_indices = np.unique(bond_indices, axis=0)
-    else:
-        bond_indices = get_bond_indices(atoms, cart_coords, imaginary_bonds)
-    
-    # Setup RedundantCoords object
     internal = RedundantCoords(atoms, cart_coords)
+    if rotors_dict != None and rotors_dict != []:
+        typed_prims = set_typed_prims(internal, rotors_dict)
+        internal = RedundantCoords(atoms, cart_coords, typed_prims=typed_prims, torsion_sacn=True)
+    
     internal.nHcap = nHcap
-    bond_indices = connect_fragments(atoms, cart_coords, internal, bond_indices, save_log=save_log)
-    set_primitive_indices(internal, bond_indices)
-    internal._prim_internals = internal.calculate(cart_coords)
-    internal._prim_coords = np.array([pc.val for pc in internal._prim_internals])
-    invalid_bends_list = internal.invalid_bends_list
-
-    # Add dummy atoms to handle molecules with nearly linear bend
-    if invalid_bends_list != []:
-        if save_log:
-            logging.info("Didn't create bend {0} for {1}".format([(bend[0] + 1, bend[1] + 1, bend[2] + 1) for bend in invalid_bends_list], label))
-        addHcap = AddHcap(cart_coords, bond_indices, invalid_bends_list, save_log)
-        cart_coords, new_primes, new_nHcap = addHcap.add_Hcap_xyzs()
-        atoms = atoms + ['H'] * new_nHcap
-        internal = RedundantCoords(atoms, cart_coords)
-        internal.nHcap = nHcap + new_nHcap
-        internal.number_of_dummy_atom = new_nHcap
-        stretches, bends, dihedrals = internal.sort_by_prim_type(new_primes)
-        bond_indices = np.concatenate((bond_indices,stretches))
-        bond_indices = connect_fragments(atoms, cart_coords, internal, bond_indices, save_log=save_log)
-        define_primes = bends + dihedrals
-        set_primitive_indices(internal, bond_indices, define_prims=define_primes)
-        internal._prim_internals = internal.calculate(cart_coords)
-        internal._prim_coords = np.array([pc.val for pc in internal._prim_internals])
 
     return internal
 
@@ -182,7 +83,7 @@ class RedundantCoords:
         define_prims=None,
         bonds_only=False,
         check_bends=True,
-        rebuild=True,
+        rebuild=False,
         bend_min_deg=15,
         dihed_max_deg=175.0,
         lb_min_deg=175.0,
@@ -191,9 +92,11 @@ class RedundantCoords:
         # Corresponds to a threshold of 1e-7 for eigenvalues of G, as proposed by
         # Pulay in [5].
         svd_inv_thresh=3.16e-4,
+        torsion_sacn=False,
     ):
         self.atoms = atoms
         self.coords3d = np.reshape(coords3d, (-1, 3)).copy()
+        self.cart_coords = self.coords3d.reshape(-1,)
         self.bond_factor = bond_factor
         self.define_prims = define_prims
         self.bonds_only = bonds_only
@@ -206,12 +109,13 @@ class RedundantCoords:
         self.min_weight = float(min_weight)
         assert self.min_weight > 0.0, "min_weight must be a positive rational!"
         self.svd_inv_thresh = svd_inv_thresh
+        self.torsion_sacn = torsion_sacn
 
         self._B_prim = None
         # Lists for the other types of primitives will be created afterwards.
         # Linear bends may have been disabled, so we create the list here.
         self.linear_bend_indices = list()
-        self.logger = logging.getLogger("internal_coords")
+        self.logger = None#logging.getLogger("internal_coords")
 
         if self.weighted:
             self.log(
@@ -316,7 +220,7 @@ class RedundantCoords:
 
     @property
     def prim_indices(self):
-        return [self.bond_indices, self.bending_indices, self.dihedral_indices]
+        return [np.array(self.bond_indices), np.array(self.bending_indices), np.array(self.dihedral_indices)]
 
     @property
     def prim_indices_set(self):
@@ -375,11 +279,6 @@ class RedundantCoords:
             self._B_prim = np.array([prim_int.grad for prim_int in self.prim_internals])
 
         return self._B_prim
-
-    @property
-    def B_indices(self):
-        """Wilson B-Matrix indices"""
-        return [c.inds.tolist() for c in self.calculate(self.cart_coords)]
 
     @property
     def B(self):
@@ -508,6 +407,7 @@ class RedundantCoords:
             "linear_bend": list(),
             "hydrogen_bond": list(),
         }
+        B_indices = list()
         for type_, *indices in typed_prims:
             key = len(indices)
             if type_ in (linear_bend_types):
@@ -517,12 +417,14 @@ class RedundantCoords:
             # Also keep hydrogen bonds
             if type_ == PrimTypes.HYDROGEN_BOND:
                 per_type["hydrogen_bond"].append(indices)
+            B_indices.append(indices)
 
         self.bond_indices = per_type[2]
         self.bending_indices = per_type[3]
         self.dihedral_indices = per_type[4]
         self.linear_bend_indices = per_type["linear_bend"]
         self.hydrogen_bond_indices = per_type["hydrogen_bond"]
+        self.B_indices = B_indices
 
         # TODO
         # self.fragments = coord_info.fragments
@@ -559,21 +461,7 @@ class RedundantCoords:
 
         return prim_internals
 
-    def update_internals(self, new_cartesians, prev_internals):
-        new_internals = self.calculate(new_cartesians, attr="val")
-        internal_diffs = np.array(new_internals - prev_internals)
-        bond, bend, dihedrals = self.prim_indices
-
-        dihedral_diffs = internal_diffs[-len(dihedrals):]
-        # Find differences that are shifted by 2*pi
-        shifted_by_2pi = np.abs(np.abs(dihedral_diffs) - 2*np.pi) < np.pi/2
-        org = dihedral_diffs.copy()
-        new_dihedrals = new_internals[-len(dihedrals):]
-        new_dihedrals[shifted_by_2pi] -= 2*np.pi * np.sign(dihedral_diffs[shifted_by_2pi])
-        new_internals[-len(dihedrals):] = new_dihedrals
-        return new_internals
-
-    def transform_int_step(self, dq_in, ensure_convergence=True):
+    def transform_int_step(self, dq_in, ensure_convergence=False):
         """
         Transformation is done in primitive internals, so int_step must be given
         in primitive internals and not in DLC!
@@ -634,29 +522,37 @@ class RedundantCoords:
             conv, dx = self.back_transformation(dq)
         
         intco_lbls, qShow_orig, qShow_target, dqShow, qShow_final = [], [], [], [], []
-        bonds, bends, dihedrals = self.prim_indices
-        for i, bond in enumerate(bonds):
-            q = self.prim_coords[i]
-            intco_lbls.append('R' + str(tuple(bond + 1)).replace(" ", ""))
-            qShow_orig.append(q_orig[i])
-            qShow_target.append(q_target[i])
-            dqShow.append(q - qShow_orig[i])
-            qShow_final.append(q)
-        for i, bend in enumerate(bends):
-            q = self.prim_coords[len(bonds) + i] * 180 / np.pi
-            intco_lbls.append('B' + str(tuple(bend + 1)).replace(" ", ""))
-            qShow_orig.append(q_orig[len(bonds) + i] * 180 / np.pi)
-            qShow_target.append(q_target[len(bonds) + i] * 180 / np.pi)
-            dqShow.append(q - qShow_orig[len(bonds) + i])
-            qShow_final.append(q)
-        for i, dihedral in enumerate(dihedrals):
-            q = self.prim_coords[len(bonds) + len(bends) + i] * 180 / np.pi
-            intco_lbls.append('D' + str(tuple(dihedral + 1)).replace(" ", ""))
-            qShow_orig.append(q_orig[len(bonds) + len(bends) + i] * 180 / np.pi)
-            qShow_target.append(q_target[len(bonds) + len(bends) + i] * 180 / np.pi)
-            dqShow.append(q - qShow_orig[len(bonds) + len(bends) + i])
-            qShow_final.append(q)        
-        
+        i = 0
+        for type_, *indices in self.typed_prims:
+            indices = np.array(indices)
+            if len(indices) == 2:
+                q = self.prim_coords[i] * BOHR2ANG
+                intco_lbls.append('R' + str(tuple(indices + 1)).replace(" ", ""))
+                qShow_orig.append(q_orig[i] * BOHR2ANG)
+                qShow_target.append(q_target[i]* BOHR2ANG)
+                dqShow.append(q - qShow_orig[i])
+                qShow_final.append(q)
+            elif len(indices) == 3:
+                if type_ == PrimTypes.LINEAR_BEND:
+                    symbol = 'L'
+                elif type_ == PrimTypes.LINEAR_BEND_COMPLEMENT:
+                    symbol = 'C'
+                else:
+                    symbol = 'B'
+                q = self.prim_coords[i] * 180 / np.pi
+                intco_lbls.append(symbol + str(tuple(indices + 1)).replace(" ", ""))
+                qShow_orig.append(q_orig[i] * 180 / np.pi)
+                qShow_target.append(q_target[i] * 180 / np.pi)
+                dqShow.append(q - qShow_orig[i])
+                qShow_final.append(q)
+            elif len(indices) == 4:
+                q = self.prim_coords[i] * 180 / np.pi
+                intco_lbls.append('D' + str(tuple(indices + 1)).replace(" ", ""))
+                qShow_orig.append(q_orig[i] * 180 / np.pi)
+                qShow_target.append(q_target[i] * 180 / np.pi)
+                dqShow.append(q - qShow_orig[i])
+                qShow_final.append(q)
+            i += 1
         # Make sure final Dq is actual change
         frag_report = "\tReport of back-transformation: (au)\n"
         frag_report += "\n\t int                       q_final      q_target         Error\n"
@@ -693,20 +589,6 @@ class RedundantCoords:
         prev_geom = self.cart_coords.copy() # cart geometry to start each iter
         geom = self.cart_coords.copy()
 
-        bond, bend, dihedrals = self.prim_indices
-        # for i in set(self.shift_pi):
-        #        step[len(bond)+i] *= -1
-        target_bends = q_target[len(bond):-(len(dihedrals))]
-        for i, target_bend in enumerate(target_bends):
-            bendi = tuple(bend[i] + 1)
-            if target_bend > np.pi:
-                # TODO solve target_bend > np.pi situation
-                # target_bends[i] = 2*np.pi - target_bends[i]
-                # self.shift_pi.append(i)
-                raise Exception('A sampling bending angel of {} is over 180°.'.format(bendi))
-            elif target_bend <= 0:
-                raise Exception('A sampling bending angel of {} is below 0°.'.format(bendi))
-
         B_prim = self.B_prim
         Bt_inv_prim = np.linalg.pinv(B_prim.dot(B_prim.T)).dot(B_prim)
 
@@ -741,10 +623,21 @@ class RedundantCoords:
             dx_rms_last = dx_rms
 
             # Determine new internal coordinates
-            new_q = self.update_internals(geom, prev_q)
+            dihedral_inds = np.array(
+                [i for i, primitive in enumerate(self.primitives) if isinstance(primitive, Torsion)]
+            )
+            new_prim_ints = update_internals(
+                new_coords3d=geom.reshape(-1, 3),
+                old_internals=prev_q,
+                primitives=self.primitives,
+                dihedral_inds=dihedral_inds,
+                check_dihedrals=self.rebuild,
+                logger=self.logger,
+            )
+            new_q = [prim.val for prim in new_prim_ints]
             dq[:] = q_target - new_q
 
-            dq_rms = np.sqrt(np.mean(dq ** 2))     
+            dq_rms = np.sqrt(np.mean(dq ** 2))
             if bt_iter_cnt == 0 or dq_rms < best_dq_rms:  # short circuit evaluation
                 best_cycle = (copy.deepcopy(geom), copy.deepcopy(new_q))
                 best_dq_rms = dq_rms
@@ -763,12 +656,13 @@ class RedundantCoords:
             # logging.warning("\tBest geometry has RMS(Delta(q)) = %8.2e\n" % best_dq_rms)
             geom, new_q = best_cycle
 
-        self._prim_coords = np.array(new_q)
+        self.prim_internals = self.eval(geom.reshape(-1,3))
         self.cart_coords = geom
+
+        if self.torsion_sacn:
+            self.coords3d = np.reshape(geom, (-1, 3))
         
         dx = (geom - prev_geom)
-        if self.number_of_dummy_atom is not None:
-            dx = dx[:-self.number_of_dummy_atom * 3]
 
         return bt_converged, dx
 
@@ -784,94 +678,27 @@ class RedundantCoords:
         log += "\t -------------------------------\n"
         log += "\t Coordinate                Value\n"
         log += "\t ----------                -----\n"
-        bonds, bends, dihedrals = self.prim_indices
-        for i, bond in enumerate(bonds):
-            bond_string = str(tuple(bond + 1)).replace(" ", "")
-            value = self.prim_coords[i]
-            log += '\t R{:15s}={:>14.6f}\n'.format(bond_string, value)
-        for i, bend in enumerate(bends):
-            bend_string = str(tuple(bend + 1)).replace(" ", "")
-            value = self.prim_coords[len(bonds) + i] / np.pi * 180
-            log += '\t B{:15s}={:>14.6f}\n'.format(bend_string, value)
-        for i, dihedral in enumerate(dihedrals):
-            dihedral_string = str(tuple(dihedral + 1)).replace(" ", "")
-            value = self.prim_coords[len(bonds) + len(bends) + i] / np.pi * 180
-            log += '\t D{:15s}={:>14.6f}\n'.format(dihedral_string, value)
+        i = 0
+        for type_, *indices in self.typed_prims:
+            indices = np.array(indices)
+            if len(indices) == 2:
+                bond_string = str(tuple(indices + 1)).replace(" ", "")
+                value = self.prim_coords[i] * BOHR2ANG
+                log += '\t R{:15s}={:>14.6f}\n'.format(bond_string, value)
+            elif len(indices) == 3:
+                if type_ == PrimTypes.LINEAR_BEND:
+                    symbol = 'L'
+                elif type_ == PrimTypes.LINEAR_BEND_COMPLEMENT:
+                    symbol = 'C'
+                else:
+                    symbol = 'B'
+                bend_string = str(tuple(indices + 1)).replace(" ", "")
+                value = self.prim_coords[i] / np.pi * 180
+                log += '\t {}{:15s}={:>14.6f}\n'.format(symbol, bend_string, value)
+            elif len(indices) == 4:
+                dihedral_string = str(tuple(indices + 1)).replace(" ", "")
+                value = self.prim_coords[i] / np.pi * 180
+                log += '\t D{:15s}={:>14.6f}\n'.format(dihedral_string, value)
+            i += 1
         log += "\t -------------------------------\n"
-        return log
-
-###############################################################################
-
-class AddHcap(object):
-    """
-    Add dummy atoms to handle linear molecules or molecules with nearly linear bend.
-    """
-    def __init__(self, cart_coords, bond_indices, invalid_bends_list, save_log=True):
-        self.cart_coords = cart_coords
-        self.bond_indices = bond_indices
-        self.invalid_bends_list = invalid_bends_list
-        self.save_log = save_log
-
-    def add_Hcap_xyzs(self):
-        """
-        Find the set of xyz of the dummy atoms.
-        """
-        if self.save_log:
-            logging.info('Adding dummy atoms...')
-        invalid_bends_list = self.invalid_bends_list
-        nHcap = len(invalid_bends_list)
-        self.new_cart_coords = self.cart_coords.copy()
-        self.new_primes = list()
-        for i, bend in enumerate(invalid_bends_list):
-            terminal1, central, terminal2 = bend
-            self.ind = central
-            self.bend = bend
-            Hxyz_guess = self.new_cart_coords[self.ind * 3:self.ind * 3 + 3] + np.array([1.09, 0, 0])
-            result = minimize(self.objectiveFunction, Hxyz_guess, method='SLSQP',
-                            constraints=[
-                            {'type': 'eq', 'fun': self.constraintFunction1},
-                            {'type': 'eq', 'fun': self.constraintFunction2}
-                            ])
-            Hxyzs = result.x
-            self.new_cart_coords = np.concatenate((self.new_cart_coords, Hxyzs), axis=None)
-            
-            dummy_atom_ind = len(self.cart_coords) // 3 + i
-            self.new_primes.extend([[central, dummy_atom_ind],
-                                    [terminal1, central, dummy_atom_ind],
-                                    [terminal2, central, dummy_atom_ind],
-                                    [terminal1, central, dummy_atom_ind, terminal2]])
-            if self.save_log:
-                logging.info('Create a improper dihedral of ({0}, {1}, {2}, {3})'.format(terminal1 + 1, central + 1, dummy_atom_ind + 1, terminal2 + 1))
-        return self.new_cart_coords, self.new_primes, nHcap
-    
-    def objectiveFunction(self, Hxyzs):
-        """
-        Sum of the distance between dummy atom and other atoms.
-        """
-        val = 0
-        for i, xyz in enumerate(self.new_cart_coords.reshape(-1, 3)):
-            val += np.sqrt(np.sum((xyz - Hxyzs[0:3]) ** 2))
-        return -val
-    
-    def constraintFunction1(self, Hxyzs):
-        """
-        The distance between dummy atom and the central atom of the chosen bend is 1.09 Å.
-        """
-        Hxyz = Hxyzs[0:3]
-        center = self.cart_coords[self.ind * 3:self.ind * 3 + 3]
-        distance = np.sqrt(np.sum((center - Hxyz) ** 2))
-        return distance - 1.09
-    
-    def constraintFunction2(self, Hxyzs):
-        """
-        Let the vector from the chosen atom to the dummy atom is perpendicular to the bond vector.
-        """
-        atomB_ind, atomA_ind, atomC_ind = self.bend
-        bond_vector = self.cart_coords[atomB_ind * 3:atomB_ind * 3 + 3] - self.cart_coords[atomA_ind * 3:atomA_ind * 3 + 3]
-        bond_vector /= np.linalg.norm(bond_vector)
-        A2H_vector = Hxyzs[0:3] - self.cart_coords[atomA_ind * 3:atomA_ind * 3 + 3]
-        A2H_vector /= np.linalg.norm(A2H_vector)
-        val = bond_vector.dot(A2H_vector)
-        return val
-
-        
+        return log       

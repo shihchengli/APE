@@ -12,6 +12,8 @@ import numpy as np
 
 import rmgpy.constants as constants
 
+from pysisyphus.constants import BOHR2ANG
+
 from arkane.statmech import is_linear, determine_rotor_symmetry
 
 from ape.job.job import Job
@@ -370,7 +372,7 @@ def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conforme
             EnergyDictOfEachMode[sample] = e_elec - min_elect
         
         # Update cartesian coordinate of each sampling point
-        cart_coords += internal.transform_int_step((qk * step_size).reshape(-1,))
+        cart_coords += internal.transform_int_step((qk * step_size).reshape(-1,)) * BOHR2ANG
     
     # Determine the symmetry number of this internal rotation, and save the result
     if fail_in_torsion_sampling is False:
@@ -456,13 +458,13 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
         
         # Update cartesian coordinate of each sampling point
         logging.info('ngrid = {}'.format(sample))
-        cart_coords += internal.transform_int_step((qj * step_size).reshape(-1,))
+        cart_coords += internal.transform_int_step((qj * step_size).reshape(-1,)) * BOHR2ANG
     
     # Sample points in negative direction
     logging.info('direction = -1')
     cart_coords = initial_geometry.copy()
     internal = copy.deepcopy(internal_object)  
-    cart_coords += internal.transform_int_step((-qj * step_size).reshape(-1,))
+    cart_coords += internal.transform_int_step((-qj * step_size).reshape(-1,)) * BOHR2ANG
     sample = -1
     while True:
         xyz = getXYZ(symbols, cart_coords)
@@ -507,7 +509,7 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
         
         # Update cartesian coordinate of each sampling point
         logging.info('ngrid = {}'.format(sample))
-        cart_coords += internal.transform_int_step((-qj * step_size).reshape(-1,))
+        cart_coords += internal.transform_int_step((-qj * step_size).reshape(-1,)) * BOHR2ANG
 
     return XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect
 
