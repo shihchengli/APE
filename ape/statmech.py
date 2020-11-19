@@ -28,7 +28,7 @@ class Statmech(object):
     
     def load_save(self):
         self.sampling = SamplingJob(self.label, self.input_file)
-        self.sampling.parse(save_log=False)
+        self.sampling.parse()
         self.conformer = self.sampling.conformer
         self.csv_path = os.path.join(self.output_directory, '{}_samping_result.csv'.format(self.label))
         self.mode_dict, self.energy_dict, self.min_elect = from_sampling_result(self.csv_path)
