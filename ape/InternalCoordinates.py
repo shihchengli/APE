@@ -656,11 +656,11 @@ class RedundantCoords:
             # logging.warning("\tBest geometry has RMS(Delta(q)) = %8.2e\n" % best_dq_rms)
             geom, new_q = best_cycle
 
-        self.prim_internals = self.eval(geom.reshape(-1,3))
-        self.cart_coords = geom
-
         if self.torsion_sacn:
             self.coords3d = np.reshape(geom, (-1, 3))
+
+        self.prim_internals = self.eval(geom.reshape(-1,3))
+        self.cart_coords = geom
         
         dx = (geom - prev_geom)
 
