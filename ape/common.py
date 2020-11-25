@@ -12,13 +12,12 @@ import numpy as np
 
 import rmgpy.constants as constants
 
-from pysisyphus.constants import BOHR2ANG
-
 from arkane.statmech import is_linear, determine_rotor_symmetry
 
+from ape.intcoords.constants import BOHR2ANG
 from ape.job.job import Job
 from ape.qchem import QChemLog
-from ape.InternalCoordinates import getXYZ
+from ape.intcoords.InternalCoordinates import getXYZ
 from ape.exceptions import SamplingError
 
 def diagonalize_projected_hessian(conformer, hessian, linear, n_vib, rotors=[], get_projected_out_freqs=False,

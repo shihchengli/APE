@@ -12,21 +12,21 @@ from scipy import optimize
 
 import rmgpy.constants as constants
 
-from pysisyphus.constants import BOHR2ANG
-
 from ape.job.job import Job
 from ape.qchem import QChemLog
 from ape.exceptions import InputError, ConvergeError
 from ape.common import diagonalize_projected_hessian
-from ape.InternalCoordinates import get_RedundantCoords, getXYZ
+from ape.intcoords.InternalCoordinates import getXYZ
+from ape.intcoords.constants import BOHR2ANG
 
 class OptVib(object):
-    def __init__(self, symbols, nmode, coordinate_system, cart_coords, conformer, hessian, linearity, n_vib, rotors, label, path, ncpus, 
-                 charge=None, multiplicity=None, rem_variables_dict=None, gen_basis="", nHcap=0):
+    def __init__(self, symbols, nmode, coordinate_system, cart_coords, internal_object, conformer, hessian, linearity, n_vib, rotors, label, path, ncpus, 
+                 charge=None, multiplicity=None, rem_variables_dict=None, gen_basis=""):
         self.symbols = symbols
         self.nmode = nmode
         self.coordinate_system = coordinate_system
         self.cart_coords = cart_coords
+        self.internal_object = internal_object
         self.conformer = conformer
         self.hessian = hessian
         self.linearity = linearity
@@ -40,8 +40,6 @@ class OptVib(object):
         self.rem_variables_dict = rem_variables_dict
         self.gen_basis = gen_basis
         self.n_rotors = len(self.rotors)
-        self.nHcap = nHcap
-        self.internal_object = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, nHcap=self.nHcap)
 
     def get_optvib(self):
         """

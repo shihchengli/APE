@@ -265,6 +265,8 @@ def load_input_file(path, output_path=None):
     nnl = local_context.get('number_of_natural_length', None)
     # coordinate_system include "Normal Mode", "E-Optimized" and "E'-Optimized"
     coordinate_system = local_context.get('coordinate_system', 'Normal Mode')
+    addcart = local_context.get('addcart', None)
+    add_interfragment_bonds = local_context.get('add_interfragment_bonds', False)
     rem_variables_dict = {}
     for key in local_context.keys():
         if key.upper() in rem_variable_list:
@@ -281,6 +283,8 @@ def load_input_file(path, output_path=None):
             job.step_size_factor = step_size_factor
             job.coordinate_system = coordinate_system
             job.nnl = nnl
+            job.addcart = addcart
+            job.add_interfragment_bonds = add_interfragment_bonds
         if isinstance(job, ThermoJob):
             job.coordinate_system = coordinate_system
             job.frequency_scale_factor = frequency_scale_factor

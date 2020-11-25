@@ -9,18 +9,16 @@ import numpy as np
 from time import gmtime, strftime
 
 import rmgpy.constants as constants
-from rmgpy.statmech import HarmonicOscillator
-
-from pysisyphus.constants import BOHR2ANG
 
 from arkane.common import symbol_by_number
 from arkane.statmech import is_linear
 
 from arc.species.species import ARCSpecies
 
+from ape.intcoords.constants import BOHR2ANG
 from ape.qchem import QChemLog
 from ape.common import diagonalize_projected_hessian, get_internal_rotation_freq, sampling_along_torsion, sampling_along_vibration
-from ape.InternalCoordinates import get_RedundantCoords, getXYZ
+from ape.intcoords.InternalCoordinates import get_RedundantCoords, getXYZ
 from ape.OptimalVibrations import OptVib
 from ape.exceptions import InputError
 
@@ -31,7 +29,7 @@ class SamplingJob(object):
 
     def __init__(self, label=None, input_file=None, output_directory=None, protocol=None, spin_multiplicity=None, charge=None, 
                  rem_variables_dict={}, gen_basis="", ncpus=None, is_ts=None, rotors=None, thresh=0.01, step_size_factor=1, 
-                 coordinate_system='Normal Mode', nnl=None):
+                 coordinate_system='Normal Mode', nnl=None, addcart=None, add_interfragment_bonds=False):
         self.label = label
         self.input_file = input_file
         self.output_directory = output_directory
@@ -47,6 +45,8 @@ class SamplingJob(object):
         self.step_size_factor = step_size_factor
         self.coordinate_system = coordinate_system
         self.nnl = nnl
+        self.addcart = addcart
+        self.add_interfragment_bonds = add_interfragment_bonds
 
     def parse(self):
         """
@@ -113,6 +113,8 @@ class SamplingJob(object):
                 # Default ncpus for QM/MM calculation
                 self.ncpus = 8
             self.zpe = Log.load_zero_point_energy()
+            if self.addcart is None:
+                self.addcart = True
         else:
             self.nHcap = 0
             self.natom = Log.get_number_of_atoms()
@@ -155,11 +157,14 @@ class SamplingJob(object):
             self.n_vib = 3 * self.natom - (5 if self.linearity else 6) - self.n_rotors - (1 if self.is_ts else 0)
 
         # Create RedundantCoords object
-        self.internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, nHcap=self.nHcap)
+        if self.is_ts and self.addcart is None: self.addcart = True
+        self.internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, nHcap=self.nHcap,
+                                            addcart=self.addcart, add_interfragment_bonds=self.add_interfragment_bonds)
         
         # Create RedundantCoords object for torsional mode
         if self.protocol == 'UMVT':
-            self.torsion_internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, self.rotors_dict, self.nHcap)
+            self.torsion_internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, self.rotors_dict,
+                                                        self.nHcap, add_interfragment_bonds=self.add_interfragment_bonds)
         
         # Extract imaginary frequency from transition state
         if self.is_ts:
@@ -247,8 +252,8 @@ class SamplingJob(object):
             if self.protocol == 'UMN' or self.n_rotors == 0:
                 rotors = []
             optvib_path = os.path.join(self.output_directory, 'output_file', self.label, 'tmp')
-            optvib = OptVib(self.symbols, self.nmode, self.coordinate_system, self.cart_coords, self.conformer, self.hessian, self.linearity, self.n_vib, rotors, 
-                            self.label, optvib_path, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, self.nHcap)
+            optvib = OptVib(self.symbols, self.nmode, self.coordinate_system, self.cart_coords, self.internal, self.conformer, self.hessian, self.linearity,
+                            self.n_vib, rotors, self.label, optvib_path, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis)
             if not os.path.exists(optvib_path):
                 os.makedirs(optvib_path)
             vib_freq, unweighted_v = optvib.get_optvib()

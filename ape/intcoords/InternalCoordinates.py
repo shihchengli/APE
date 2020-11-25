@@ -14,18 +14,12 @@ import copy
 
 import numpy as np
 
-from pysisyphus.linalg import svd_inv
-from pysisyphus.intcoords import Stretch, Torsion
-from pysisyphus.intcoords.update import transform_int_step
-from pysisyphus.intcoords.eval import (
-    eval_primitives,
-    check_primitives,
-)
-from pysisyphus.intcoords.setup import setup_redundant, get_primitives, PrimTypes
-from pysisyphus.intcoords.valid import check_typed_prims
-from pysisyphus.intcoords.update import update_internals
-from pysisyphus.constants import BOHR2ANG
-
+from ape.intcoords.slots import Stretch, Torsion
+from ape.intcoords.eval import eval_primitives,check_primitives
+from ape.intcoords.setup import setup_redundant, get_primitives, PrimTypes
+from ape.intcoords.valid import check_typed_prims
+from ape.intcoords.update import update_internals
+from ape.intcoords.constants import BOHR2ANG
 from ape.exceptions import SamplingError
 
 def getXYZ(atoms, cart_coords):
@@ -39,7 +33,7 @@ def getXYZ(atoms, cart_coords):
         if i != natom-1: xyz += '\n'
     return xyz
 
-def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0):
+def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, addcart=False, add_interfragment_bonds=False):
 
     def set_typed_prims(internal, rotors_dict):
 
@@ -64,11 +58,11 @@ def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0):
 
         return new_typed_prims
     
-    internal = RedundantCoords(atoms, cart_coords)
+    internal = RedundantCoords(atoms, cart_coords, addcart=addcart, add_interfragment_bonds=add_interfragment_bonds)
     if rotors_dict != None and rotors_dict != []:
         typed_prims = set_typed_prims(internal, rotors_dict)
-        internal = RedundantCoords(atoms, cart_coords, typed_prims=typed_prims, torsion_sacn=True)
-    
+        internal = RedundantCoords(atoms, cart_coords, typed_prims=typed_prims, torsion_sacn=True, addcart=addcart, add_interfragment_bonds=add_interfragment_bonds)
+
     internal.nHcap = nHcap
 
     return internal
@@ -78,7 +72,7 @@ class RedundantCoords:
         self,
         atoms,
         coords3d,
-        bond_factor=1.3,
+        bond_factor=1.2,
         typed_prims=None,
         define_prims=None,
         bonds_only=False,
@@ -93,6 +87,8 @@ class RedundantCoords:
         # Pulay in [5].
         svd_inv_thresh=3.16e-4,
         torsion_sacn=False,
+        addcart=False,
+        add_interfragment_bonds=False,
     ):
         self.atoms = atoms
         self.coords3d = np.reshape(coords3d, (-1, 3)).copy()
@@ -110,6 +106,8 @@ class RedundantCoords:
         assert self.min_weight > 0.0, "min_weight must be a positive rational!"
         self.svd_inv_thresh = svd_inv_thresh
         self.torsion_sacn = torsion_sacn
+        self.addcart = addcart
+        self.add_interfragment_bonds = add_interfragment_bonds
 
         self._B_prim = None
         # Lists for the other types of primitives will be created afterwards.
@@ -182,18 +180,17 @@ class RedundantCoords:
             [prim_int.val for prim_int in self._prim_internals]
         )
 
+        carts = len(self.cart_indices)
         bonds = len(self.bond_indices)
         bends = len(self.bending_indices) + len(self.linear_bend_indices)
         dihedrals = len(self.dihedral_indices)
-        assert bonds + bends + dihedrals == len(self.primitives)
-        self._bonds_slice = slice(bonds)
-        self._bends_slice = slice(bonds, bonds + bends)
-        self._dihedrals_slice = slice(bonds + bends, bonds + bends + dihedrals)
-        self.backtransform_counter = 0
+        assert carts + bonds + bends + dihedrals == len(self.primitives)
+        self._carts_slice = slice(carts)
+        self._bonds_slice = slice(carts, carts + bonds)
+        self._bends_slice = slice(carts + bonds, carts + bonds + bends)
+        self._dihedrals_slice = slice(carts + bonds + bends, carts + bonds + bends + dihedrals)
 
         self.nHcap = None
-        self.number_of_dummy_atom = None
-        self.shift_pi = list()
 
     def log(self, message):
         #logger.debug(message)
@@ -244,6 +241,10 @@ class RedundantCoords:
         return np.array([prim_int.indices for prim_int in self.prim_internals[slice_]])
 
     @property
+    def carts(self):
+        return self.prim_internals[self._carts_slice]
+
+    @property
     def bonds(self):
         return self.prim_internals[self._bonds_slice]
 
@@ -286,12 +287,12 @@ class RedundantCoords:
         return self.B_prim
 
     def inv_B(self, B):
-        return B.T.dot(svd_inv(B.dot(B.T), thresh=self.svd_inv_thresh, hermitian=True))
-        # return B.T.dot(self.pinv(B.dot(B.T)))
+        #return B.T.dot(svd_inv(B.dot(B.T), thresh=self.svd_inv_thresh, hermitian=True))
+        return B.T.dot(np.linalg.pinv(B.dot(B.T)))
 
     def inv_Bt(self, B):
-        return svd_inv(B.dot(B.T), thresh=self.svd_inv_thresh, hermitian=True).dot(B)
-        # return self.pinv(B.dot(B.T)).dot(B)
+        #return svd_inv(B.dot(B.T), thresh=self.svd_inv_thresh, hermitian=True).dot(B)
+        return np.linalg.pinv(B.dot(B.T)).dot(B)
 
     @property
     def Bt_inv_prim(self):
@@ -401,6 +402,7 @@ class RedundantCoords:
     def set_inds_from_typed_prims(self, typed_prims):
         linear_bend_types = (PrimTypes.LINEAR_BEND, PrimTypes.LINEAR_BEND_COMPLEMENT)
         per_type = {
+            1: list(),
             2: list(),
             3: list(),
             4: list(),
@@ -419,6 +421,7 @@ class RedundantCoords:
                 per_type["hydrogen_bond"].append(indices)
             B_indices.append(indices)
 
+        self.cart_indices = per_type[1]
         self.bond_indices = per_type[2]
         self.bending_indices = per_type[3]
         self.dihedral_indices = per_type[4]
@@ -443,6 +446,8 @@ class RedundantCoords:
             dihed_max_deg=self.dihed_max_deg,
             lb_min_deg=self.lb_min_deg,
             min_weight=self.min_weight if self.weighted else None,
+            addcart=self.addcart,
+            add_interfragment_bonds=self.add_interfragment_bonds,
             logger=self.logger,
         )
 
@@ -525,11 +530,24 @@ class RedundantCoords:
         i = 0
         for type_, *indices in self.typed_prims:
             indices = np.array(indices)
-            if len(indices) == 2:
+            if len(indices) == 1:
+                if type_ == PrimTypes.CARTESIAN_X:
+                    symbol = 'X'
+                elif type_ == PrimTypes.CARTESIAN_Y:
+                    symbol = 'Y'
+                elif type_ == PrimTypes.CARTESIAN_Z:
+                    symbol = 'Z'
+                q = self.prim_coords[i] * BOHR2ANG
+                intco_lbls.append(symbol + '({})'.format(indices[0] + 1))
+                qShow_orig.append(q_orig[i] * BOHR2ANG)
+                qShow_target.append(q_target[i] * BOHR2ANG)
+                dqShow.append(q - qShow_orig[i])
+                qShow_final.append(q)
+            elif len(indices) == 2:
                 q = self.prim_coords[i] * BOHR2ANG
                 intco_lbls.append('R' + str(tuple(indices + 1)).replace(" ", ""))
                 qShow_orig.append(q_orig[i] * BOHR2ANG)
-                qShow_target.append(q_target[i]* BOHR2ANG)
+                qShow_target.append(q_target[i] * BOHR2ANG)
                 dqShow.append(q - qShow_orig[i])
                 qShow_final.append(q)
             elif len(indices) == 3:
@@ -648,6 +666,7 @@ class RedundantCoords:
         if bt_converged:
             logging.info("\tSuccessfully converged to displaced geometry.")
         else:
+            raise
             logging.warning("\tUnable to completely converge to displaced geometry.")
         
         if dq_rms > best_dq_rms:
@@ -667,11 +686,12 @@ class RedundantCoords:
         return bt_converged, dx
 
     def __str__(self):
+        carts = len(self.cart_indices)
         bonds = len(self.bond_indices)
         bends = len(self.bending_indices)
         dihedrals = len(self.dihedral_indices)
         name = self.__class__.__name__
-        return f"{name}({bonds} bonds, {bends} bends, {dihedrals} dihedrals)"
+        return f"{name}({carts} carts, {bonds} bonds, {bends} bends, {dihedrals} dihedrals)"
 
     def get_intco_log(self):
         log = "\t-------Internal Coordinate-------\n"
@@ -681,7 +701,17 @@ class RedundantCoords:
         i = 0
         for type_, *indices in self.typed_prims:
             indices = np.array(indices)
-            if len(indices) == 2:
+            if len(indices) == 1:
+                if type_ == PrimTypes.CARTESIAN_X:
+                    symbol = 'X'
+                elif type_ == PrimTypes.CARTESIAN_Y:
+                    symbol = 'Y'
+                elif type_ == PrimTypes.CARTESIAN_Z:
+                    symbol = 'Z'
+                cart_string = '({})'.format(indices[0] + 1)
+                value = self.prim_coords[i] * BOHR2ANG
+                log += '\t {}{:15s}={:>14.6f}\n'.format(symbol, cart_string, value)
+            elif len(indices) == 2:
                 bond_string = str(tuple(indices + 1)).replace(" ", "")
                 value = self.prim_coords[i] * BOHR2ANG
                 log += '\t R{:15s}={:>14.6f}\n'.format(bond_string, value)
