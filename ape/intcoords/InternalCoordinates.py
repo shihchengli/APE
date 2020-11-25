@@ -61,7 +61,7 @@ def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, ad
     internal = RedundantCoords(atoms, cart_coords, addcart=addcart, add_interfragment_bonds=add_interfragment_bonds)
     if rotors_dict != None and rotors_dict != []:
         typed_prims = set_typed_prims(internal, rotors_dict)
-        internal = RedundantCoords(atoms, cart_coords, typed_prims=typed_prims, torsion_sacn=True, addcart=addcart, add_interfragment_bonds=add_interfragment_bonds)
+        internal = RedundantCoords(atoms, cart_coords, typed_prims=typed_prims, add_interfragment_bonds=add_interfragment_bonds)
 
     internal.nHcap = nHcap
 
@@ -77,7 +77,7 @@ class RedundantCoords:
         define_prims=None,
         bonds_only=False,
         check_bends=True,
-        rebuild=False,
+        rebuild=True,
         bend_min_deg=15,
         dihed_max_deg=175.0,
         lb_min_deg=175.0,
@@ -86,7 +86,6 @@ class RedundantCoords:
         # Corresponds to a threshold of 1e-7 for eigenvalues of G, as proposed by
         # Pulay in [5].
         svd_inv_thresh=3.16e-4,
-        torsion_sacn=False,
         addcart=False,
         add_interfragment_bonds=False,
     ):
@@ -105,7 +104,6 @@ class RedundantCoords:
         self.min_weight = float(min_weight)
         assert self.min_weight > 0.0, "min_weight must be a positive rational!"
         self.svd_inv_thresh = svd_inv_thresh
-        self.torsion_sacn = torsion_sacn
         self.addcart = addcart
         self.add_interfragment_bonds = add_interfragment_bonds
 
@@ -674,11 +672,9 @@ class RedundantCoords:
             # logging.warning("\tBest geometry has RMS(Delta(q)) = %8.2e\n" % best_dq_rms)
             geom, new_q = best_cycle
 
-        if self.torsion_sacn:
-            self.coords3d = np.reshape(geom, (-1, 3))
-
         self.prim_internals = self.eval(geom.reshape(-1,3))
         self.cart_coords = geom
+        self.coords3d = np.reshape(geom, (-1, 3))
         
         dx = (geom - prev_geom)
 
