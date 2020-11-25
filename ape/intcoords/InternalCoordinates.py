@@ -666,7 +666,6 @@ class RedundantCoords:
         if bt_converged:
             logging.info("\tSuccessfully converged to displaced geometry.")
         else:
-            raise
             logging.warning("\tUnable to completely converge to displaced geometry.")
         
         if dq_rms > best_dq_rms:
