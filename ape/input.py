@@ -265,14 +265,25 @@ def load_input_file(path, output_path=None):
     nnl = local_context.get('number_of_natural_length', None)
     # coordinate_system include "Normal Mode", "E-Optimized" and "E'-Optimized"
     coordinate_system = local_context.get('coordinate_system', 'Normal Mode')
+    # coordinate_type include "DLC" "HDLC" and "TRIC"
+    coordinate_type = local_context.get('coordinate_type', None)
     addcart = local_context.get('addcart', None)
-    add_interfragment_bonds = local_context.get('add_interfragment_bonds', False)
+    addtr = local_context.get('addtr', None)
+    add_interfragment_bonds = local_context.get('add_interfragment_bonds', None)
+    if coordinate_type == "DLC":
+        add_interfragment_bonds = True
+    elif coordinate_type == "HDLC":
+        addcart = True
+    elif coordinate_type == "TRIC":
+        addtr = True
     rem_variables_dict = {}
     for key in local_context.keys():
         if key.upper() in rem_variable_list:
             rem_variables_dict[key.upper()] = local_context.get(key)
     if coordinate_system not in ["Normal Mode", "E-Optimized", "E'-Optimized"]:
         raise InputError("The value of coordinate_system should be Normal Mode, E-Optimized or E'-Optimized.")
+    if coordinate_type not in [None, "DLC" "HDLC", "TRIC"]:
+        raise InputError("The value of coordinate_system should be DLC, HDLC or TRIC.")
     frequency_scale_factor = local_context.get('frequency_scale_factor', 1)
 
     for job in job_list:
@@ -284,6 +295,7 @@ def load_input_file(path, output_path=None):
             job.coordinate_system = coordinate_system
             job.nnl = nnl
             job.addcart = addcart
+            job.addtr = addtr
             job.add_interfragment_bonds = add_interfragment_bonds
         if isinstance(job, ThermoJob):
             job.coordinate_system = coordinate_system

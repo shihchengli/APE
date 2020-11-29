@@ -29,7 +29,7 @@ class SamplingJob(object):
 
     def __init__(self, label=None, input_file=None, output_directory=None, protocol=None, spin_multiplicity=None, charge=None, 
                  rem_variables_dict={}, gen_basis="", ncpus=None, is_ts=None, rotors=None, thresh=0.01, step_size_factor=1, 
-                 coordinate_system='Normal Mode', nnl=None, addcart=None, add_interfragment_bonds=False):
+                 coordinate_system='Normal Mode', nnl=None, addcart=None, addtr=None, add_interfragment_bonds=False):
         self.label = label
         self.input_file = input_file
         self.output_directory = output_directory
@@ -46,6 +46,7 @@ class SamplingJob(object):
         self.coordinate_system = coordinate_system
         self.nnl = nnl
         self.addcart = addcart
+        self.addtr = addtr
         self.add_interfragment_bonds = add_interfragment_bonds
 
     def parse(self):
@@ -113,8 +114,8 @@ class SamplingJob(object):
                 # Default ncpus for QM/MM calculation
                 self.ncpus = 8
             self.zpe = Log.load_zero_point_energy()
-            if self.addcart is None:
-                self.addcart = True
+            if self.addcart is None and self.addtr is None and add_interfragment_bonds is None:
+                self.addtr = True
         else:
             self.nHcap = 0
             self.natom = Log.get_number_of_atoms()
@@ -157,9 +158,9 @@ class SamplingJob(object):
             self.n_vib = 3 * self.natom - (5 if self.linearity else 6) - self.n_rotors - (1 if self.is_ts else 0)
 
         # Create RedundantCoords object
-        if self.is_ts and self.addcart is None: self.addcart = True
+        if self.is_ts and self.addcart is None and self.addtr is None and self.add_interfragment_bonds is None: self.addcart = True
         self.internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, nHcap=self.nHcap,
-                                            addcart=self.addcart, add_interfragment_bonds=self.add_interfragment_bonds)
+                                            addcart=self.addcart, addtr=self.addtr, add_interfragment_bonds=self.add_interfragment_bonds)
         
         # Create RedundantCoords object for torsional mode
         if self.protocol == 'UMVT':

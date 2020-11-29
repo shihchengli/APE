@@ -20,6 +20,7 @@ from ape.intcoords.setup import setup_redundant, get_primitives, PrimTypes
 from ape.intcoords.valid import check_typed_prims
 from ape.intcoords.update import update_internals
 from ape.intcoords.constants import BOHR2ANG
+from ape.intcoords import nifty
 from ape.exceptions import SamplingError
 
 def getXYZ(atoms, cart_coords):
@@ -33,7 +34,7 @@ def getXYZ(atoms, cart_coords):
         if i != natom-1: xyz += '\n'
     return xyz
 
-def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, addcart=False, add_interfragment_bonds=False):
+def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, addcart=False, addtr=False, add_interfragment_bonds=False):
 
     def set_typed_prims(internal, rotors_dict):
 
@@ -58,10 +59,10 @@ def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, ad
 
         return new_typed_prims
     
-    internal = RedundantCoords(atoms, cart_coords, addcart=addcart, add_interfragment_bonds=add_interfragment_bonds)
+    internal = RedundantCoords(atoms, cart_coords, addcart=addcart, addtr=addtr, add_interfragment_bonds=add_interfragment_bonds)
     if rotors_dict != None and rotors_dict != []:
         typed_prims = set_typed_prims(internal, rotors_dict)
-        internal = RedundantCoords(atoms, cart_coords, typed_prims=typed_prims, add_interfragment_bonds=add_interfragment_bonds)
+        internal = RedundantCoords(atoms, cart_coords, typed_prims=typed_prims, add_interfragment_bonds=True)
 
     internal.nHcap = nHcap
 
@@ -87,6 +88,7 @@ class RedundantCoords:
         # Pulay in [5].
         svd_inv_thresh=3.16e-4,
         addcart=False,
+        addtr=False,
         add_interfragment_bonds=False,
     ):
         self.atoms = atoms
@@ -105,6 +107,7 @@ class RedundantCoords:
         assert self.min_weight > 0.0, "min_weight must be a positive rational!"
         self.svd_inv_thresh = svd_inv_thresh
         self.addcart = addcart
+        self.addtr = addtr
         self.add_interfragment_bonds = add_interfragment_bonds
 
         self._B_prim = None
@@ -179,14 +182,18 @@ class RedundantCoords:
         )
 
         carts = len(self.cart_indices)
+        trans = len(self.translation_indices)
+        rots = len(self.rotation_indices)
         bonds = len(self.bond_indices)
         bends = len(self.bending_indices) + len(self.linear_bend_indices)
         dihedrals = len(self.dihedral_indices)
-        assert carts + bonds + bends + dihedrals == len(self.primitives)
+        assert carts + trans + rots + bonds + bends + dihedrals == len(self.primitives)
         self._carts_slice = slice(carts)
-        self._bonds_slice = slice(carts, carts + bonds)
-        self._bends_slice = slice(carts + bonds, carts + bonds + bends)
-        self._dihedrals_slice = slice(carts + bonds + bends, carts + bonds + bends + dihedrals)
+        self._trans_slice = slice(carts, carts + trans)
+        self._rots_slice = slice(carts + trans, carts + trans + rots)
+        self._bonds_slice = slice(carts + trans + rots, carts + trans + rots + bonds)
+        self._bends_slice = slice(carts + trans + rots + bonds, carts + trans + rots + bonds + bends)
+        self._dihedrals_slice = slice(carts + trans + rots + bonds + bends, carts + trans + rots + bonds + bends + dihedrals)
 
         self.nHcap = None
 
@@ -399,6 +406,8 @@ class RedundantCoords:
 
     def set_inds_from_typed_prims(self, typed_prims):
         linear_bend_types = (PrimTypes.LINEAR_BEND, PrimTypes.LINEAR_BEND_COMPLEMENT)
+        translation_types = (PrimTypes.TRANSLATION_X, PrimTypes.TRANSLATION_Y, PrimTypes.TRANSLATION_Z)
+        rotation_types = (PrimTypes.ROTATION_A, PrimTypes.ROTATION_B, PrimTypes.ROTATION_C)
         per_type = {
             1: list(),
             2: list(),
@@ -406,12 +415,18 @@ class RedundantCoords:
             4: list(),
             "linear_bend": list(),
             "hydrogen_bond": list(),
+            "translation": list(),
+            "rotation": list(),
         }
         B_indices = list()
         for type_, *indices in typed_prims:
             key = len(indices)
             if type_ in (linear_bend_types):
                 key = "linear_bend"
+            elif type_ in (translation_types):
+                key = "translation"
+            elif type_ in (rotation_types):
+                key = "rotation"
             per_type[key].append(indices)
 
             # Also keep hydrogen bonds
@@ -425,6 +440,8 @@ class RedundantCoords:
         self.dihedral_indices = per_type[4]
         self.linear_bend_indices = per_type["linear_bend"]
         self.hydrogen_bond_indices = per_type["hydrogen_bond"]
+        self.translation_indices = per_type["translation"]
+        self.rotation_indices = per_type["rotation"]
         self.B_indices = B_indices
 
         # TODO
@@ -445,6 +462,7 @@ class RedundantCoords:
             lb_min_deg=self.lb_min_deg,
             min_weight=self.min_weight if self.weighted else None,
             addcart=self.addcart,
+            addtr=self.addtr,
             add_interfragment_bonds=self.add_interfragment_bonds,
             logger=self.logger,
         )
@@ -528,7 +546,33 @@ class RedundantCoords:
         i = 0
         for type_, *indices in self.typed_prims:
             indices = np.array(indices)
-            if len(indices) == 1:
+            if type_ in (PrimTypes.TRANSLATION_X, PrimTypes.TRANSLATION_Y, PrimTypes.TRANSLATION_Z):
+                if type_ == PrimTypes.TRANSLATION_X:
+                    symbol = 'TranX'
+                elif type_ == PrimTypes.TRANSLATION_Y:
+                    symbol = 'TranY'
+                elif type_ == PrimTypes.TRANSLATION_Z:
+                    symbol = 'TranZ'
+                q = self.prim_coords[i] * BOHR2ANG
+                intco_lbls.append(symbol + '({})'.format(nifty.commadash(indices)))
+                qShow_orig.append(q_orig[i] * BOHR2ANG)
+                qShow_target.append(q_target[i] * BOHR2ANG)
+                dqShow.append(q - qShow_orig[i])
+                qShow_final.append(q)
+            elif type_ in (PrimTypes.ROTATION_A, PrimTypes.ROTATION_B, PrimTypes.ROTATION_C):
+                if type_ == PrimTypes.ROTATION_A:
+                    symbol = 'RotA'
+                elif type_ == PrimTypes.ROTATION_B:
+                    symbol = 'RotB'
+                elif type_ == PrimTypes.ROTATION_C:
+                    symbol = 'RotC'
+                q = self.prim_coords[i] * 180 / np.pi
+                intco_lbls.append(symbol + '({})'.format(nifty.commadash(indices)))
+                qShow_orig.append(q_orig[i] * 180 / np.pi)
+                qShow_target.append(q_target[i] * 180 / np.pi)
+                dqShow.append(q - qShow_orig[i])
+                qShow_final.append(q)
+            elif len(indices) == 1:
                 if type_ == PrimTypes.CARTESIAN_X:
                     symbol = 'X'
                 elif type_ == PrimTypes.CARTESIAN_Y:
@@ -682,11 +726,13 @@ class RedundantCoords:
 
     def __str__(self):
         carts = len(self.cart_indices)
+        trans = len(self.translation_indices)
+        rots = len(self.rotation_indices)
         bonds = len(self.bond_indices)
         bends = len(self.bending_indices)
         dihedrals = len(self.dihedral_indices)
         name = self.__class__.__name__
-        return f"{name}({carts} carts, {bonds} bonds, {bends} bends, {dihedrals} dihedrals)"
+        return f"{name}({carts} carts, {trans} trans, {rots} rots, {bonds} bonds, {bends} bends, {dihedrals} dihedrals)"
 
     def get_intco_log(self):
         log = "\t-------Internal Coordinate-------\n"
@@ -696,7 +742,27 @@ class RedundantCoords:
         i = 0
         for type_, *indices in self.typed_prims:
             indices = np.array(indices)
-            if len(indices) == 1:
+            if type_ in (PrimTypes.TRANSLATION_X, PrimTypes.TRANSLATION_Y, PrimTypes.TRANSLATION_Z):
+                if type_ == PrimTypes.TRANSLATION_X:
+                    symbol = 'TranX'
+                elif type_ == PrimTypes.TRANSLATION_Y:
+                    symbol = 'TranY'
+                elif type_ == PrimTypes.TRANSLATION_Z:
+                    symbol = 'TranZ'
+                tran_string = '({})'.format(nifty.commadash(indices))
+                value = self.prim_coords[i] * BOHR2ANG
+                log += '\t {}{:11s}={:>14.6f}\n'.format(symbol, tran_string, value)
+            elif type_ in (PrimTypes.ROTATION_A, PrimTypes.ROTATION_B, PrimTypes.ROTATION_C):
+                if type_ == PrimTypes.ROTATION_A:
+                    symbol = 'RotA'
+                elif type_ == PrimTypes.ROTATION_B:
+                    symbol = 'RotB'
+                elif type_ == PrimTypes.ROTATION_C:
+                    symbol = 'RotC'
+                rot_string = '({})'.format(nifty.commadash(indices))
+                value = self.prim_coords[i] / np.pi * 180
+                log += '\t {}{:12s}={:>14.6f}\n'.format(symbol, rot_string, value)
+            elif len(indices) == 1:
                 if type_ == PrimTypes.CARTESIAN_X:
                     symbol = 'X'
                 elif type_ == PrimTypes.CARTESIAN_Y:

@@ -7,7 +7,7 @@ from scipy.spatial.distance import pdist, squareform
 from ape.intcoords.constants import BOHR2ANG
 from ape.intcoords.helpers_pure import log, sort_by_central, merge_sets
 from ape.intcoords.elem_data import VDW_RADII, COVALENT_RADII as CR
-from ape.intcoords.slots import CartesianX, CartesianY, CartesianZ, Stretch, Bend, LinearBend, Torsion
+from ape.intcoords.slots import *
 from ape.intcoords.PrimTypes import PrimTypes, PrimMap
 from ape.intcoords.valid import bend_valid, dihedral_valid
 
@@ -326,6 +326,7 @@ def sort_by_prim_type(to_sort=None):
 CoordInfo = namedtuple(
     "CoordInfo",
     "cart_xs cart_ys cart_zs "
+    "translation_xs translation_ys translation_zs rotation_as rotation_bs rotation_cs "
     "bonds hydrogen_bonds interfrag_bonds aux_interfrag_bonds "
     "bends linear_bends linear_bend_complements "
     # "dihedrals typed_prims fragments cdm cbm".split(),
@@ -344,6 +345,7 @@ def setup_redundant(
     lb_max_bonds=4,
     min_weight=None,
     addcart=False,
+    addtr=False,
     add_interfragment_bonds=False,
     logger=None,
 ):
@@ -398,6 +400,26 @@ def setup_redundant(
     else:
         interfrag_bonds = list()
         aux_interfrag_bonds = list()
+    
+    # TRIC
+    translation_xs, translation_ys, translation_zs = [], [], []
+    rotation_as, rotation_bs, rotation_cs = [], [], []
+    if addtr:
+        for frag in fragments:
+            if len(frag) >= 2:
+                ind = tuple(frag)
+                translation_xs.append(ind)
+                translation_ys.append(ind)
+                translation_zs.append(ind)
+                rotation_as.append(ind)
+                rotation_bs.append(ind)
+                rotation_cs.append(ind)
+            elif not addcart:
+                for ind in frag:
+                    ind = tuple([ind,])
+                    cart_xs.append(ind)
+                    cart_ys.append(ind)
+                    cart_zs.append(ind)
 
     # Hydrogen bonds
     hydrogen_bonds = get_hydrogen_bond_inds(atoms, coords3d, bonds, logger=logger)
@@ -454,6 +476,12 @@ def setup_redundant(
 
     # Additional primitives to be defined.
     define_map = {
+        PrimTypes.TRANSLATION_X: "translation_xs",
+        PrimTypes.TRANSLATION_Y: "translation_ys",
+        PrimTypes.TRANSLATION_Z: "translation_zs",
+        PrimTypes.ROTATION_A: "rotation_as",
+        PrimTypes.ROTATION_B: "rotation_bs",
+        PrimTypes.ROTATION_C: "rotation_cs",
         PrimTypes.CARTESIAN_X: "cart_xs",
         PrimTypes.CARTESIAN_Y: "cart_ys",
         PrimTypes.CARTESIAN_Z: "cart_zs",
@@ -478,6 +506,13 @@ def setup_redundant(
         [(pt.CARTESIAN_X, *cart_x) for cart_x in cart_xs]
         + [(pt.CARTESIAN_Y, *cart_y) for cart_y in cart_ys]
         + [(pt.CARTESIAN_Z, *cart_z) for cart_z in cart_zs]
+        # TRIC, fragments
+        + [(pt.TRANSLATION_X, *tran_x) for tran_x in translation_xs]
+        + [(pt.TRANSLATION_Y, *tran_y) for tran_y in translation_ys]
+        + [(pt.TRANSLATION_Z, *tran_z) for tran_z in translation_zs]
+        + [(pt.ROTATION_A, *rot_a) for rot_a in rotation_as]
+        + [(pt.ROTATION_B, *rot_b) for rot_b in rotation_bs]
+        + [(pt.ROTATION_C, *rot_c) for rot_c in rotation_cs]
         # Bonds, two indices
         + [(pt.BOND, *bond) for bond in bonds]
         + [(pt.AUX_BOND, *abond) for abond in aux_bonds]
@@ -497,6 +532,12 @@ def setup_redundant(
         cart_xs=cart_xs,
         cart_ys=cart_ys,
         cart_zs=cart_zs,
+        translation_xs=translation_xs,
+        translation_ys=translation_ys,
+        translation_zs=translation_zs,
+        rotation_as=rotation_as,
+        rotation_bs=rotation_bs,
+        rotation_cs=rotation_cs,
         bonds=bonds,
         hydrogen_bonds=hydrogen_bonds,
         interfrag_bonds=interfrag_bonds,
@@ -520,7 +561,10 @@ def get_primitives(coords3d, typed_prims, logger=None):
     primitives = list()
     for type_, *indices in typed_prims:
         cls = PrimMap[type_]
-        primitives.append(cls(indices=indices))
+        if type_ in (PrimTypes.ROTATION_A, PrimTypes.ROTATION_B, PrimTypes.ROTATION_C):
+            primitives.append(cls(indices=indices, coords3d=coords3d))
+        else:
+            primitives.append(cls(indices=indices))
 
     msg = (
         "Defined primitives\n"

@@ -6,6 +6,8 @@ import numpy as np
 
 from ape.intcoords.elem_data import COVALENT_RADII as CR
 from ape.intcoords.derivatives import d2q_b, d2q_a, dq_lb, d2q_lb, dq_ld, d2q_ld, d2q_d, dq_oop, d2q_oop
+from ape.intcoords.rotate import get_expmap, get_expmap_der, is_linear, calc_rot_vec_diff
+from ape.intcoords import nifty
 
 class Primitive(metaclass=abc.ABCMeta):
     def __init__(self, indices, periodic=False, calc_kwargs=None):
@@ -137,6 +139,399 @@ class CartesianZ(Primitive):
         if gradient:
             row = np.zeros_like(coords3d)
             row[ind][2] = w
+            row = row.flatten()
+            return value, row
+        return value
+
+class TranslationX(Primitive):
+
+    @staticmethod
+    def _weight(atoms, coords3d, indices, f_damping):
+        pass
+    
+    @staticmethod
+    def _calculate(coords3d, indices, gradient=False):
+        indices = np.array(indices)
+        w = np.ones(len(indices))/len(indices)
+        value = np.sum(coords3d[indices, 0] * w)
+        if gradient:
+            row = np.zeros_like(coords3d)
+            for i, a in enumerate(indices):
+                row[a][0] = w[i]
+            row = row.flatten()
+            return value, row
+        return value
+
+class TranslationY(Primitive):
+
+    @staticmethod
+    def _weight(atoms, coords3d, indices, f_damping):
+        pass
+    
+    @staticmethod
+    def _calculate(coords3d, indices, gradient=False):
+        indices = np.array(indices)
+        w = np.ones(len(indices))/len(indices)
+        value = np.sum(coords3d[indices, 1] * w)
+        if gradient:
+            row = np.zeros_like(coords3d)
+            for i, a in enumerate(indices):
+                row[a][1] = w[i]
+            row = row.flatten()
+            return value, row
+        return value
+
+class TranslationZ(Primitive):
+
+    @staticmethod
+    def _weight(atoms, coords3d, indices, f_damping):
+        pass
+    
+    @staticmethod
+    def _calculate(coords3d, indices, gradient=False):
+        indices = np.array(indices)
+        w = np.ones(len(indices))/len(indices)
+        value = np.sum(coords3d[indices, 2] * w)
+        if gradient:
+            row = np.zeros_like(coords3d)
+            for i, a in enumerate(indices):
+                row[a][2] = w[i]
+            row = row.flatten()
+            return value, row
+        return value
+
+class Rotator(object):
+
+    def __init__(self, a, x0):
+        self.a = list(tuple(sorted(a)))
+        x0 = x0.reshape(-1, 3)
+        self.x0 = x0.copy()
+        self.stored_valxyz = np.zeros_like(x0)
+        self.stored_value = None
+        # A second set of xyz coordinates used only when computing
+        # differences in rotation coordinates
+        self.stored_valxyz2 = np.zeros_like(x0)
+        self.stored_value2 = None
+        self.stored_derxyz = np.zeros_like(x0)
+        self.stored_deriv = None
+        self.stored_deriv2xyz = np.zeros_like(x0)
+        self.stored_deriv2 = None
+        self.stored_norm = 0.0
+        # Extra variables to account for the case of linear molecules
+        # The reference axis used for computing dummy atom position
+        self.e0 = None
+        # Dot-squared measures alignment of molecule long axis with reference axis.
+        # If molecule becomes parallel with reference axis, coordinates must be reset.
+        self.stored_dot2 = 0.0
+        # Flag that records linearity of molecule
+        self.linear = False
+
+    def reset(self, x0):
+        x0 = x0.reshape(-1, 3)
+        self.x0 = x0.copy()
+        self.stored_valxyz = np.zeros_like(x0)
+        self.stored_value = None
+        self.stored_valxyz2 = np.zeros_like(x0)
+        self.stored_value2 = None
+        self.stored_derxyz = np.zeros_like(x0)
+        self.stored_deriv = None
+        self.stored_deriv2xyz = np.zeros_like(x0)
+        self.stored_deriv2 = None
+        self.stored_norm = 0.0
+        self.e0 = None
+        self.stored_dot2 = 0.0
+        self.linear = False
+
+    def __eq__(self, other):
+        if type(self) is not type(other): return False
+        eq = set(self.a) == set(other.a)
+        if eq and np.sum((self.x0-other.x0)**2) > 1e-6:
+            logger.warning("Warning: Rotator same atoms, different reference positions\n")
+        return eq
+
+    def __repr__(self):
+        return "Rotator %s" % commadash(self.a)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+    
+    @property
+    def w(self):
+        sel = self.x0[self.a,:] 
+        sel -= np.mean(sel, axis=0)
+        rg = np.sqrt(np.mean(np.sum(sel ** 2, axis=1)))
+        return rg
+
+    def calc_e0(self):
+        """
+        Compute the reference axis for adding dummy atoms. 
+        Only used in the case of linear molecules.
+        We first find the Cartesian axis that is "most perpendicular" to the molecular axis.
+        Next we take the cross product with the molecular axis to create a perpendicular vector.
+        Finally, this perpendicular vector is normalized to make a unit vector.
+        """
+        ysel = self.x0[self.a, :]
+        vy = ysel[-1]-ysel[0]
+        ev = vy / np.linalg.norm(vy)
+        # Cartesian axes.
+        ex = np.array([1.0,0.0,0.0])
+        ey = np.array([0.0,1.0,0.0])
+        ez = np.array([0.0,0.0,1.0])
+        self.e0 = np.cross(vy, [ex, ey, ez][np.argmin([np.dot(i, ev)**2 for i in [ex, ey, ez]])])
+        self.e0 /= np.linalg.norm(self.e0)
+
+    def value(self, xyz, store=True):
+        xyz = xyz.reshape(-1, 3)
+        if np.max(np.abs(xyz-self.stored_valxyz)) < 1e-12:
+            return self.stored_value
+        else:
+            xsel = xyz[self.a, :]
+            ysel = self.x0[self.a, :]
+            xmean = np.mean(xsel,axis=0)
+            ymean = np.mean(ysel,axis=0)
+            if not self.linear and is_linear(xsel, ysel):
+                # print "Setting linear flag for", self
+                self.linear = True
+            if self.linear:
+                # Handle linear molecules.
+                vx = xsel[-1]-xsel[0]
+                vy = ysel[-1]-ysel[0]
+                # Calculate reference axis (if needed)
+                if self.e0 is None: self.calc_e0()
+                #log.debug(vx)
+                ev = vx / np.linalg.norm(vx)
+                # Measure alignment of molecular axis with reference axis
+                self.stored_dot2 = np.dot(ev, self.e0)**2
+                # Dummy atom is located one Bohr from the molecular center, direction
+                # given by cross-product of the molecular axis with the reference axis
+                xdum = np.cross(vx, self.e0)
+                ydum = np.cross(vy, self.e0)
+                exdum = xdum / np.linalg.norm(xdum)
+                eydum = ydum / np.linalg.norm(ydum)
+                xsel = np.vstack((xsel, exdum+xmean))
+                ysel = np.vstack((ysel, eydum+ymean))
+            answer = get_expmap(xsel, ysel)
+            if store:
+                self.stored_norm = np.linalg.norm(answer)
+                self.stored_valxyz = xyz.copy()
+                self.stored_value = answer.copy()
+            return answer
+
+    def calcDiff(self, xyz1, xyz2=None, val2=None):
+        """
+        Return the difference of the internal coordinate
+        calculated for (xyz1 - xyz2).
+        """
+        if xyz2 is None and val2 is None:
+            raise RuntimeError("Provide exactly one of xyz2 and val2")
+        elif xyz2 is not None and val2 is not None:
+            raise RuntimeError("Provide exactly one of xyz2 and val2")
+        val1 = self.value(xyz1)
+        if xyz2 is not None:
+            # The "second" coordinate set is cached separately
+            xyz2 = xyz2.reshape(-1, 3)
+            if np.max(np.abs(xyz2-self.stored_valxyz2)) < 1e-12:
+                val2 = self.stored_value2.copy()
+            else:
+                val2 = self.value(xyz2, store=False)
+                self.stored_valxyz2 = xyz2.copy()
+                self.stored_value2 = val2.copy()
+        # Calculate difference in rotation vectors, modulo n*2pi displacement vectors
+        return calc_rot_vec_diff(val1, val2)
+
+    def derivative(self, xyz):
+        xyz = xyz.reshape(-1, 3)
+        if np.max(np.abs(xyz-self.stored_derxyz)) < 1e-12:
+            return self.stored_deriv
+        else:
+            xsel = xyz[self.a, :]
+            ysel = self.x0[self.a, :]
+            xmean = np.mean(xsel,axis=0)
+            ymean = np.mean(ysel,axis=0)
+            if not self.linear and is_linear(xsel, ysel):
+                # print "Setting linear flag for", self
+                self.linear = True
+            if self.linear:
+                vx = xsel[-1]-xsel[0]
+                vy = ysel[-1]-ysel[0]
+                if self.e0 is None: self.calc_e0()
+                xdum = np.cross(vx, self.e0)
+                ydum = np.cross(vy, self.e0)
+                exdum = xdum / np.linalg.norm(xdum)
+                eydum = ydum / np.linalg.norm(ydum)
+                xsel = np.vstack((xsel, exdum+xmean))
+                ysel = np.vstack((ysel, eydum+ymean))
+            deriv_raw = get_expmap_der(xsel, ysel)
+            if self.linear:
+                # Chain rule is applied to get terms from
+                # dummy atom derivatives
+                nxdum = np.linalg.norm(xdum)
+                dxdum = d_cross(vx, self.e0)
+                dnxdum = d_ncross(vx, self.e0)
+                # Derivative of dummy atom position w/r.t. molecular axis vector
+                dexdum = (dxdum*nxdum - np.outer(dnxdum,xdum))/nxdum**2
+                # Here we may compute finite difference derivatives to check
+                # h = 1e-6
+                # fdxdum = np.zeros((3, 3), dtype=float)
+                # for i in range(3):
+                #     vx[i] += h
+                #     dPlus = np.cross(vx, self.e0)
+                #     dPlus /= np.linalg.norm(dPlus)
+                #     vx[i] -= 2*h
+                #     dMinus = np.cross(vx, self.e0)
+                #     dMinus /= np.linalg.norm(dMinus)
+                #     vx[i] += h
+                #     fdxdum[i] = (dPlus-dMinus)/(2*h)
+                # if np.linalg.norm(dexdum - fdxdum) > 1e-6:
+                #     print dexdum - fdxdum
+                #     raise Exception()
+                # Apply terms from chain rule
+                deriv_raw[0]  -= np.dot(dexdum, deriv_raw[-1])
+                for i in range(len(self.a)):
+                    deriv_raw[i]  += np.dot(np.eye(3), deriv_raw[-1])/len(self.a)
+                deriv_raw[-2] += np.dot(dexdum, deriv_raw[-1])
+                deriv_raw = deriv_raw[:-1]
+            derivatives = np.zeros((xyz.shape[0], 3, 3), dtype=float)
+            for i, a in enumerate(self.a):
+                derivatives[a, :, :] = deriv_raw[i, :, :]
+            self.stored_derxyz = xyz.copy()
+            self.stored_deriv = derivatives.copy()
+            return derivatives
+        
+    def second_derivative(self, xyz):
+        xyz = xyz.reshape(-1, 3)
+        if np.max(np.abs(xyz-self.stored_deriv2xyz)) < 1e-12:
+            return self.stored_deriv2
+        else:
+            xsel = xyz[self.a, :]
+            ysel = self.x0[self.a, :]
+            xmean = np.mean(xsel,axis=0)
+            ymean = np.mean(ysel,axis=0)
+            if not self.linear and is_linear(xsel, ysel):
+                # print "Setting linear flag for", self
+                self.linear = True
+            if self.linear:
+                vx = xsel[-1]-xsel[0]
+                vy = ysel[-1]-ysel[0]
+                if self.e0 is None: self.calc_e0()
+                xdum = np.cross(vx, self.e0)
+                ydum = np.cross(vy, self.e0)
+                exdum = xdum / np.linalg.norm(xdum)
+                eydum = ydum / np.linalg.norm(ydum)
+                xsel = np.vstack((xsel, exdum+xmean))
+                ysel = np.vstack((ysel, eydum+ymean))
+            deriv_raw, deriv2_raw = get_expmap_der(xsel, ysel, second=True)
+            if self.linear:
+                # Chain rule is applied to get terms from dummy atom derivatives
+                def dexdum_(vx_):
+                    xdum_ = np.cross(vx_, self.e0)
+                    nxdum_ = np.linalg.norm(xdum_)
+                    dxdum_ = d_cross(vx_, self.e0)
+                    dnxdum_ = d_ncross(vx_, self.e0)
+                    dexdum_ = (dxdum_*nxdum_ - np.outer(dnxdum_,xdum_))/nxdum_**2
+                    return dexdum_.copy()
+                # First indices: elements of vx that are being differentiated w/r.t.
+                # Last index: elements of exdum itself
+                dexdum = dexdum_(vx)
+                dexdum2 = np.zeros((3, 3, 3), dtype=float)
+                h = 1.0e-3
+                for i in range(3):
+                    vx[i] += h
+                    dPlus = dexdum_(vx)
+                    vx[i] -= 2*h
+                    dMinus = dexdum_(vx)
+                    vx[i] += h
+                    dexdum2[i] = (dPlus-dMinus)/(2*h)
+                # Build arrays that contain derivative of dummy atom position
+                # w/r.t. real atom positions
+                ddum1 = np.zeros((len(self.a), 3, 3), dtype=float)
+                ddum1[0] = -dexdum
+                ddum1[-1] = dexdum
+                for i in range(len(self.a)):
+                    ddum1[i] += np.eye(3)/len(self.a)
+                ddum2 = np.zeros((len(self.a), 3, len(self.a), 3, 3), dtype=float)
+                ddum2[ 0, : , 0, :] =  dexdum2
+                ddum2[-1, : , 0, :] = -dexdum2
+                ddum2[ 0, :, -1, :] = -dexdum2
+                ddum2[-1, :, -1, :] =  dexdum2
+                # =====
+                # Do not delete - reference codes using loops for chain rule terms
+                # for j in range(len(self.a)): # Loop over atom 1
+                #     for m in range(3):       # Loop over xyz of atom 1
+                #         for k in range(len(self.a)): # Loop over atom 2
+                #             for n in range(3):       # Loop over xyz of atom 2
+                #                 for i in range(3):   # Loop over elements of exponential map
+                #                     for p in range(3): # Loop over xyz of dummy atom
+                #                         deriv2_raw[j, m, k, n, i] += deriv2_raw[j, m, -1, p, i] * ddum1[k, n, p]
+                #                         deriv2_raw[j, m, k, n, i] += deriv2_raw[-1, p, k, n, i] * ddum1[j, m, p]
+                #                         deriv2_raw[j, m, k, n, i] += deriv_raw[-1, p, i] * ddum2[j, m, k, n, p]
+                #                         for q in range(3):
+                #                             deriv2_raw[j, m, k, n, i] += deriv2_raw[-1, p, -1, q, i] * ddum1[j, m, p] * ddum1[k, n, q]
+                # =====
+                deriv2_raw[:-1, :, :-1, :] += np.einsum('jmpi,knp->jmkni', deriv2_raw[:-1, :, -1, :, :], ddum1, optimize=True)
+                deriv2_raw[:-1, :, :-1, :] += np.einsum('pkni,jmp->jmkni', deriv2_raw[-1, :, :-1, :, :], ddum1, optimize=True)
+                deriv2_raw[:-1, :, :-1, :] += np.einsum('pi,jmknp->jmkni', deriv_raw[-1, :, :], ddum2, optimize=True)
+                deriv2_raw[:-1, :, :-1, :] += np.einsum('pqi,jmp,knq->jmkni', deriv2_raw[-1, :, -1, :, :], ddum1, ddum1, optimize=True)
+                deriv2_raw = deriv2_raw[:-1, :, :-1, :, :]
+            second_derivatives = np.zeros((xyz.shape[0], 3, xyz.shape[0], 3, 3), dtype=float)
+            for i, a in enumerate(self.a):
+                for j, b in enumerate(self.a):
+                    second_derivatives[a, :, b, :, :] = deriv2_raw[i, :, j, :, :]
+            return second_derivatives
+
+class RotationA(Primitive):
+
+    def __init__(self, indices, coords3d):
+        Primitive.__init__(self, indices)
+        self.rotator =  Rotator(indices, coords3d)
+
+    @staticmethod
+    def _weight(atoms, coords3d, indices, f_damping):
+        pass
+
+    def _calculate(self, coords3d, indices, gradient=False):
+        value = self.rotator.value(coords3d)[0] * self.rotator.w
+        if gradient:
+            row = self.rotator.derivative(coords3d)
+            row = row[:, :, 0] * self.rotator.w
+            row = row.flatten()
+            return value, row
+        return value
+
+class RotationB(Primitive):
+
+    def __init__(self, indices, coords3d):
+        Primitive.__init__(self, indices)
+        self.rotator =  Rotator(indices, coords3d)
+
+    @staticmethod
+    def _weight(atoms, coords3d, indices, f_damping):
+        pass
+
+    def _calculate(self, coords3d, indices, gradient=False):
+        value = self.rotator.value(coords3d)[1] * self.rotator.w
+        if gradient:
+            row = self.rotator.derivative(coords3d)
+            row = row[:, :, 1] * self.rotator.w
+            row = row.flatten()
+            return value, row
+        return value
+
+class RotationC(Primitive):
+
+    def __init__(self, indices, coords3d):
+        Primitive.__init__(self, indices)
+        self.rotator =  Rotator(indices, coords3d)
+
+    @staticmethod
+    def _weight(atoms, coords3d, indices, f_damping):
+        pass
+
+    def _calculate(self, coords3d, indices, gradient=False):
+        value = self.rotator.value(coords3d)[2] * self.rotator.w
+        if gradient:
+            row = self.rotator.derivative(coords3d)
+            row = row[:, :, 2] * self.rotator.w
             row = row.flatten()
             return value, row
         return value

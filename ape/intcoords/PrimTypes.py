@@ -19,6 +19,12 @@ class PrimTypes(OrderedEnum):
     CARTESIAN_X = 13
     CARTESIAN_Y = 14
     CARTESIAN_Z = 15
+    TRANSLATION_X = 16
+    TRANSLATION_Y = 17
+    TRANSLATION_Z = 18
+    ROTATION_A = 19
+    ROTATION_B = 20
+    ROTATION_C = 21
 
 
 # Maps primitive types to their classes
@@ -43,4 +49,10 @@ PrimMap = {
     PrimTypes.CARTESIAN_X: CartesianX,
     PrimTypes.CARTESIAN_Y: CartesianY,
     PrimTypes.CARTESIAN_Z: CartesianZ,
+    PrimTypes.TRANSLATION_X: TranslationX,
+    PrimTypes.TRANSLATION_Y: TranslationY,
+    PrimTypes.TRANSLATION_Z: TranslationZ,
+    PrimTypes.ROTATION_A: RotationA,
+    PrimTypes.ROTATION_B: RotationB,
+    PrimTypes.ROTATION_C: RotationC,
 }
