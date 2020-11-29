@@ -283,7 +283,7 @@ def load_input_file(path, output_path=None):
     if coordinate_system not in ["Normal Mode", "E-Optimized", "E'-Optimized"]:
         raise InputError("The value of coordinate_system should be Normal Mode, E-Optimized or E'-Optimized.")
     if coordinate_type not in [None, "DLC" "HDLC", "TRIC"]:
-        raise InputError("The value of coordinate_system should be DLC, HDLC or TRIC.")
+        raise InputError("The value of coordinate_type should be DLC, HDLC or TRIC.")
     frequency_scale_factor = local_context.get('frequency_scale_factor', 1)
 
     for job in job_list:
