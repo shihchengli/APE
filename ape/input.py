@@ -282,7 +282,7 @@ def load_input_file(path, output_path=None):
             rem_variables_dict[key.upper()] = local_context.get(key)
     if coordinate_system not in ["Normal Mode", "E-Optimized", "E'-Optimized"]:
         raise InputError("The value of coordinate_system should be Normal Mode, E-Optimized or E'-Optimized.")
-    if coordinate_type not in [None, "DLC" "HDLC", "TRIC"]:
+    if coordinate_type not in [None, "DLC", "HDLC", "TRIC"]:
         raise InputError("The value of coordinate_type should be DLC, HDLC or TRIC.")
     frequency_scale_factor = local_context.get('frequency_scale_factor', 1)
 

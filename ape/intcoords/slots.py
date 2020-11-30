@@ -7,7 +7,7 @@ import numpy as np
 from ape.intcoords.elem_data import COVALENT_RADII as CR
 from ape.intcoords.derivatives import d2q_b, d2q_a, dq_lb, d2q_lb, dq_ld, d2q_ld, d2q_d, dq_oop, d2q_oop
 from ape.intcoords.rotate import get_expmap, get_expmap_der, is_linear, calc_rot_vec_diff
-from ape.intcoords import nifty
+from ape.intcoords import nifty, math_utils
 
 class Primitive(metaclass=abc.ABCMeta):
     def __init__(self, indices, periodic=False, calc_kwargs=None):
@@ -366,8 +366,8 @@ class Rotator(object):
                 # Chain rule is applied to get terms from
                 # dummy atom derivatives
                 nxdum = np.linalg.norm(xdum)
-                dxdum = d_cross(vx, self.e0)
-                dnxdum = d_ncross(vx, self.e0)
+                dxdum = math_utils.d_cross(vx, self.e0)
+                dnxdum = math_utils.d_ncross(vx, self.e0)
                 # Derivative of dummy atom position w/r.t. molecular axis vector
                 dexdum = (dxdum*nxdum - np.outer(dnxdum,xdum))/nxdum**2
                 # Here we may compute finite difference derivatives to check
@@ -426,8 +426,8 @@ class Rotator(object):
                 def dexdum_(vx_):
                     xdum_ = np.cross(vx_, self.e0)
                     nxdum_ = np.linalg.norm(xdum_)
-                    dxdum_ = d_cross(vx_, self.e0)
-                    dnxdum_ = d_ncross(vx_, self.e0)
+                    dxdum_ = math_utils.d_cross(vx_, self.e0)
+                    dnxdum_ = math_utils.d_ncross(vx_, self.e0)
                     dexdum_ = (dxdum_*nxdum_ - np.outer(dnxdum_,xdum_))/nxdum_**2
                     return dexdum_.copy()
                 # First indices: elements of vx that are being differentiated w/r.t.
