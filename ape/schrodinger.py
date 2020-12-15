@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
+import logging
 import numpy as np
-from math import sqrt
+from math import sqrt, sin, cos, acos
 from math import factorial as fact
 
 import rmgpy.constants as constants
@@ -24,7 +25,14 @@ def Hmn(m, n, polynomial_dict, mode_dict, energy_dict, mode, is_tors):
             x1 = x2
             x2 += delta_q
             a = [polynomial_dict[mode][i][ind] for ind in ['ai','bi','ci','di']]
-            result += IntXPhimPhin(m,n,x1,x2,L,a)
+
+            negative_energy = check_negative_energy(a,x1,x2)
+            if negative_energy:
+                root1, root2 = negative_energy
+                result += IntXPhimPhin(m,n,x1,root1,L,a)
+                result += IntXPhimPhin(m,n,root2,x2,L,a)
+            else:
+                result += IntXPhimPhin(m,n,x1,x2,L,a)
         if (m==n and m!=0):
             if (m%2==0): m /= 2
             else: m = (m+1)/2
@@ -56,8 +64,14 @@ def Hmn(m, n, polynomial_dict, mode_dict, energy_dict, mode, is_tors):
             else:
                 x2 = delta_q*i/R
                 x1 = delta_q*(i-1)/R
-
-            result += IntXHmHnexp(m,n,x1,x2,a)
+            
+            negative_energy = check_negative_energy(a,x1,x2)
+            if negative_energy:
+                root1, root2 = negative_energy
+                result += IntXHmHnexp(m,n,x1,root1,a)
+                result += IntXHmHnexp(m,n,root2,x2,a)
+            else:
+                result += IntXHmHnexp(m,n,x1,x2,a)
         result /= pow(2,m/2.0)*pow(2,n/2.0)*sqrt(fact(m))*sqrt(fact(n))*sqrt(np.pi)
         if m==n: result += -(1/2)*P*(2*m+1)
         elif m == (n+2): result += sqrt(m)*sqrt(m-1)*(1/2)*P
@@ -75,3 +89,51 @@ def SetAnharmonicH(polynomial_dict, mode_dict, energy_dict, mode, size, N_prev, 
             H[m][n] = Hmn_val
             H[n][m] = Hmn_val
     return H
+
+def check_negative_energy(coeff, x1, x2):
+    a = coeff[3]
+    b = coeff[2]
+    c = coeff[1]
+    d = coeff[0]
+    if a == 0:
+        return False
+    f = (3 * c / a - pow(b / a, 2)) / 3
+    g = (2 * pow(b / a, 3) - (9 * b * c / pow(a, 2)) + (27 * d / a)) / 27
+    h = pow(g, 2) / 4 + pow(f, 3) / 27
+
+    if h < 0:
+        i = sqrt(pow(g, 2) / 4 - h)
+        j = pow(i, 1.0 / 3)
+        k = acos(-g / (2 * i))
+        l = -j
+        m = cos(k / 3)
+        n = sqrt(3) * sin(k / 3)
+        p = -b / (3 * a)
+        r1 = 2 * j * cos(k / 3) - b / (3 * a)
+        r2 = l * (m + n) + p
+        r3 = l * (m - n) + p
+        if (r1 > x1 and r1 < x2) and (r2 > x1 and r2 < x2):
+            if r1 > r2:
+                root2 = r1
+                root1 = r2
+            else:
+                root2 = r2
+                root1 = r1
+            return [root1, root2]
+        elif (r1 > x1 and r1 < x2) and (r3 > x1 and r3 < x2):
+            if r1>r3:
+                root2 = r1
+                root1 = r3
+            else:
+                root2 = r3
+                root1 = r1
+            return [root1, root2]
+        elif (r2 > x1 and r2 < x2) and (r3 > x1 and r3 < x2):
+            if r2 > r3:
+                root2 = r2
+                root1 = r3
+            else:
+                root2 = r3
+                root1 = r2
+            return [root1, root2]
+    return False
