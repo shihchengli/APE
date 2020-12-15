@@ -2,6 +2,7 @@
 import os
 import sys
 import math
+import logging
 import numpy as np
 from numpy import exp
 from copy import deepcopy
@@ -103,8 +104,10 @@ class Statmech(object):
 
             if Qold == np.log(sys.float_info[0]):
                 self.result_info.append("# \n# \t %d \t\t-\t\t-" % Nbasis) #first run
+                logging.debug("# \t {} \t\t-\t\t-".format(Nbasis))
             else:
-                self.result_info.append("# \n# \t %d \t\t %.10f \t\t %.10f" % (Nbasis,abs(Q-Qold),abs(v-vold)))
+                self.result_info.append("# \n# \t %d \t\t %.10f \t\t %.10f" % (Nbasis, abs(Q-Qold), abs(v-vold)))
+                logging.debug("# \t {:d} \t\t {:.10f} \t\t {:.10f}".format(Nbasis, abs(Q-Qold), abs(v-vold)))
             
             if ((abs(Q-Qold)<1e-4) and (abs(v-vold)<1e-2)):
                 self.result_info.append("# Convergence criterion met")
