@@ -191,10 +191,12 @@ def reaction(label, reactants, products, transitionState=None, tunneling=''):
 
 def thermo(label, Tlist=[298.15]):
     """Generate a thermo job"""
-    global job_list, species_dict
-    try:
+    global job_list, species_dict, transition_state_dict
+    if label in species_dict.keys():
         spec = species_dict[label]
-    except KeyError:
+    elif label in transition_state_dict.keys():
+        spec = transition_state_dict[label]
+    else:
         raise ValueError('Unknown species label {0!r} for thermo() job.'.format(label))
     for job in job_list:
         if job.label == label:
