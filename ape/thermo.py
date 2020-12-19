@@ -115,6 +115,9 @@ class ThermoJob(Statmech):
         # Q_int = 1
         Cv_int = 0
 
+        S_trans = conformer.modes[0].get_entropy(T) / 4.184 - constants.R * math.log(P / 101325) / 4.184
+        S_rot = conformer.modes[1].get_entropy(T) / 4.184
+
         for mode in sorted(self.mode_dict.keys()):
             self.result_info.append("\n# \t********** Mode {} **********".format(mode))
             logging.info('Mode: {}'.format(mode))
@@ -130,6 +133,8 @@ class ThermoJob(Statmech):
         self.result_info.append("# Temperature (K): %.2f" % (T))
         self.result_info.append("# Pressure (Pa): %.0f" % (P))
         self.result_info.append("# Zero point vibrational energy (kcal/mol): %.10f" % (ZPE))
+        self.result_info.append("# Translational entropy (cal/mol/K): %.10f" % (S_trans))
+        self.result_info.append("# Rotational entropy (cal/mol/K): %.10f" % (S_rot))
         self.result_info.append("# Internal (rot+vib) energy (kcal/mol): %.10f" % (E_int))
         self.result_info.append("# Internal (tor+vib) entropy (cal/mol/K): %.10f" % (S_int))
         self.result_info.append("# Internal (tor+vib) Cv (cal/mol/K): %.10f" % (Cv_int))
@@ -143,6 +148,8 @@ class ThermoJob(Statmech):
             self.result_info.append("\n# \t********** HOhf results **********\n\n")
             self.result_info.append("# Vibrational energy (kcal/mol): %.10f" % (E_vib))
             self.result_info.append("# Vibrational entropy (cal/mol/K): %.10f" % (S_vib))
+            self.result_info.append("# Translational entropy (cal/mol/K): %.10f" % (S_trans))
+            self.result_info.append("# Rotational entropy (cal/mol/K): %.10f" % (S_rot))
         
         self.result_info.append('\n\n\n')
 
