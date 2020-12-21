@@ -29,7 +29,7 @@ class SamplingJob(object):
 
     def __init__(self, label=None, input_file=None, output_directory=None, protocol=None, spin_multiplicity=None, charge=None, 
                  rem_variables_dict={}, gen_basis="", ncpus=None, is_ts=None, rotors=None, thresh=0.01, step_size_factor=1, 
-                 coordinate_system='Normal Mode', nnl=None, addcart=None, addtr=None, add_interfragment_bonds=False):
+                 coordinate_system='Normal Mode', nnl=None, addcart=None, addtr=None, add_interfragment_bonds=None):
         self.label = label
         self.input_file = input_file
         self.output_directory = output_directory
@@ -114,7 +114,7 @@ class SamplingJob(object):
                 # Default ncpus for QM/MM calculation
                 self.ncpus = 8
             self.zpe = Log.load_zero_point_energy()
-            if self.addcart is None and self.addtr is None and add_interfragment_bonds is None:
+            if self.addcart is None and self.addtr is None and self.add_interfragment_bonds is None:
                 self.addtr = True
         else:
             self.nHcap = 0
