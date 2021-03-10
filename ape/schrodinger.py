@@ -9,6 +9,11 @@ import rmgpy.constants as constants
 from ape.HarmonicBasis import IntXHmHnexp
 from ape.FourierBasis import IntXPhimPhin
 
+# fix overflow problem
+from decimal import Decimal as D
+from decimal import getcontext
+getcontext().prec = 15
+
 hbar1 = constants.hbar / constants.E_h # in hartree*s
 hbar2 = constants.hbar * 10 ** 20 / constants.amu # in amu*angstrom^2/s
 def Hmn(m, n, polynomial_dict, mode_dict, energy_dict, mode, is_tors):
@@ -65,16 +70,22 @@ def Hmn(m, n, polynomial_dict, mode_dict, energy_dict, mode, is_tors):
                 x2 = delta_q*i/R
                 x1 = delta_q*(i-1)/R
             
+            f1 = D.sqrt(D(fact(m)))
+            f2 = D(pow(2,m/2.0)*pow(2,n/2.0)*sqrt(np.pi))
+            f3 = D.sqrt(D(fact(n)))
+            f = [f1,f2,f3]
+
             negative_energy = check_negative_energy(a,x1,x2)
             if negative_energy:
                 root1, root2 = negative_energy
-                result += IntXHmHnexp(m,n,x1,root1,a)
-                result += IntXHmHnexp(m,n,root2,x2,a)
+                result += IntXHmHnexp(m,n,x1,root1,a,f)
+                result += IntXHmHnexp(m,n,root2,x2,a,f)
             else:
-                result += IntXHmHnexp(m,n,x1,x2,a)
-        result /= pow(2,m/2.0)*pow(2,n/2.0)*sqrt(fact(m))*sqrt(fact(n))*sqrt(np.pi)
-        if m==n: result += -(1/2)*P*(2*m+1)
-        elif m == (n+2): result += sqrt(m)*sqrt(m-1)*(1/2)*P
+                result += IntXHmHnexp(m,n,x1,x2,a,f)
+
+        if m==n: result += D(-(1/2)*P*(2*m+1))
+        elif m == (n+2): result += D(sqrt(m)*sqrt(m-1)*(1/2)*P)
+
     return result
 
 def SetAnharmonicH(polynomial_dict, mode_dict, energy_dict, mode, size, N_prev, H_prev):
