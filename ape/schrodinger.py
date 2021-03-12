@@ -62,13 +62,13 @@ def Hmn(m, n, polynomial_dict, mode_dict, energy_dict, mode, is_tors):
 
             if i == samples[0]:
                 x1 = -np.inf
-                x2 = delta_q*i/R
+                x2 = i
             elif i == samples[-1] + 1:
-                x1 = delta_q*(i-1)/R
+                x1 = (i-1)
                 x2 = np.inf
             else:
-                x2 = delta_q*i/R
-                x1 = delta_q*(i-1)/R
+                x2 = i
+                x1 = (i-1)
             
             f1 = D.sqrt(D(fact(m)))
             f2 = D(pow(2,m/2.0)*pow(2,n/2.0)*sqrt(np.pi))
