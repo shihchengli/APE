@@ -580,13 +580,20 @@ class QChemLog(ESSAdapter):
         Return the imaginary frequency from a transition state frequency
         calculation in cm^-1.
         """
+        nloop = 1
+        loop = 1
         frequency = 0
         with open(self.path, 'r') as f:
             for line in f:
+                if 'Number of loops through sets of isotopes' in line:
+                    nloop = int((line.split()[-1]))
+                if 'Vibman isotope loop' in line:
+                    loop = int((line.split()[-1]))
                 # Read imaginary frequency
                 if ' Frequency:' in line:
                     frequency = float((line.split()[1]))
-                    break
+                    if nloop == loop:
+                        break
         # Make sure the frequency is imaginary:
         if frequency < 0:
             return frequency
