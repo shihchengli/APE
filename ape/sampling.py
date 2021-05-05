@@ -165,7 +165,7 @@ class SamplingJob(object):
         # Create RedundantCoords object for torsional mode
         if self.protocol == 'UMVT':
             self.torsion_internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, self.rotors_dict,
-                                                        self.nHcap)
+                                                        self.nHcap, addcart=self.addcart, addtr=self.addtr, add_interfragment_bonds=self.add_interfragment_bonds)
         
         # Extract imaginary frequency from transition state
         if self.is_ts:
