@@ -425,6 +425,13 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
             XyzDictOfEachMode[0] = xyz
             EnergyDictOfEachMode[sample] = 0
             min_elect = e_elec
+        # don't stop sample points when meeting turning points to consider soft motions in catalyst systems
+        elif is_QM_MM_INTERFACE and freq < 200:
+            XyzDictOfEachMode[sample] = xyz
+            EnergyDictOfEachMode[sample] = e_elec - min_elect
+            # 0.0001 hartree is a thresh for sampling soft motions
+            if e_elec - min_elect < EnergyDictOfEachMode[sample - 1] - 0.0001 and sample == 1:
+                raise SamplingError('Sampling of mode {} fails. Make sure the directional vector of this normal mode is correct.'.format(mode))
         # The sampling of UM-N was carried out symmetrically for each mode to the classical turning points
         elif e_elec - min_elect < EnergyDictOfEachMode[sample - 1]:
             if sample == 1:
@@ -476,8 +483,15 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
         else:
             e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, rem_variables_dict, gen_basis)
 
+        # don't stop sample points when meeting turning points to consider soft motions in catalyst systems
+        if is_QM_MM_INTERFACE and freq < 200:
+            XyzDictOfEachMode[sample] = xyz
+            EnergyDictOfEachMode[sample] = e_elec - min_elect
+            # 0.0001 hartree is a thresh for sampling soft motions
+            if e_elec - min_elect < EnergyDictOfEachMode[sample + 1] - 0.0001 and sample == -1:
+                raise SamplingError('Sampling of mode {} fails. Make sure the directional vector of this normal mode is correct.'.format(mode))
         # The sampling of UM-N was carried out symmetrically for each mode to the classical turning points
-        if e_elec - min_elect < EnergyDictOfEachMode[sample + 1]:
+        elif e_elec - min_elect < EnergyDictOfEachMode[sample + 1]:
             if sample == -1:
                 raise SamplingError('Sampling of mode {} fails. Make sure the directional vector of this normal mode is correct.'.format(mode))
             else:
