@@ -82,8 +82,6 @@ class SamplingJob(object):
         # Log some information related to QM/MM system
         self.is_QM_MM_INTERFACE = Log.is_QM_MM_INTERFACE()
         if self.is_QM_MM_INTERFACE:
-            if self.coordinate_system != 'Normal Mode':
-                raise NotImplementedError('{} not yet implemented for QMMM system.'.format(self.coordinate_system))
             self.QM_ATOMS = Log.get_QM_ATOMS()
             self.number_of_fixed_atoms = Log.get_number_of_atoms() - len(Log.get_QM_ATOMS())
             self.ISOTOPES = Log.get_ISOTOPES()
@@ -176,6 +174,9 @@ class SamplingJob(object):
             self.max_nloop = int(1 / self.step_size_factor) * self.nnl
         else:
             self.max_nloop = 200
+        
+        # The basis used in freq job, which will be used in OptVib job
+        self.freq_basis, self.freq_gen_basis =  Log.get_basis()
 
     def get_rotors_dict(self):
         """
@@ -252,9 +253,19 @@ class SamplingJob(object):
             logging.debug('\nVibrational coordinates setting...')
             if self.protocol == 'UMN' or self.n_rotors == 0:
                 rotors = []
+            # Modify the rem variables for OptVib job
+            optvib_rem_dict = self.rem_variables_dict.copy()
+            optvib_rem_dict['ISOTOPES'] = True
+            optvib_rem_dict['BASIS'] = self.freq_basis
+            optvib_rem_dict.pop('BASIS2', None)
             optvib_path = os.path.join(self.output_directory, 'output_file', self.label, 'tmp')
-            optvib = OptVib(self.symbols, self.nmode, self.coordinate_system, self.cart_coords, self.internal, self.conformer, self.hessian, self.linearity,
-                            self.n_vib, rotors, self.label, optvib_path, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis)
+            if self.is_QM_MM_INTERFACE:
+                optvib = OptVib(self.symbols, self.nmode, self.coordinate_system, self.cart_coords, self.internal, self.conformer, self.hessian, self.linearity,
+                                self.n_vib, rotors, self.label, optvib_path, self.ncpus, self.charge, self.spin_multiplicity, optvib_rem_dict, self.freq_gen_basis,
+                                self.is_QM_MM_INTERFACE, self.QM_USER_CONNECT, self.QM_ATOMS, self.ISOTOPES, self.force_field_params, self.fixed_molecule_string, self.opt)
+            else:
+                optvib = OptVib(self.symbols, self.nmode, self.coordinate_system, self.cart_coords, self.internal, self.conformer, self.hessian, self.linearity,
+                                self.n_vib, rotors, self.label, optvib_path, self.ncpus, self.charge, self.spin_multiplicity, optvib_rem_dict, self.freq_gen_basis)
             if not os.path.exists(optvib_path):
                 os.makedirs(optvib_path)
             vib_freq, unweighted_v = optvib.get_optvib()

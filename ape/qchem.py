@@ -145,7 +145,7 @@ class QChemLog(ESSAdapter):
                         while '$end' not in line:
                             data = line.split()
                             atom_number = int(data[0])
-                            mass = float(data[1])
+                            mass = int(data[1])
                             ISOTOPES[atom_number] = mass
                             line = f.readline()
                         break

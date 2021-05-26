@@ -9,7 +9,7 @@ from ape.exceptions import JobError
 
 class Job(object):
     def __init__(self, xyz, path, file_name, jobtype, ncpus, charge=None, multiplicity=None, rem_variables_dict=None, 
-                 gen_basis="", QM_atoms=None, force_field_params=None, opt=None, number_of_fixed_atoms=None):
+                 gen_basis="", QM_atoms=None, ISOTOPE=None, force_field_params=None, opt=None, number_of_fixed_atoms=None):
         self.xyz = xyz
         self.path = path
         self.file_name = file_name
@@ -23,6 +23,7 @@ class Job(object):
 
         # QMMM parameter
         self.QM_atoms = QM_atoms
+        self.ISOTOPE = ISOTOPE
         self.force_field_params = force_field_params
         self.opt = opt
 
@@ -39,11 +40,17 @@ class Job(object):
         Write a software-specific, job-specific input file.
         Save the file locally and also upload it to the server.
         """
-        QM_atoms, force_field_params, opt = "", "" , ""
+        QM_atoms, isotope_params, force_field_params, opt = "", "" , "", ""
         if self.QM_atoms is not None:
             QM_atoms = '\n$QM_ATOMS\n' + '\n'.join(self.QM_atoms) + '\n$end\n'
             force_field_params = '\n$force_field_params\n' + self.force_field_params + '$end\n'
             opt = '\n$opt\n' + self.opt + '$end\n'
+
+        if self.ISOTOPE is not None:
+            isotope_params = '\n$isotopes\n1       0\n' + str(len(self.ISOTOPE))
+            for key in self.ISOTOPE:
+                isotope_params += '\n{}      {}'.format(key, self.ISOTOPE[key])
+            isotope_params += '\n$end\n'
 
         fine = ""
         for key in self.rem_variables_dict.keys():
@@ -51,8 +58,8 @@ class Job(object):
             fine += "\n   {0}   {1}".format(key, value)
 
         if self.jobtype in {'opt', 'ts', 'sp', 'freq'}:
-            script = input_script.format(jobtype=self.jobtype, fine=fine, gen_basis=self.gen_basis, QM_atoms=QM_atoms, force_field_params=force_field_params, 
-                                         opt=opt, charge=self.charge, multiplicity=self.multiplicity, xyz=self.xyz)
+            script = input_script.format(jobtype=self.jobtype, fine=fine, gen_basis=self.gen_basis, QM_atoms=QM_atoms, isotope=isotope_params,
+            force_field_params=force_field_params, opt=opt, charge=self.charge, multiplicity=self.multiplicity, xyz=self.xyz)
         f = open(self.input_path, 'w')
         # logging.debug('self.input_path :',self.input_path))
         f.write(script)

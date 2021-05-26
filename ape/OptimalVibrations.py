@@ -21,7 +21,8 @@ from ape.intcoords.constants import BOHR2ANG
 
 class OptVib(object):
     def __init__(self, symbols, nmode, coordinate_system, cart_coords, internal_object, conformer, hessian, linearity, n_vib, rotors, label, path, ncpus, 
-                 charge=None, multiplicity=None, rem_variables_dict=None, gen_basis=""):
+                 charge=None, multiplicity=None, rem_variables_dict=None, gen_basis="", is_QM_MM_INTERFACE=None, QM_USER_CONNECT=None, QM_ATOMS=None,
+                 ISOTOPE=None, force_field_params=None, fixed_molecule_string=None, opt=None):
         self.symbols = symbols
         self.nmode = nmode
         self.coordinate_system = coordinate_system
@@ -41,6 +42,15 @@ class OptVib(object):
         self.gen_basis = gen_basis
         self.n_rotors = len(self.rotors)
 
+        # QMMM parameters
+        self.is_QM_MM_INTERFACE = is_QM_MM_INTERFACE
+        self.QM_USER_CONNECT = QM_USER_CONNECT
+        self.QM_ATOMS = QM_ATOMS
+        self.ISOTOPE = ISOTOPE
+        self.force_field_params = force_field_params
+        self.fixed_molecule_string = fixed_molecule_string
+        self.opt = opt
+        
     def get_optvib(self):
         """
         Algorithms for local and optimal vibrations.
@@ -116,8 +126,19 @@ class OptVib(object):
             cart_coords = initial_geometry + internal.transform_int_step((qj * step_size).reshape(-1,)) * BOHR2ANG
             xyz = getXYZ(self.symbols, cart_coords)
             file_name = mode
-            job = Job(xyz, self.path, file_name, jobtype='freq', ncpus=self.ncpus, charge=self.charge, multiplicity=self.multiplicity,
-                      rem_variables_dict=self.rem_variables_dict, gen_basis=self.gen_basis)
+            if self.is_QM_MM_INTERFACE:
+                QMMM_xyz_string = ''
+                for i, xyz in enumerate(xyz.split('\n')):
+                    QMMM_xyz_string += " ".join([xyz, self.QM_USER_CONNECT[i]]) + '\n'
+                    if i == len(self.QM_ATOMS)-1:
+                        break
+                QMMM_xyz_string += self.fixed_molecule_string
+                job = Job(QMMM_xyz_string, self.path, file_name, jobtype='freq', ncpus=self.ncpus, charge=self.charge, multiplicity=self.multiplicity,
+                          rem_variables_dict=self.rem_variables_dict, gen_basis=self.gen_basis, QM_atoms=self.QM_ATOMS, ISOTOPE=self.ISOTOPE,
+                          force_field_params=self.force_field_params, opt=self.opt)
+            else:
+                job = Job(QMMM_xyz_string, self.path, file_name, jobtype='freq', ncpus=self.ncpus, charge=self.charge, multiplicity=self.multiplicity,
+                          rem_variables_dict=self.rem_variables_dict, gen_basis=self.gen_basis)
 
             # Write Q-Chem input file
             job.write_input_file()

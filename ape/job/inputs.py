@@ -7,7 +7,7 @@ Format of input files for Qchem software.
 input_script = """$rem
    JOBTYPE  {jobtype}{fine}
 $end
-{gen_basis}{QM_atoms}{force_field_params}{opt}
+{gen_basis}{QM_atoms}{isotope}{force_field_params}{opt}
 $molecule
 {charge} {multiplicity}
 {xyz}
