@@ -233,7 +233,7 @@ class OptVib(object):
 
             # Check convergence
             E = result.fun
-            err = E - old_E
+            err = abs(E - old_E)
             err2 = abs(self.angles.sum())
             old_E = E
             
