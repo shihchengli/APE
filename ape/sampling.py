@@ -254,7 +254,8 @@ class SamplingJob(object):
                 rotors = []
             # Modify the rem variables for OptVib job
             optvib_rem_dict = self.rem_variables_dict.copy()
-            optvib_rem_dict['ISOTOPES'] = True
+            if self.is_QM_MM_INTERFACE:
+                optvib_rem_dict['ISOTOPES'] = True
             optvib_rem_dict['BASIS'] = self.freq_basis
             optvib_rem_dict.pop('BASIS2', None)
             optvib_path = os.path.join(self.output_directory, 'output_file', self.label, 'tmp')
