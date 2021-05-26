@@ -43,6 +43,29 @@ class QChemLog(ESSAdapter):
                 line = f.readline()
         return False
 
+    def get_basis(self):
+        """
+        Return the basis of this job.
+        """
+        gen_basis_params = ''
+        with open(self.path, 'r') as f:
+            line = f.readline()
+            while line != '':
+                if line.startswith('$rem'):
+                    while '$end' not in line:
+                        if 'BASIS' in line.upper():
+                            basis = line.split()[-1].upper()
+                        line = f.readline()
+                if line.startswith('$basis'): # basis defined by user
+                    line = f.readline()
+                    gen_basis_params = '\n$basis\n'
+                    while '$end' not in line:
+                        gen_basis_params += line
+                        line = f.readline()
+                    gen_basis_params += '$end\n'
+                line = f.readline()
+        return basis, gen_basis_params
+
     def is_unrestricted(self):
         is_unrestricted = False
         with open(self.path, 'r') as f:
