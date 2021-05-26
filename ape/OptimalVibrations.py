@@ -137,7 +137,7 @@ class OptVib(object):
                           rem_variables_dict=self.rem_variables_dict, gen_basis=self.gen_basis, QM_atoms=self.QM_ATOMS, ISOTOPE=self.ISOTOPE,
                           force_field_params=self.force_field_params, opt=self.opt)
             else:
-                job = Job(QMMM_xyz_string, self.path, file_name, jobtype='freq', ncpus=self.ncpus, charge=self.charge, multiplicity=self.multiplicity,
+                job = Job(xyz, self.path, file_name, jobtype='freq', ncpus=self.ncpus, charge=self.charge, multiplicity=self.multiplicity,
                           rem_variables_dict=self.rem_variables_dict, gen_basis=self.gen_basis)
 
             # Write Q-Chem input file
