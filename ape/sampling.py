@@ -83,7 +83,6 @@ class SamplingJob(object):
         self.is_QM_MM_INTERFACE = Log.is_QM_MM_INTERFACE()
         if self.is_QM_MM_INTERFACE:
             self.QM_ATOMS = Log.get_QM_ATOMS()
-            self.number_of_fixed_atoms = Log.get_number_of_atoms() - len(Log.get_QM_ATOMS())
             self.ISOTOPES = Log.get_ISOTOPES()
             self.nHcap = len(self.ISOTOPES)
             self.force_field_params = Log.get_force_field_params()
@@ -233,7 +232,7 @@ class SamplingJob(object):
                 if self.is_QM_MM_INTERFACE:
                     XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.torsion_internal, self.conformer,
                     int_freq, self.rotors_dict, scan_res, path, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, self.is_QM_MM_INTERFACE, 
-                    self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms, self.label)
+                    self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.label)
                 else:
                     XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.torsion_internal, self.conformer,
                     int_freq, self.rotors_dict, scan_res, path, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, label=self.label)
@@ -283,12 +282,14 @@ class SamplingJob(object):
             qj = np.matmul(self.internal.B, normalizes_vector/BOHR2ANG)
             qj = qj.reshape(-1,)
             if self.is_QM_MM_INTERFACE:
-                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass,
-                step_size, path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, self.is_QM_MM_INTERFACE,
-                self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.number_of_fixed_atoms, max_nloop=self.max_nloop)
+                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode,
+                self.internal, qj, freq, reduced_mass, step_size, path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict,
+                self.gen_basis, self.is_QM_MM_INTERFACE, self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt,
+                max_nloop=self.max_nloop)
             else:
-                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode, self.internal, qj, freq, reduced_mass, step_size,
-                path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, max_nloop=self.max_nloop)
+                XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode,
+                self.internal, qj, freq, reduced_mass, step_size, path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict,
+                self.gen_basis, max_nloop=self.max_nloop)
             xyz_dict[mode] = XyzDictOfEachMode
             energy_dict[mode] = EnergyDictOfEachMode
             mode_dict[mode] = ModeDictOfEachMode

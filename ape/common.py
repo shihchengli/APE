@@ -309,7 +309,7 @@ def get_internal_rotation_freq(conformer, hessian, target_rotor, rotors, linear,
 def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conformer, int_freq, rotors_dict, scan_res, 
                            path, ncpus, charge=None, multiplicity=None, rem_variables_dict=None, gen_basis="", 
                            is_QM_MM_INTERFACE=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, 
-                           fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None, label=None):
+                           fixed_molecule_string=None, opt=None, label=None):
     logging.info('Sampling Mode {}'.format(mode))
     XyzDictOfEachMode = {}
     EnergyDictOfEachMode = {}
@@ -357,7 +357,7 @@ def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conforme
         if is_QM_MM_INTERFACE:
             e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, rem_variables_dict, 
                                            gen_basis, is_QM_MM_INTERFACE, QM_USER_CONNECT, QM_ATOMS, force_field_params, 
-                                           fixed_molecule_string, opt, number_of_fixed_atoms)
+                                           fixed_molecule_string, opt)
         else:
             e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, rem_variables_dict, gen_basis)
         XyzDictOfEachMode[sample] = xyz
@@ -386,7 +386,7 @@ def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conforme
 def sampling_along_vibration(symbols, cart_coords, mode, internal_object, internal_vector, freq, reduced_mass, step_size, path,
                              thresh, ncpus, charge=None, multiplicity=None, rem_variables_dict=None, gen_basis="", 
                              is_QM_MM_INTERFACE=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, 
-                             fixed_molecule_string=None, opt=None, number_of_fixed_atoms=None, max_nloop=200):
+                             fixed_molecule_string=None, opt=None, max_nloop=200):
     logging.info('Sampling Mode {}'.format(mode))
     XyzDictOfEachMode = {}
     EnergyDictOfEachMode = {}
@@ -416,7 +416,7 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
         if is_QM_MM_INTERFACE:
             e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, rem_variables_dict,
                                            gen_basis, is_QM_MM_INTERFACE, QM_USER_CONNECT, QM_ATOMS, force_field_params,
-                                           fixed_molecule_string, opt, number_of_fixed_atoms)
+                                           fixed_molecule_string, opt)
         else:
             e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, rem_variables_dict, gen_basis)
 
@@ -479,7 +479,7 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
         if is_QM_MM_INTERFACE:
             e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, rem_variables_dict,
                                            gen_basis, is_QM_MM_INTERFACE, QM_USER_CONNECT, QM_ATOMS, force_field_params,
-                                           fixed_molecule_string, opt, number_of_fixed_atoms)
+                                           fixed_molecule_string, opt)
         else:
             e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, rem_variables_dict, gen_basis)
 
@@ -526,9 +526,10 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
 
     return XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect
 
-def get_electronic_energy(xyz, path, file_name, ncpus, charge=None, multiplicity=None, rem_variables_dict=None, gen_basis="",
-                          is_QM_MM_INTERFACE=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, fixed_molecule_string=None,
-                          opt=None, number_of_fixed_atoms=None):
+def get_electronic_energy(xyz, path, file_name, ncpus, charge=None, multiplicity=None,
+                          rem_variables_dict=None, gen_basis="", is_QM_MM_INTERFACE=None,
+                          QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None,
+                          fixed_molecule_string=None, opt=None):
     # file_name = 'output'
     if is_QM_MM_INTERFACE:
         # Create geometry format of QM/MM system 
@@ -546,9 +547,9 @@ def get_electronic_energy(xyz, path, file_name, ncpus, charge=None, multiplicity
             if i == len(QM_ATOMS)-1:
                 break
         QMMM_xyz_string += fixed_molecule_string
-        job = Job(QMMM_xyz_string, path, file_name, jobtype='sp', ncpus=ncpus, charge=charge, multiplicity=multiplicity,
-                  rem_variables_dict=rem_variables_dict, gen_basis=gen_basis, QM_atoms=QM_ATOMS, force_field_params=force_field_params, 
-                  opt=opt, number_of_fixed_atoms=number_of_fixed_atoms)
+        job = Job(QMMM_xyz_string, path, file_name, jobtype='sp', ncpus=ncpus, charge=charge,
+                  multiplicity=multiplicity, rem_variables_dict=rem_variables_dict, gen_basis=gen_basis,
+                  QM_atoms=QM_ATOMS, force_field_params=force_field_params, opt=opt)
     else:
         job = Job(xyz, path, file_name, jobtype='sp', ncpus=ncpus, charge=charge, multiplicity=multiplicity, 
                   rem_variables_dict=rem_variables_dict, gen_basis=gen_basis)

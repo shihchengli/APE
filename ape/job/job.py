@@ -9,7 +9,7 @@ from ape.exceptions import JobError
 
 class Job(object):
     def __init__(self, xyz, path, file_name, jobtype, ncpus, charge=None, multiplicity=None, rem_variables_dict=None, 
-                 gen_basis="", QM_atoms=None, ISOTOPE=None, force_field_params=None, opt=None, number_of_fixed_atoms=None):
+                 gen_basis="", QM_atoms=None, ISOTOPE=None, force_field_params=None, opt=None):
         self.xyz = xyz
         self.path = path
         self.file_name = file_name
@@ -19,7 +19,6 @@ class Job(object):
         self.multiplicity = multiplicity
         self.rem_variables_dict = rem_variables_dict
         self.gen_basis = gen_basis
-        self.number_of_fixed_atoms = number_of_fixed_atoms
 
         # QMMM parameter
         self.QM_atoms = QM_atoms
