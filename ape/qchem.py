@@ -51,12 +51,12 @@ class QChemLog(ESSAdapter):
         with open(self.path, 'r') as f:
             line = f.readline()
             while line != '':
-                if line.startswith('$rem'):
+                if line.lower().startswith('$rem'):
                     while '$end' not in line:
                         if 'BASIS' in line.upper():
                             basis = line.split()[-1].upper()
                         line = f.readline()
-                if line.startswith('$basis'): # basis defined by user
+                if line.lower().startswith('$basis'): # basis defined by user
                     line = f.readline()
                     gen_basis_params = '\n$basis\n'
                     while '$end' not in line:
@@ -71,7 +71,7 @@ class QChemLog(ESSAdapter):
         with open(self.path, 'r') as f:
             line = f.readline()
             while line != '':
-                if line.startswith('$rem'):
+                if line.lower().startswith('$rem'):
                     while '$end' not in line:
                         if 'UNRESTRICTED' in line.upper():
                             OPTION = line.split()[1].upper()
@@ -129,7 +129,7 @@ class QChemLog(ESSAdapter):
         with open(self.path, 'r') as f:
             line = f.readline()
             while line != '':
-                if line.startswith('$rem'):
+                if line.lower().startswith('$rem'):
                     while '$end' not in line:
                         if 'ISOTOPES' in line.upper():
                             OPTION = line.split()[1].upper()
@@ -138,7 +138,7 @@ class QChemLog(ESSAdapter):
                             else:
                                 ISOTOPES_type = int(OPTION)
                         line = f.readline()
-                if '$ISOTOPES' in line:
+                if '$isotopes' in line.lower():
                     if ISOTOPES_type is True:
                         for i in range(3):
                             line = f.readline()
@@ -162,7 +162,7 @@ class QChemLog(ESSAdapter):
         with open(self.path, 'r') as f:
             line = f.readline()
             while line != '':
-                if '$force_field_params' in line:
+                if '$force_field_params' in line.lower():
                     line = f.readline()
                     while '$end' not in line:
                         force_field_params += line
@@ -180,7 +180,7 @@ class QChemLog(ESSAdapter):
         with open(self.path, 'r') as f:
             line = f.readline()
             while line != '':
-                if '$opt' in line:
+                if '$opt' in line.lower():
                     line = f.readline()
                     while '$end' not in line:
                         opt += line
