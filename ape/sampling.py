@@ -218,6 +218,7 @@ class SamplingJob(object):
             os.makedirs(path)
         
         # Determine the vibrational frequency and directional vector of each vibrational normal mode
+        int_freqs = []
         if self.protocol == 'UMVT' and self.n_rotors != 0:
             logging.info(self.torsion_internal.get_intco_log())
             rotors = [[rotor['pivots'], rotor['top']] for rotor in self.rotors_dict.values()]
@@ -229,6 +230,7 @@ class SamplingJob(object):
                 mode = i + 1
                 target_rotor = rotors[i]
                 int_freq = get_internal_rotation_freq(self.conformer, self.hessian, target_rotor, rotors, self.linearity, self.n_vib, is_QM_MM_INTERFACE=self.is_QM_MM_INTERFACE, label=self.label)
+                int_freqs.append(int_freq)
                 if self.is_QM_MM_INTERFACE:
                     XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.torsion_internal, self.conformer,
                     int_freq, self.rotors_dict, scan_res, path, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, self.is_QM_MM_INTERFACE, 
@@ -269,6 +271,12 @@ class SamplingJob(object):
             if not os.path.exists(optvib_path):
                 os.makedirs(optvib_path)
             vib_freq, unweighted_v = optvib.get_optvib()
+            # Log information for frequencies obtained from OptVib
+            logging.info('\nThe vibrational frequencies calculated by {}:'.format(self.coordinate_system))
+            for i, freq in enumerate(int_freqs):
+                logging.info('{:4d}:{:13.2f} cm**-1 ***Hindered rotor***'.format(i+1, freq))
+            for i, freq in enumerate(vib_freq):
+                logging.info('{:4d}:{:13.2f} cm**-1 '.format(i+1+len(int_freqs), freq))
 
         # Sample points along the 1-D PES of each vibration motion
         for i in range(self.nmode):

@@ -77,7 +77,10 @@ class OptVib(object):
         Ui = self.U(angles)
         self.mwv = self.mwv.T.dot(Ui)
 
-        # Do Jacobi sweeps over all pairs of modes 
+        # Do Jacobi sweeps over all pairs of modes
+        logging.info('-------------------------------------------------------------------------------------------------------------------')
+        logging.info('                                                  Jacobi sweeps                                                    ')
+        logging.info('-------------------------------------------------------------------------------------------------------------------')
         self.Jacobi_sweeps()
 
         # Calculate anharmonic frequencies
@@ -242,8 +245,10 @@ class OptVib(object):
             old_E = E
             
             if printing:
-                logging.info('Normal mode localization: Cycle {:3d}    E: {:8.3f}   change: {:10.7f}  {:10.5f}'\
+                logging.info('Normal mode localization: Cycle {:3d}    E: {:>25.7f}   change: {:>25.7f}  {:>10.5f}'\
                              .format(isweep, E, err, err2))
+        logging.info('-------------------------------------------------------------------------------------------------------------------')
+        logging.info('\nThe Jacobi sweeps have converged')
     
     def Ui(self, angle, i, j):
         """
