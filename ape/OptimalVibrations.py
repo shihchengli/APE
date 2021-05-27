@@ -106,14 +106,13 @@ class OptVib(object):
         Hessians are generated on a grid of one point per vibrational mode.
         """
         logging.info('A grid of Hessians generating...\n')
-        initial_geometry = self.cart_coords.copy()
         vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, self.rotors, label=self.label)
         grid_of_hessians = {}
         fm = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, self.rotors, get_mass_weighted_hessian=True, label=self.label)
         grid_of_hessians[0] = deepcopy(fm)
-        for i in range(self.n_vib):
+        for i in range(self.nmode):
+            if i in range(self.n_rotors): continue
             logging.info('Sampling Mode {mode}'.format(mode=i+1))
-            internal = deepcopy(self.internal_object)
             mode = i + 1
             vector = unweighted_v[i - self.n_rotors]
             freq = vib_freq[i - self.n_rotors]
@@ -121,9 +120,14 @@ class OptVib(object):
             reduced_mass = magnitude ** -2 / constants.amu # in amu
             step_size = np.sqrt(constants.hbar / (reduced_mass * constants.amu) / (freq * 2 * np.pi * constants.c * 100)) * 10 ** 10 # in angstrom
             normalizes_vector = vector / magnitude
-            qj = np.matmul(internal.B, normalizes_vector/BOHR2ANG)
+            qj = np.matmul(self.internal_object.B, normalizes_vector/BOHR2ANG)
             qj = qj.reshape(-1,)
-            cart_coords = initial_geometry + internal.transform_int_step((qj * step_size).reshape(-1,)) * BOHR2ANG
+            
+            initial_geometry = self.cart_coords.copy()
+            cart_coords = initial_geometry.copy()
+            internal = deepcopy(self.internal_object)
+
+            cart_coords += internal.transform_int_step((qj * step_size).reshape(-1,)) * BOHR2ANG
             xyz = getXYZ(self.symbols, cart_coords)
             file_name = mode
             if self.is_QM_MM_INTERFACE:
