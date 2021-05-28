@@ -5,10 +5,12 @@ A module to find the optimizing vibrational coordinates to reduce intermode coup
 """
 
 import os
+import time
 import logging
 import numpy as np
 from copy import deepcopy
 from scipy import optimize
+from numba import jit
 
 import rmgpy.constants as constants
 
@@ -185,22 +187,14 @@ class OptVib(object):
             for key in self.grid_of_hessians.keys():
                 dim = self.n_vib
                 hessian = self.grid_of_hessians[key]
-                H = V.T.dot(hessian).dot(V) / ((2 * np.pi * constants.c * 100) ** 2)
-                for i in range(dim):
-                    for j in range(dim):
-                        if i < j:
-                            E += (H[i][j]) ** 2
+                E += E_Optimized_batch_run(hessian, V ,dim)
         elif self.coordinate_system == "E'-Optimized":
             H0 = V.T.dot(self.grid_of_hessians[0]).dot(V) / ((2 * np.pi * constants.c * 100) ** 2)
             for key in self.grid_of_hessians.keys():
                 if key == 0: continue
                 dim = self.n_vib
                 hessian = self.grid_of_hessians[key]
-                H = V.T.dot(hessian).dot(V) / ((2 * np.pi * constants.c * 100) ** 2)
-                for i in range(dim):
-                    for j in range(dim):
-                        if i < j:
-                            E += (H[i][j] - H0[i][j]) ** 2
+                E += dE_Optimized_batch_run(hessian, V ,dim, H0)
         elif self.coordinate_system == "Pipek_Mezey":
             modes = V.T
             squared_modes = modes ** 2
@@ -215,6 +209,7 @@ class OptVib(object):
         """
         Jacobi sweeps are performed over the angles until minimization was reached.
         """
+        start = time.time()
         num = int(self.n_vib * (self.n_vib - 1) / 2) # 2-combination of a set self.n_vib
         err  = 1e10
         err2 = 1e10
@@ -247,8 +242,9 @@ class OptVib(object):
             if printing:
                 logging.info('Normal mode localization: Cycle {:3d}    E: {:>25.7f}   change: {:>25.7f}  {:>10.5f}'\
                              .format(isweep, E, err, err2))
+        end = time.time()
         logging.info('-------------------------------------------------------------------------------------------------------------------')
-        logging.info('\nThe Jacobi sweeps have converged')
+        logging.info('\nThe Jacobi sweeps have converged in {:.2f} s(wall)'.format(end - start))
     
     def Ui(self, angle, i, j):
         """
@@ -281,3 +277,23 @@ class OptVib(object):
                     U = np.matmul(U, Ui)
                     ind += 1
         return U
+
+@jit(nopython=True)
+def E_Optimized_batch_run(hessian, V, dim):
+    E = 0
+    H = V.T.dot(hessian).dot(V) / ((2 * np.pi * constants.c * 100) ** 2)
+    for i in range(dim):
+        for j in range(dim):
+            if i < j:
+                E += (H[i][j]) ** 2
+    return E
+
+@jit(nopython=True)
+def dE_Optimized_batch_run(hessian, V, dim, H0):
+    E = 0
+    H = V.T.dot(hessian).dot(V) / ((2 * np.pi * constants.c * 100) ** 2)
+    for i in range(dim):
+        for j in range(dim):
+            if i < j:
+                E += (H[i][j] - H0[i][j]) ** 2
+    return E
