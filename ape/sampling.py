@@ -259,6 +259,8 @@ class SamplingJob(object):
             if self.is_QM_MM_INTERFACE:
                 optvib_rem_dict['ISOTOPES'] = True
             optvib_rem_dict['BASIS'] = self.freq_basis
+            optvib_rem_dict['SYM_IGNORE'] = True
+            optvib_rem_dict['POP_MULLIKEN'] = False
             optvib_rem_dict.pop('BASIS2', None)
             optvib_path = os.path.join(self.output_directory, 'output_file', self.label, 'tmp')
             if self.is_QM_MM_INTERFACE:
