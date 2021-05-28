@@ -80,3 +80,8 @@ class Job(object):
             if not success:
                 raise JobError('QChem job fails !')
         subprocess.Popen(['rm {input_path}'.format(input_path=self.input_path)], shell=True)
+
+        # Remove efld file from QMMM calculation
+        efld_path = os.path.join(self.path, '{}.q.out.efld'.format(self.file_name))
+        if os.path.exists(efld_path):
+            subprocess.Popen(['rm {efld_path}'.format(efld_path=efld_path)], shell=True)
