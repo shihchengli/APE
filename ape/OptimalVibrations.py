@@ -278,7 +278,7 @@ class OptVib(object):
                     ind += 1
         return U
 
-@jit(nopython=True)
+#@jit(nopython=True)
 def E_Optimized_batch_run(hessian, V, dim):
     E = 0
     H = V.T.dot(hessian).dot(V) / ((2 * np.pi * constants.c * 100) ** 2)
@@ -288,7 +288,7 @@ def E_Optimized_batch_run(hessian, V, dim):
                 E += (H[i][j]) ** 2
     return E
 
-@jit(nopython=True)
+#@jit(nopython=True)
 def dE_Optimized_batch_run(hessian, V, dim, H0):
     E = 0
     H = V.T.dot(hessian).dot(V) / ((2 * np.pi * constants.c * 100) ** 2)
