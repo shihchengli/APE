@@ -13,6 +13,7 @@ import logging
 import copy
 
 import numpy as np
+from numpy.linalg.linalg import LinAlgError
 
 from ape.intcoords.linalg import svd_inv
 from ape.intcoords.slots import Stretch, Torsion
@@ -293,10 +294,18 @@ class RedundantCoords:
         return self.B_prim
 
     def inv_B(self, B):
-        return B.T.dot(svd_inv(B.dot(B.T), thresh=self.svd_inv_thresh, hermitian=True))
+        try:
+            return B.T.dot(np.linalg.pinv(B.dot(B.T)))
+        except LinAlgError:
+            logging.warning('LinAlgError appears. Using svd_inv_thresh={:.4e} for inversions.'.format(self.svd_inv_thresh))
+            return B.T.dot(svd_inv(B.dot(B.T), thresh=self.svd_inv_thresh, hermitian=True))
 
     def inv_Bt(self, B):
-        return svd_inv(B.dot(B.T), thresh=self.svd_inv_thresh, hermitian=True).dot(B)
+        try:
+            return np.linalg.pinv(B.dot(B.T)).dot(B)
+        except LinAlgError:
+            logging.warning('LinAlgError appears. Using svd_inv_thresh={:.4e} for inversions.'.format(self.svd_inv_thresh))
+            return svd_inv(B.dot(B.T), thresh=self.svd_inv_thresh, hermitian=True).dot(B)
 
     @property
     def Bt_inv_prim(self):
@@ -649,7 +658,7 @@ class RedundantCoords:
         geom = self.cart_coords.copy()
 
         B_prim = self.B_prim
-        Bt_inv_prim = svd_inv(B_prim.dot(B_prim.T), thresh=self.svd_inv_thresh, hermitian=True).dot(B_prim)
+        Bt_inv_prim = self.Bt_inv_prim
 
         prev_q = q_orig
 
