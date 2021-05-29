@@ -36,7 +36,7 @@ def getXYZ(atoms, cart_coords):
         if i != natom-1: xyz += '\n'
     return xyz
 
-def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, addcart=False, addtr=False, add_interfragment_bonds=False):
+def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, add_hrdrogen_bonds=True, addcart=False, addtr=False, add_interfragment_bonds=False):
 
     def set_typed_prims(internal, rotors_dict):
 
@@ -61,10 +61,10 @@ def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, ad
 
         return new_typed_prims
     
-    internal = RedundantCoords(atoms, cart_coords, addcart=addcart, addtr=addtr, add_interfragment_bonds=add_interfragment_bonds)
+    internal = RedundantCoords(atoms, cart_coords, add_hrdrogen_bonds=add_hrdrogen_bonds, addcart=addcart, addtr=addtr, add_interfragment_bonds=add_interfragment_bonds)
     if rotors_dict != None and rotors_dict != []:
         typed_prims = set_typed_prims(internal, rotors_dict)
-        internal = RedundantCoords(atoms, cart_coords, typed_prims=typed_prims, add_interfragment_bonds=True)
+        internal = RedundantCoords(atoms, cart_coords, add_hrdrogen_bonds=add_hrdrogen_bonds, typed_prims=typed_prims, add_interfragment_bonds=True)
 
     internal.nHcap = nHcap
 
@@ -89,6 +89,7 @@ class RedundantCoords:
         # Corresponds to a threshold of 1e-7 for eigenvalues of G, as proposed by
         # Pulay in [5].
         svd_inv_thresh=3.16e-4,
+        add_hrdrogen_bonds = True,
         addcart=False,
         addtr=False,
         add_interfragment_bonds=False,
@@ -108,6 +109,7 @@ class RedundantCoords:
         self.min_weight = float(min_weight)
         assert self.min_weight > 0.0, "min_weight must be a positive rational!"
         self.svd_inv_thresh = svd_inv_thresh
+        self.add_hrdrogen_bonds = add_hrdrogen_bonds
         self.addcart = addcart
         self.addtr = addtr
         self.add_interfragment_bonds = add_interfragment_bonds
@@ -469,6 +471,7 @@ class RedundantCoords:
             dihed_max_deg=self.dihed_max_deg,
             lb_min_deg=self.lb_min_deg,
             min_weight=self.min_weight if self.weighted else None,
+            add_hrdrogen_bonds=self.add_hrdrogen_bonds,
             addcart=self.addcart,
             addtr=self.addtr,
             add_interfragment_bonds=self.add_interfragment_bonds,
@@ -800,4 +803,4 @@ class RedundantCoords:
                 log += '\t D{:15s}={:>14.6f}\n'.format(dihedral_string, value)
             i += 1
         log += "\t -------------------------------\n"
-        return log       
+        return log

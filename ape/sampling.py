@@ -156,13 +156,14 @@ class SamplingJob(object):
 
         # Create RedundantCoords object
         if self.is_ts and self.addcart is None and self.addtr is None and self.add_interfragment_bonds is None: self.addcart = True
-        self.internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, nHcap=self.nHcap,
+        self.internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, nHcap=self.nHcap, add_hrdrogen_bonds=True,
                                             addcart=self.addcart, addtr=self.addtr, add_interfragment_bonds=self.add_interfragment_bonds)
         
         # Create RedundantCoords object for torsional mode
         if self.protocol == 'UMVT':
-            self.torsion_internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, self.rotors_dict,
-                                                        self.nHcap, addcart=self.addcart, addtr=self.addtr, add_interfragment_bonds=self.add_interfragment_bonds)
+            self.torsion_internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, self.rotors_dict, self.nHcap,
+                                                        add_hrdrogen_bonds=False, addcart=self.addcart, addtr=self.addtr,
+                                                        add_interfragment_bonds=self.add_interfragment_bonds)
         
         # Extract imaginary frequency from transition state
         if self.is_ts:

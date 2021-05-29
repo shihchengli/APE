@@ -344,6 +344,7 @@ def setup_redundant(
     lb_min_deg=None,
     lb_max_bonds=4,
     min_weight=None,
+    add_hrdrogen_bonds=True,
     addcart=False,
     addtr=False,
     add_interfragment_bonds=False,
@@ -422,7 +423,10 @@ def setup_redundant(
                     cart_zs.append(ind)
 
     # Hydrogen bonds
-    hydrogen_bonds = get_hydrogen_bond_inds(atoms, coords3d, bonds, logger=logger)
+    if add_hrdrogen_bonds:
+        hydrogen_bonds = get_hydrogen_bond_inds(atoms, coords3d, bonds, logger=logger)
+    else:
+        hydrogen_bonds = list()
 
     hydrogen_set = [frozenset(bond) for bond in hydrogen_bonds]
     interfrag_bonds = [
