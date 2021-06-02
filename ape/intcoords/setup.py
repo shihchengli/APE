@@ -1,7 +1,7 @@
-from collections import namedtuple
-import itertools as it
-
+import logging
 import numpy as np
+import itertools as it
+from collections import namedtuple
 from scipy.spatial.distance import pdist, squareform
 
 from ape.intcoords.constants import BOHR2ANG
@@ -421,7 +421,13 @@ def setup_redundant(
                     cart_xs.append(ind)
                     cart_ys.append(ind)
                     cart_zs.append(ind)
-
+    
+    # Only have one fragment, no need to define translational and rotational internal coordinates
+    if addtr and len(fragments) == 1:
+        logging.info('Remove translational and rotational internal coordinates due to only one fragment...')
+        translation_xs, translation_ys, translation_zs = [], [], []
+        rotation_as, rotation_bs, rotation_cs = [], [], []
+    
     # Hydrogen bonds
     if add_hrdrogen_bonds:
         hydrogen_bonds = get_hydrogen_bond_inds(atoms, coords3d, bonds, logger=logger)
