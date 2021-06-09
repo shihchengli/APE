@@ -348,6 +348,7 @@ def setup_redundant(
     addcart=False,
     addtr=False,
     add_interfragment_bonds=False,
+    add_aux_interfrag_bonds=False,
     logger=None,
 ):
     if define_prims is None:
@@ -398,6 +399,8 @@ def setup_redundant(
         interfrag_bonds, aux_interfrag_bonds = connect_fragments(
             cdm, fragments, logger=logger
         )
+        if not add_aux_interfrag_bonds:
+            aux_interfrag_bonds = list()
     else:
         interfrag_bonds = list()
         aux_interfrag_bonds = list()

@@ -89,10 +89,11 @@ class RedundantCoords:
         # Corresponds to a threshold of 1e-7 for eigenvalues of G, as proposed by
         # Pulay in [5].
         svd_inv_thresh=3.16e-4,
-        add_hrdrogen_bonds = True,
+        add_hrdrogen_bonds=True,
         addcart=False,
         addtr=False,
         add_interfragment_bonds=False,
+        add_aux_interfrag_bonds=False,
     ):
         self.atoms = atoms
         self.coords3d = np.reshape(coords3d, (-1, 3)).copy()
@@ -113,6 +114,7 @@ class RedundantCoords:
         self.addcart = addcart
         self.addtr = addtr
         self.add_interfragment_bonds = add_interfragment_bonds
+        self.add_aux_interfrag_bonds = add_aux_interfrag_bonds
 
         self._B_prim = None
         # Lists for the other types of primitives will be created afterwards.
@@ -475,6 +477,7 @@ class RedundantCoords:
             addcart=self.addcart,
             addtr=self.addtr,
             add_interfragment_bonds=self.add_interfragment_bonds,
+            add_aux_interfrag_bonds=self.add_aux_interfrag_bonds,
             logger=self.logger,
         )
 
