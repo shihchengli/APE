@@ -75,7 +75,7 @@ class RedundantCoords:
         self,
         atoms,
         coords3d,
-        bond_factor=1.2,
+        bond_factor=1.3,
         typed_prims=None,
         define_prims=None,
         bonds_only=False,
