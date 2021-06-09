@@ -405,7 +405,7 @@ def setup_redundant(
     # TRIC
     translation_xs, translation_ys, translation_zs = [], [], []
     rotation_as, rotation_bs, rotation_cs = [], [], []
-    if addtr:
+    if addtr and not add_interfragment_bonds:
         for frag in fragments:
             if len(frag) >= 2:
                 ind = tuple(frag)
