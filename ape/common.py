@@ -8,6 +8,7 @@ import os
 import math
 import copy
 import logging
+import subprocess
 import numpy as np
 
 import rmgpy.constants as constants
@@ -307,7 +308,7 @@ def get_internal_rotation_freq(conformer, hessian, target_rotor, rotors, linear,
     return internal_rotation_freq
 
 def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conformer, int_freq, rotors_dict, scan_res, 
-                           path, ncpus, charge=None, multiplicity=None, rem_variables_dict=None, gen_basis="", 
+                           path, thresh, ncpus, charge=None, multiplicity=None, rem_variables_dict=None, gen_basis="", 
                            is_QM_MM_INTERFACE=None, QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None, 
                            fixed_molecule_string=None, opt=None, label=None):
     logging.info('Sampling Mode {}'.format(mode))
@@ -335,7 +336,6 @@ def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conforme
     scan_indices = internal.B_indices[-n_rotors:]
     torsion_ind = len(internal.B_indices) - n_rotors + scan_indices.index([ind-1 for ind in scan])    
     B = internal.B
-    Bt_inv = np.linalg.pinv(B.dot(B.T)).dot(B)
     nrow = B.shape[0]
     qk = np.zeros(nrow, dtype=int)
     qk[torsion_ind] = 1
@@ -369,6 +369,41 @@ def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conforme
         else:
             logging.info('ngrid = {}'.format(sample))
             EnergyDictOfEachMode[sample] = e_elec - min_elect
+        
+        # Check if this mode is a high-barrier hindered rotation
+        if e_elec - min_elect > thresh:
+            # Treat this mode as a vibrational normal mode
+            fail_in_torsion_sampling = True
+            logging.info('\n***********************************************************************')
+            logging.info('Since the torsional barrier of mode {} is higher than {} hartree.'.format(mode, thresh))
+            logging.info('This modes will use harmonic basis to construct its hamiltonian matrix.')
+            logging.info('***********************************************************************\n')
+
+            # Calculate the step size, reduced mass for displacement along the kth bond torsion
+            internal = copy.deepcopy(internal_object)
+            B = internal.B
+            B_inv = B.T.dot(np.linalg.pinv(B.dot(B.T)))
+            vector = B_inv.dot(qk * step_size) * BOHR2ANG
+            step_size = np.linalg.norm(vector) # in angstrom
+            reduced_mass = constants.hbar / ((step_size / 10 ** 10) ** 2 * (int_freq * 2 * np.pi * constants.c * 100) * constants.amu)
+            normalizes_vector = vector / np.linalg.norm(vector)
+            qj = np.matmul(B, normalizes_vector/BOHR2ANG)
+            qj = qj.reshape(-1,)
+            max_nloop = max(36-sample, sample+1)
+
+            # Copy single point output file
+            for i in range(sample + 1):
+                old_path = os.path.join(path, 'tors_{}_{}'.format(mode, i))
+                new_path = os.path.join(path, 'vib_{}_{}'.format(mode, i))
+                proc = subprocess.Popen(['cp {0} {1}'.format(old_path, new_path)], shell=True)
+                proc.wait()
+            
+            # Run vibrational mode sampling
+            XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(symbols, initial_geometry, mode, internal, qj,
+                int_freq, reduced_mass, step_size, path, thresh, ncpus, charge, multiplicity, rem_variables_dict, gen_basis, is_QM_MM_INTERFACE, QM_USER_CONNECT,
+                QM_ATOMS, force_field_params, fixed_molecule_string, opt, max_nloop)
+            
+            break
         
         # Update cartesian coordinate of each sampling point
         cart_coords += internal.transform_int_step((qk * step_size).reshape(-1,)) * BOHR2ANG
