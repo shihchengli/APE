@@ -28,7 +28,7 @@ class SamplingJob(object):
     """
 
     def __init__(self, label=None, input_file=None, output_directory=None, protocol=None, spin_multiplicity=None, charge=None, 
-                 rem_variables_dict={}, gen_basis="", ncpus=None, is_ts=None, rotors=None, thresh=0.01, step_size_factor=1, 
+                 rem_variables_dict={}, gen_basis="", ncpus=None, is_ts=None, rotors=None, thresh=0.05, step_size_factor=1, 
                  coordinate_system='Normal Mode', nnl=None, addcart=None, addtr=None, add_interfragment_bonds=None):
         self.label = label
         self.input_file = input_file
@@ -198,12 +198,13 @@ class SamplingJob(object):
             rotors_dict[i + 1]['scan'] = scan
         return rotors_dict
 
-    def sampling(self, thresh=0.01, save_result=True, scan_res=10):
+    def sampling(self, thresh=0.05, save_result=True, scan_res=10):
         """
         Sample 1-D PES of each mode.
         The sampling of UM-N was carried out symmetrically for each mode to the classical turning points or
-        the energy rises more than 0.01 hartree (i.e., about 26 kJ/mol) compared with the reference stationary point. 
-        The sampling of UM-VT was terminated when the torsional angle has been displaced by 2π.
+        the energy rises more than 0.05 hartree (i.e., about 131 kJ/mol) compared with the reference stationary point. 
+        The sampling of UM-VT was terminated when the torsional angle has been displaced by 2π or the energy 
+        rises more than 0.05 hartree.
         The energy cutoff energy could be changed by defining the value of thresh.
         The dictionary of sampling geometries, calculated energies and mode information will be returned.
         """
@@ -233,11 +234,11 @@ class SamplingJob(object):
                 int_freqs.append(int_freq)
                 if self.is_QM_MM_INTERFACE:
                     XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.torsion_internal, self.conformer,
-                    int_freq, self.rotors_dict, scan_res, path, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, self.is_QM_MM_INTERFACE, 
+                    int_freq, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, self.is_QM_MM_INTERFACE, 
                     self.QM_USER_CONNECT, self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt, self.label)
                 else:
                     XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.torsion_internal, self.conformer,
-                    int_freq, self.rotors_dict, scan_res, path, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, label=self.label)
+                    int_freq, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, label=self.label)
                 xyz_dict[mode] = XyzDictOfEachMode
                 energy_dict[mode] = EnergyDictOfEachMode
                 mode_dict[mode] = ModeDictOfEachMode

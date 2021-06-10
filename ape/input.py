@@ -262,7 +262,7 @@ def load_input_file(path, output_path=None):
             raise
     
     gen_basis = local_context.get('gen_basis', "")
-    thresh = local_context.get('cut_off_energy', 0.01)
+    thresh = local_context.get('cut_off_energy', 0.05)
     step_size_factor = local_context.get('step_size_factor', 1)
     nnl = local_context.get('number_of_natural_length', None)
     # coordinate_system include "Normal Mode", "E-Optimized" and "E'-Optimized"
