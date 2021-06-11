@@ -131,7 +131,7 @@ class APE(object):
 
 def initialize_log(verbose=logging.INFO, log_file=None):
     """
-    Set up a logger for Arkane to use to print output to stdout. The
+    Set up a logger for APE to use to print output to stdout. The
     `verbose` parameter is an integer specifying the amount of log text seen
     at the console; the levels correspond to those of the :data:`logging` module.
     """

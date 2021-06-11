@@ -160,11 +160,11 @@ def diagonalize_projected_hessian(conformer, hessian, linear, n_vib, rotors=[], 
     # Get eigenvalues of internal force constant matrix, V = 3N-6 * 3N-6
     eig, v = np.linalg.eigh(hessian_int)
 
-    logging.debug('Frequencies from internal Hessian')
-    for i in range(3 * n_atoms - external):
-        with np.warnings.catch_warnings():
-            np.warnings.filterwarnings('ignore', r'invalid value encountered in sqrt')
-            logging.debug(np.sqrt(eig[i]) / (2 * math.pi * constants.c * 100))
+    # logging.debug('Frequencies from internal Hessian')
+    # for i in range(3 * n_atoms - external):
+    #    with np.warnings.catch_warnings():
+    #        np.warnings.filterwarnings('ignore', r'invalid value encountered in sqrt')
+    #        logging.debug(np.sqrt(eig[i]) / (2 * math.pi * constants.c * 100))
 
     # Now we can start thinking about projecting out the internal rotations
     d_int = np.zeros((3 * n_atoms, n_rotors), np.float64)
@@ -282,14 +282,14 @@ def diagonalize_projected_hessian(conformer, hessian, linear, n_vib, rotors=[], 
     if get_weighted_vectors:
         return v.T[-n_vib:]
 
-    # Convert eigenvalues to vibrational frequencies in cm^-1
+    # Convert eigenvalues to vibrational frequenciㄋes in cm^-1
     # Only keep the modes that don't correspond to translation, rotation, or internal rotation
 
-    logging.debug('Frequencies from projected Hessian')
-    for i in range(3 * n_atoms):
-        with np.warnings.catch_warnings():
-            np.warnings.filterwarnings('ignore', r'invalid value encountered in sqrt')
-            logging.debug(np.sqrt(eig[i]) / (2 * math.pi * constants.c * 100))
+    # logging.debug('Frequencies from projected Hessian')
+    # for i in range(3 * n_atoms):
+    #     with np.warnings.catch_warnings():
+    #         np.warnings.filterwarnings('ignore', r'invalid value encountered in sqrt')
+    #         logging.debug(np.sqrt(eig[i]) / (2 * math.pi * constants.c * 100))
 
     # Convert eigenvalues to vibrational frequencies in cm^-1
     vib_freq = np.sqrt(eig[-n_vib:]) / (2 * np.pi * constants.c * 100)
@@ -304,7 +304,7 @@ def diagonalize_projected_hessian(conformer, hessian, linear, n_vib, rotors=[], 
 def get_internal_rotation_freq(conformer, hessian, target_rotor, rotors, linear, n_vib, is_QM_MM_INTERFACE=False, label=None):
     # Determine the projected frequency of the targeted internal rotation
     internal_rotation_freq = diagonalize_projected_hessian(conformer, hessian, linear, n_vib, [target_rotor], get_projected_out_freqs=True, label=label)[0]
-    logging.info('The vibrational frequency of internal rotation whose pivot is {pivot} is {freq:.2f} cm^-1'.format(pivot=target_rotor[0], freq=internal_rotation_freq))
+    logging.info('The vibrational frequency of internal rotation whose pivot is {pivot} is {freq:.2f} cm**-1'.format(pivot=target_rotor[0], freq=internal_rotation_freq))
     return internal_rotation_freq
 
 def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conformer, int_freq, rotors_dict, scan_res, 

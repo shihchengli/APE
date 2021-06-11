@@ -51,7 +51,6 @@ def species(label, *args, **kwargs):
         spec.path = path
         job = SamplingJob(label=label, input_file=path, output_directory=output_directory)
         spec.conformer, unscaled_frequencies = QChemLog(path).load_conformer()
-        logging.debug('Added species {0} to a sampling job.'.format(label))
         job_list.append(job)
     elif len(args) > 1:
         raise InputError('species {0} can only have two non-keyword argument '
@@ -287,6 +286,27 @@ def load_input_file(path, output_path=None):
     if coordinate_type not in [None, "DLC", "HDLC", "TRIC"]:
         raise InputError("The value of coordinate_type should be DLC, HDLC or TRIC.")
     frequency_scale_factor = local_context.get('frequency_scale_factor', 1)
+
+    # Save job variables to log file
+    logging.info('==========================================')
+    logging.info('         Parsed APE Keys : Values         ')
+    logging.info('==========================================')
+    logging.info('{:<28s}{}'.format('addcart', addcart))
+    logging.info('{:<28s}{}'.format('addtr', addtr))
+    logging.info('{:<28s}{}'.format('add_interfragment_bonds', add_interfragment_bonds))    
+    logging.info('{:<28s}{}'.format('coordinate_system', coordinate_system))
+    logging.info('{:<28s}{}'.format('coordinate_type', coordinate_type))
+    logging.info('{:<28s}{}'.format('cut_off_energy', thresh))    
+    logging.info('{:<28s}{}'.format('number_of_natural_length', nnl))
+    logging.info('{:<28s}{}'.format('step_size_factor', step_size_factor))
+    logging.info('-----------------------------------------\n')
+
+    # Save rem variables to log file
+    logging.info('==========================================')
+    logging.info('        rem variable for QChem            ')
+    logging.info('==========================================')
+    logging.info('\n'.join(['{:<28s}{}'.format(str(key),str(rem_variables_dict[key])) for key in sorted([i for i in rem_variables_dict])]))
+    logging.info('-----------------------------------------\n')
 
     for job in job_list:
         if isinstance(job, SamplingJob):

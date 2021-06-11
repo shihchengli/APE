@@ -341,7 +341,6 @@ class QChemLog(ESSAdapter):
         completed_job = False
         for line in reversed(log):
             if 'Total job time:' in line:
-                logging.debug('Found a successfully completed QChem Job')
                 completed_job = True
                 break
 
@@ -428,11 +427,13 @@ class QChemLog(ESSAdapter):
         unscaled_frequencies = []
         e0 = 0.0
         if optical_isomers is None or symmetry is None:
+            logging.disable(50)
             _optical_isomers, _symmetry, _ = self.get_symmetry_properties()
             if optical_isomers is None:
                 optical_isomers = _optical_isomers
             if symmetry is None:
                 symmetry = _symmetry
+            logging.disable(logging.NOTSET)
         with open(self.path, 'r') as f:
             line = f.readline()
             while line != '':
@@ -443,8 +444,6 @@ class QChemLog(ESSAdapter):
                         spin_multiplicity = int(float(line.split()[1]))
                         self.charge = int(float(line.split()[0]))
                         self.spin_multiplicity = spin_multiplicity
-                        logging.debug(
-                            'Conformer {0} is assigned a spin multiplicity of {1}'.format(label, spin_multiplicity))
                 # The rest of the data we want is in the Thermochemistry section of the output
                 elif 'VIBRATIONAL ANALYSIS' in line:
                     modes = []
@@ -557,7 +556,7 @@ class QChemLog(ESSAdapter):
             for line in f:
                 if 'Zero point vibrational energy:' in line:
                     zpe = float(line.split()[4]) * 4184  # QChem's ZPE is in kcal/mol, convert to J/mol
-                    logging.debug('ZPE is {}'.format(str(zpe)))
+                    # logging.debug('ZPE is {}'.format(str(zpe)))
         if zpe is not None:
             return zpe
         else:

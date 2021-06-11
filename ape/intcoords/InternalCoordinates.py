@@ -50,7 +50,6 @@ def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, ad
             type_, *indices = typed_prim
             if len(indices) == 4:
                 if set(indices[1:3]) in pivots_list:
-                    print(indices)
                     continue
             new_typed_prims.append(typed_prim)
         

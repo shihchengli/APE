@@ -12,6 +12,7 @@ import rmgpy.constants as constants
 
 from arkane.common import symbol_by_number
 from arkane.statmech import is_linear
+from arkane.output import prettify
 
 from arc.species.species import ARCSpecies
 
@@ -103,13 +104,8 @@ class SamplingJob(object):
                     xyz += '{}\t{}\t\t{}\t\t{}'.format(self.symbols[i], self.cart_coords[3 * i], self.cart_coords[3 * i + 1], self.cart_coords[3 * i + 2])
                     if i != self.natom-1: xyz += '\n'
             self.xyz = xyz
-            if self.xyz == '':
-                self.ARCSpecies = None
-            else:
-                self.ARCSpecies = ARCSpecies(label=self.label, xyz=self.xyz)
             if self.ncpus is None:
-                # Default ncpus for QM/MM calculation
-                self.ncpus = 8
+                raise InputError('Lack of defining the number of cpu used.')
             self.zpe = Log.load_zero_point_energy()
             if self.addcart is None and self.addtr is None and self.add_interfragment_bonds is None:
                 self.addtr = True
@@ -122,10 +118,8 @@ class SamplingJob(object):
             self.conformer.number = number
             self.conformer.mass = (mass, "amu")            
             self.xyz = getXYZ(self.symbols, self.cart_coords)
-            self.ARCSpecies = ARCSpecies(label=self.label, xyz=self.xyz)
             if self.ncpus is None:
-                self.ncpus = self.ARCSpecies.number_of_heavy_atoms
-                if self.ncpus > 8: self.ncpus = 8
+                raise InputError('Lack of defining the number of cpu used.')
             self.zpe = Log.load_zero_point_energy()
 
         # Determine whether or not the species is linear from its 3D coordinates
@@ -134,11 +128,19 @@ class SamplingJob(object):
         # Determine hindered rotors information
         if self.protocol == 'UMVT':
             if self.rotors is not None:
+                logging.info('Find user defined rotors...')
                 self.rotors_dict = self.rotors
             else:
+                logging.info('Determing the rotors of {}...'.format(self.label))
                 self.rotors_dict = self.get_rotors_dict()
             if self.rotors_dict == {}:
                 logging.info('No internal rotations are found for {label}'.format(label=self.label))
+            else:
+                logging.info('==========================================')
+                logging.info('              Hindered Rotors             ')
+                logging.info('==========================================')
+                logging.info(prettify(str(self.rotors_dict)))
+                logging.info('-----------------------------------------\n')
             self.n_rotors = len(self.rotors_dict)
         elif self.protocol == 'UMN':
             self.rotors_dict = []
@@ -184,10 +186,12 @@ class SamplingJob(object):
         The resulting rotors are saved in {'pivots': [1, 3], 'top': [3, 7], 'scan': [2, 1, 3, 7]} format.
         """
         rotors_dict = {}
-        species = self.ARCSpecies
+        logging.disable(50)
+        species = ARCSpecies(label=self.label, xyz=self.xyz, charge=self.charge, multiplicity=self.spin_multiplicity)
         if species is None:
             return rotors_dict
         species.determine_rotors()
+        logging.disable(logging.NOTSET)
         for i in species.rotors_dict:
             rotors_dict[i + 1] = {}
             pivots = species.rotors_dict[i]['pivots']
@@ -224,7 +228,9 @@ class SamplingJob(object):
             logging.info(self.torsion_internal.get_intco_log())
             rotors = [[rotor['pivots'], rotor['top']] for rotor in self.rotors_dict.values()]
             vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, rotors, label=self.label)
-            logging.debug('\nFrequencies(cm-1) from projected Hessian: {}'.format(vib_freq))
+            logging.debug('Frequencies(cm**-1) from projected Hessian:')
+            for i, freq in enumerate(vib_freq):
+                logging.debug('{:4d}:{:13.2f} cm**-1 '.format(i+1+len(int_freqs), freq))
             
             # Sample points along the 1-D PES of each torsion motion
             for i in range(self.n_rotors):
@@ -246,9 +252,9 @@ class SamplingJob(object):
         elif self.protocol == 'UMN' or self.n_rotors == 0:
             logging.info(self.internal.get_intco_log())
             vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, label=self.label)
-            logging.debug('Vibrational frequencies of normal modes')
-            for vib in vib_freq:
-                logging.debug(vib)
+            logging.debug('Vibrational frequencies of normal modes:')
+            for i, freq in enumerate(vib_freq):
+                logging.debug('{:4d}:{:13.2f} cm**-1 '.format(i+1+len(int_freqs), freq))
         
         # Optimizing vibrational coordinates to modulate intermode coupling
         if self.coordinate_system != 'Normal Mode':
