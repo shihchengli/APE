@@ -94,7 +94,8 @@ class ThermoJob(Statmech):
             self.result_info.append("# Enthalpy H(%f K)-H(0 K) (kcal/mol): %.10f" % (T, conformer.get_enthalpy(T) / 4184))
             self.result_info.append("# Total entropy (cal/mol/K): %.10f" % (S_trans + S_rot + S_vib))
             self.result_info.append("# Total Cv (cal/mol/K): %.10f" % ((conformer.get_heat_capacity(T) - constants.R) / 4.184))
-            self.result_info.append("# Overall partition function: %.10f" % (conformer.get_partition_function(T)))
+            Q_vib = conformer.modes[2].get_partition_function(T)
+            self.result_info.append("# Overall partition function: %.10f" % (Q_trans * Q_rot * Q_vib * self.spin_multiplicity * self.optical_isomers))
         
         E0 = (self.conformer.E0.value_si - self.zpe_of_Hohf) * 0.001 / 4.184  + ZPE # in kcal/mol
         E = E_trans + E_rot + E_int # in kcal/mol
