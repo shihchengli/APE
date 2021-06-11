@@ -36,7 +36,7 @@ def getXYZ(atoms, cart_coords):
         if i != natom-1: xyz += '\n'
     return xyz
 
-def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, add_hrdrogen_bonds=True, addcart=False, addtr=False, add_interfragment_bonds=False):
+def get_RedundantCoords(label, atoms, cart_coords, bond_factor=1.3, rotors_dict=None, nHcap=0, add_hrdrogen_bonds=True, addcart=False, addtr=False, add_interfragment_bonds=False):
 
     def set_typed_prims(internal, rotors_dict):
 
@@ -60,10 +60,10 @@ def get_RedundantCoords(label, atoms, cart_coords, rotors_dict=None, nHcap=0, ad
 
         return new_typed_prims
     
-    internal = RedundantCoords(atoms, cart_coords, add_hrdrogen_bonds=add_hrdrogen_bonds, addcart=addcart, addtr=addtr, add_interfragment_bonds=add_interfragment_bonds)
+    internal = RedundantCoords(atoms, cart_coords, bond_factor, add_hrdrogen_bonds=add_hrdrogen_bonds, addcart=addcart, addtr=addtr, add_interfragment_bonds=add_interfragment_bonds)
     if rotors_dict != None and rotors_dict != []:
         typed_prims = set_typed_prims(internal, rotors_dict)
-        internal = RedundantCoords(atoms, cart_coords, add_hrdrogen_bonds=add_hrdrogen_bonds, typed_prims=typed_prims, add_interfragment_bonds=True)
+        internal = RedundantCoords(atoms, cart_coords, bond_factor, add_hrdrogen_bonds=add_hrdrogen_bonds, typed_prims=typed_prims, add_interfragment_bonds=True)
 
     internal.nHcap = nHcap
 

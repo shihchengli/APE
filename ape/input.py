@@ -262,6 +262,7 @@ def load_input_file(path, output_path=None):
     
     gen_basis = local_context.get('gen_basis', "")
     thresh = local_context.get('cut_off_energy', 0.05)
+    bond_factor = local_context.get('bond_factor', 1.3)
     step_size_factor = local_context.get('step_size_factor', 1)
     nnl = local_context.get('number_of_natural_length', None)
     # coordinate_system include "Normal Mode", "E-Optimized" and "E'-Optimized"
@@ -293,10 +294,11 @@ def load_input_file(path, output_path=None):
     logging.info('==========================================')
     logging.info('{:<28s}{}'.format('addcart', addcart))
     logging.info('{:<28s}{}'.format('addtr', addtr))
-    logging.info('{:<28s}{}'.format('add_interfragment_bonds', add_interfragment_bonds))    
+    logging.info('{:<28s}{}'.format('add_interfragment_bonds', add_interfragment_bonds))
+    logging.info('{:<28s}{}'.format('bond_factor', bond_factor))
     logging.info('{:<28s}{}'.format('coordinate_system', coordinate_system))
     logging.info('{:<28s}{}'.format('coordinate_type', coordinate_type))
-    logging.info('{:<28s}{}'.format('cut_off_energy', thresh))    
+    logging.info('{:<28s}{}'.format('cut_off_energy', thresh))
     logging.info('{:<28s}{}'.format('number_of_natural_length', nnl))
     logging.info('{:<28s}{}'.format('step_size_factor', step_size_factor))
     logging.info('-----------------------------------------\n')
@@ -313,6 +315,7 @@ def load_input_file(path, output_path=None):
             job.rem_variables_dict = rem_variables_dict
             job.gen_basis = gen_basis
             job.thresh = thresh
+            job.bond_factor = bond_factor
             job.step_size_factor = step_size_factor
             job.coordinate_system = coordinate_system
             job.nnl = nnl

@@ -28,9 +28,9 @@ class SamplingJob(object):
     The SamplingJob class.
     """
 
-    def __init__(self, label=None, input_file=None, output_directory=None, protocol=None, spin_multiplicity=None, charge=None, 
-                 rem_variables_dict={}, gen_basis="", ncpus=None, is_ts=None, rotors=None, thresh=0.05, step_size_factor=1, 
-                 coordinate_system='Normal Mode', nnl=None, addcart=None, addtr=None, add_interfragment_bonds=None):
+    def __init__(self, label=None, input_file=None, output_directory=None, protocol=None, spin_multiplicity=None, charge=None,
+                 rem_variables_dict={}, gen_basis="", ncpus=None, is_ts=None, rotors=None, thresh=0.05, step_size_factor=1,
+                 bond_factor=1.3, coordinate_system='Normal Mode', nnl=None, addcart=None, addtr=None, add_interfragment_bonds=None):
         self.label = label
         self.input_file = input_file
         self.output_directory = output_directory
@@ -44,6 +44,7 @@ class SamplingJob(object):
         self.rotors = rotors
         self.thresh = thresh
         self.step_size_factor = step_size_factor
+        self.bond_factor = bond_factor
         self.coordinate_system = coordinate_system
         self.nnl = nnl
         self.addcart = addcart
@@ -158,12 +159,12 @@ class SamplingJob(object):
 
         # Create RedundantCoords object
         if self.is_ts and self.addcart is None and self.addtr is None and self.add_interfragment_bonds is None: self.addcart = True
-        self.internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, nHcap=self.nHcap, add_hrdrogen_bonds=True,
+        self.internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, self.bond_factor, nHcap=self.nHcap, add_hrdrogen_bonds=True,
                                             addcart=self.addcart, addtr=self.addtr, add_interfragment_bonds=self.add_interfragment_bonds)
         
         # Create RedundantCoords object for torsional mode
         if self.protocol == 'UMVT':
-            self.torsion_internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, self.rotors_dict, self.nHcap,
+            self.torsion_internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, self.bond_factor, self.rotors_dict, self.nHcap,
                                                         add_hrdrogen_bonds=False, addcart=False, addtr=False, add_interfragment_bonds=True)
         
         # Extract imaginary frequency from transition state
