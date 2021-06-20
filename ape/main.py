@@ -121,6 +121,7 @@ class APE(object):
         # run thermo and kinetics jobs
         for job in self.job_list:
             if isinstance(job, ThermoJob):
+                job.ncpus = self.ncpus
                 job.load_save()
                 job.execute()
             if isinstance(job, KineticsJob):

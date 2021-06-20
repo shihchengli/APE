@@ -18,17 +18,18 @@ class Statmech(object):
     """
     A class to solve shrodinger equation, evaluate partition function and related properties of 1-D PES by using statistical thermodynamics
     """
-    def __init__(self, label, input_file, output_directory, Tlist=[298.15], P=100000, frequency_scale_factor=1, zpe_of_Hohf=None):
+    def __init__(self, label, input_file, output_directory, Tlist=[298.15], P=100000, frequency_scale_factor=1, ncpus=None):
         self.label = label
         self.input_file = input_file
         self.output_directory = output_directory
         self.Tlist = Tlist
         self.P = P
         self.frequency_scale_factor = frequency_scale_factor
+        self.ncpus = ncpus
         self.result_info = list()
     
     def load_save(self):
-        self.sampling = SamplingJob(self.label, self.input_file)
+        self.sampling = SamplingJob(self.label, self.input_file, ncpus=self.ncpus)
         self.sampling.parse()
         self.conformer = self.sampling.conformer
         self.csv_path = os.path.join(self.output_directory, '{}_samping_result.csv'.format(self.label))
