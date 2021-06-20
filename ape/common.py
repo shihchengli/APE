@@ -393,8 +393,8 @@ def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conforme
 
             # Copy single point output file
             for i in range(sample + 1):
-                old_path = os.path.join(path, 'tors_{}_{}'.format(mode, i))
-                new_path = os.path.join(path, 'vib_{}_{}'.format(mode, i))
+                old_path = os.path.join(path, 'tors_{}_{}.q.out'.format(mode, i))
+                new_path = os.path.join(path, 'vib_{}_{}.q.out'.format(mode, i))
                 proc = subprocess.Popen(['cp {0} {1}'.format(old_path, new_path)], shell=True)
                 proc.wait()
             

@@ -78,9 +78,14 @@ class Job(object):
             success = log.job_is_finished()
             if not success:
                 raise JobError('QChem job fails !')
-        subprocess.Popen(['rm {input_path}'.format(input_path=self.input_path)], shell=True)
+        proc = subprocess.Popen(['rm {input_path}'.format(input_path=self.input_path)], shell=True)
+        proc.wait()
 
         # Remove efld file from QMMM calculation
-        efld_path = os.path.join(self.path, '{}.q.out.efld'.format(self.file_name))
+        efld_path = '{}.q.out.efld'.format(self.file_name)
         if os.path.exists(efld_path):
-            subprocess.Popen(['rm {efld_path}'.format(efld_path=efld_path)], shell=True)
+            proc = subprocess.Popen(['rm {efld_path}'.format(efld_path=efld_path)], shell=True)
+            proc.wait()
+        if os.path.exists('efield.dat'):
+            proc = subprocess.Popen(['rm efield.dat'], shell=True)
+            proc.wait()
