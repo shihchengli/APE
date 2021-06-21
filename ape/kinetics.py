@@ -84,9 +84,8 @@ class KineticsJob(object):
         If `plot` is True, then plots of the raw and fitted values for the kinetics
         will be saved.
         """
-        # Assign the ncpus for each Reaction object
-        for rxn in self.reaction:
-            rxn.ncpus = self.ncpus
+        # Assign the ncpus for Reaction object
+        self.reaction.ncpus = self.ncpus
         
         self.rmg_reaction = self.reaction.rmg_Reaction()
         self.generate_kinetics()
