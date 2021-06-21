@@ -30,12 +30,13 @@ class KineticsJob(object):
                      equation is used.
     """
 
-    def __init__(self, reaction, Tmin=None, Tmax=None, Tlist=None, Tcount=0, three_params=True):
+    def __init__(self, reaction, Tmin=None, Tmax=None, Tlist=None, Tcount=0, three_params=True, ncpus=None):
         self.usedTST = False
         self.Tmin = Tmin if Tmin is not None else (298, 'K')
         self.Tmax = Tmax if Tmax is not None else (2500, 'K')
         self.Tcount = Tcount if Tcount > 3 else 50
         self.three_params = three_params
+        self.ncpus = ncpus
 
         if Tlist is not None:
             self.Tlist = Tlist
@@ -83,6 +84,10 @@ class KineticsJob(object):
         If `plot` is True, then plots of the raw and fitted values for the kinetics
         will be saved.
         """
+        # Assign the ncpus for each Reaction object
+        for rxn in self.reaction:
+            rxn.ncpus = self.ncpus
+        
         self.rmg_reaction = self.reaction.rmg_Reaction()
         self.generate_kinetics()
         if output_directory is not None:

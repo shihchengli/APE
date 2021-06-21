@@ -125,6 +125,7 @@ class APE(object):
                 job.load_save()
                 job.execute()
             if isinstance(job, KineticsJob):
+                job.ncpus = self.ncpus
                 job.execute(output_directory=self.output_directory, plot=self.plot)
 
         # Print some information to the end of the log

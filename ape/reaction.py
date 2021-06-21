@@ -12,7 +12,7 @@ from rmgpy.statmech.vibration import HarmonicOscillator
 from ape.thermo import ThermoJob
 
 class Reaction(object):
-    def __init__(self, label='', reactants=None, products=None, transition_state=None, output_directory=None, frequency_scale_factor=1):
+    def __init__(self, label='', reactants=None, products=None, transition_state=None, output_directory=None, frequency_scale_factor=1, ncpus=None):
         self.label = label
         self.reactants = reactants
         self.products = products
@@ -21,11 +21,13 @@ class Reaction(object):
         self.frequency_scale_factor = frequency_scale_factor
         self.kinetics = None
         self.thermo_dict = {}
+        self.ncpus = ncpus
     
     def rmg_Reaction(self):
         specs = self.reactants + self.products + [self.transition_state]
         for spec in specs:
             thermo = ThermoJob(spec.label, spec.path, output_directory=self.output_directory, frequency_scale_factor=self.frequency_scale_factor)
+            thermo.ncpus = self.ncpus
             thermo.load_save()
             spec.conformer.E0 = thermo.conformer.E0
             for mode in spec.conformer.modes:
@@ -42,6 +44,7 @@ class Reaction(object):
             logging.debug('    Calculating thermodynamics properties for {0} at {1} K'.format(spec.label, T))
             self.thermo_dict[T][spec.label] = {}
             thermo = ThermoJob(spec.label, spec.path, output_directory=self.output_directory, P=P, frequency_scale_factor=self.frequency_scale_factor)
+            thermo.ncpus = self.ncpus
             thermo.load_save()
             E0, E, S, F, Q, Cv = thermo.calcThermo(T, print_HOhf_result=False)
             self.thermo_dict[T][spec.label]['E0'] = E0
