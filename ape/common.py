@@ -301,7 +301,7 @@ def diagonalize_projected_hessian(conformer, hessian, linear, n_vib, rotors=[], 
     unweighted_v = np.matmul(inv_sq_mass_mat, v).T[-n_vib:]
     return vib_freq, unweighted_v
 
-def get_internal_rotation_freq(conformer, hessian, target_rotor, rotors, linear, n_vib, is_QM_MM_INTERFACE=False, label=None):
+def get_internal_rotation_freq(conformer, hessian, target_rotor, linear, n_vib, label=None):
     # Determine the projected frequency of the targeted internal rotation
     internal_rotation_freq = diagonalize_projected_hessian(conformer, hessian, linear, n_vib, [target_rotor], get_projected_out_freqs=True, label=label)[0]
     logging.info('The vibrational frequency of internal rotation whose pivot is {pivot} is {freq:.2f} cm**-1'.format(pivot=target_rotor[0], freq=internal_rotation_freq))
@@ -376,34 +376,9 @@ def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conforme
             fail_in_torsion_sampling = True
             logging.info('\n***********************************************************************')
             logging.info('Since the torsional barrier of mode {} is higher than {} hartree.'.format(mode, thresh))
-            logging.info('This modes will use harmonic basis to construct its hamiltonian matrix.')
+            logging.info('This mode will be treated as vibrational mode later on.')
             logging.info('***********************************************************************\n')
-
-            # Calculate the step size, reduced mass for displacement along the kth bond torsion
-            internal = copy.deepcopy(internal_object)
-            B = internal.B
-            B_inv = B.T.dot(np.linalg.pinv(B.dot(B.T)))
-            vector = B_inv.dot(qk * step_size) * BOHR2ANG
-            step_size = np.linalg.norm(vector) # in angstrom
-            reduced_mass = constants.hbar / ((step_size / 10 ** 10) ** 2 * (int_freq * 2 * np.pi * constants.c * 100) * constants.amu)
-            normalizes_vector = vector / np.linalg.norm(vector)
-            qj = np.matmul(B, normalizes_vector/BOHR2ANG)
-            qj = qj.reshape(-1,)
-            max_nloop = max(36-sample, sample+1)
-
-            # Copy single point output file
-            for i in range(sample + 1):
-                old_path = os.path.join(path, 'tors_{}_{}.q.out'.format(mode, i))
-                new_path = os.path.join(path, 'vib_{}_{}.q.out'.format(mode, i))
-                proc = subprocess.Popen(['cp {0} {1}'.format(old_path, new_path)], shell=True)
-                proc.wait()
-            
-            # Run vibrational mode sampling
-            XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(symbols, initial_geometry, mode, internal, qj,
-                int_freq, reduced_mass, step_size, path, thresh, ncpus, charge, multiplicity, rem_variables_dict, gen_basis, is_QM_MM_INTERFACE, QM_USER_CONNECT,
-                QM_ATOMS, force_field_params, fixed_molecule_string, opt, max_nloop)
-            
-            break
+            return {}, {}, {}, min_elect
         
         # Update cartesian coordinate of each sampling point
         cart_coords += internal.transform_int_step((qk * step_size).reshape(-1,)) * BOHR2ANG

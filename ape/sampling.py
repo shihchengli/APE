@@ -225,20 +225,17 @@ class SamplingJob(object):
         
         # Determine the vibrational frequency and directional vector of each vibrational normal mode
         int_freqs = []
+        new_rotors = []
         if self.protocol == 'UMVT' and self.n_rotors != 0:
             logging.info(self.torsion_internal.get_intco_log())
             rotors = [[rotor['pivots'], rotor['top']] for rotor in self.rotors_dict.values()]
-            vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, rotors, label=self.label)
-            logging.debug('Frequencies(cm**-1) from projected Hessian:')
-            for i, freq in enumerate(vib_freq):
-                logging.debug('{:4d}:{:13.2f} cm**-1 '.format(i+1+len(int_freqs), freq))
             
             # Sample points along the 1-D PES of each torsion motion
+            logging.info('Starting torsional motions sampling...')
             for i in range(self.n_rotors):
                 mode = i + 1
                 target_rotor = rotors[i]
-                int_freq = get_internal_rotation_freq(self.conformer, self.hessian, target_rotor, rotors, self.linearity, self.n_vib, is_QM_MM_INTERFACE=self.is_QM_MM_INTERFACE, label=self.label)
-                int_freqs.append(int_freq)
+                int_freq = get_internal_rotation_freq(self.conformer, self.hessian, target_rotor, self.linearity, self.n_vib, label=self.label)
                 if self.is_QM_MM_INTERFACE:
                     XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.torsion_internal, self.conformer,
                     int_freq, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, self.is_QM_MM_INTERFACE, 
@@ -246,22 +243,30 @@ class SamplingJob(object):
                 else:
                     XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_torsion(self.symbols, self.cart_coords, mode, self.torsion_internal, self.conformer,
                     int_freq, self.rotors_dict, scan_res, path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict, self.gen_basis, label=self.label)
-                xyz_dict[mode] = XyzDictOfEachMode
-                energy_dict[mode] = EnergyDictOfEachMode
-                mode_dict[mode] = ModeDictOfEachMode
-        
-        elif self.protocol == 'UMN' or self.n_rotors == 0:
-            logging.info(self.internal.get_intco_log())
-            vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, label=self.label)
-            logging.debug('Vibrational frequencies of normal modes:')
-            for i, freq in enumerate(vib_freq):
-                logging.debug('{:4d}:{:13.2f} cm**-1 '.format(i+1+len(int_freqs), freq))
+                
+                if XyzDictOfEachMode != {}:
+                    int_freqs.append(int_freq)
+                    new_rotors.append(target_rotor)
+                    nmode = len(xyz_dict) + 1
+                    xyz_dict[nmode] = XyzDictOfEachMode
+                    energy_dict[nmode] = EnergyDictOfEachMode
+                    mode_dict[nmode] = ModeDictOfEachMode
+                else:
+                    self.n_rotors -= 1
+                    self.n_vib += 1
+            
+        vib_freq, unweighted_v = diagonalize_projected_hessian(self.conformer, self.hessian, self.linearity, self.n_vib, new_rotors, label=self.label)
+        logging.debug('Pivots of projeted torsions:')
+        logging.debug('[' + ', '.join([str(rotor[0]) for rotor in new_rotors]) + ']')
+        logging.debug('Frequencies(cm**-1) from projected Hessian:')
+        for i, freq in enumerate(int_freqs):
+            logging.info('{:4d}:{:13.2f} cm**-1 ***projected rotor***'.format(i+1, freq))
+        for i, freq in enumerate(vib_freq):
+            logging.debug('{:4d}:{:13.2f} cm**-1 '.format(i+1+len(int_freqs), freq))
         
         # Optimizing vibrational coordinates to modulate intermode coupling
         if self.coordinate_system != 'Normal Mode':
             logging.debug('\nVibrational coordinates setting...')
-            if self.protocol == 'UMN' or self.n_rotors == 0:
-                rotors = []
             # Modify the rem variables for OptVib job
             optvib_rem_dict = self.rem_variables_dict.copy()
             if self.is_QM_MM_INTERFACE:
@@ -273,11 +278,11 @@ class SamplingJob(object):
             optvib_path = os.path.join(self.output_directory, 'output_file', self.label, 'tmp')
             if self.is_QM_MM_INTERFACE:
                 optvib = OptVib(self.symbols, self.nmode, self.coordinate_system, self.cart_coords, self.internal, self.conformer, self.hessian, self.linearity,
-                                self.n_vib, rotors, self.label, optvib_path, self.ncpus, self.charge, self.spin_multiplicity, optvib_rem_dict, self.freq_gen_basis,
+                                self.n_vib, new_rotors, self.label, optvib_path, self.ncpus, self.charge, self.spin_multiplicity, optvib_rem_dict, self.freq_gen_basis,
                                 self.is_QM_MM_INTERFACE, self.QM_USER_CONNECT, self.QM_ATOMS, self.ISOTOPES, self.force_field_params, self.fixed_molecule_string, self.opt)
             else:
                 optvib = OptVib(self.symbols, self.nmode, self.coordinate_system, self.cart_coords, self.internal, self.conformer, self.hessian, self.linearity,
-                                self.n_vib, rotors, self.label, optvib_path, self.ncpus, self.charge, self.spin_multiplicity, optvib_rem_dict, self.freq_gen_basis)
+                                self.n_vib, new_rotors, self.label, optvib_path, self.ncpus, self.charge, self.spin_multiplicity, optvib_rem_dict, self.freq_gen_basis)
             if not os.path.exists(optvib_path):
                 os.makedirs(optvib_path)
             vib_freq, unweighted_v = optvib.get_optvib()
@@ -289,6 +294,7 @@ class SamplingJob(object):
                 logging.info('{:4d}:{:13.2f} cm**-1 '.format(i+1+len(int_freqs), freq))
 
         # Sample points along the 1-D PES of each vibration motion
+        logging.info('Starting vibrational motions sampling...')
         for i in range(self.nmode):
             if i in range(self.n_rotors): continue
             mode = i + 1
