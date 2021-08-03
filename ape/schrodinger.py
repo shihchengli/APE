@@ -13,6 +13,7 @@ from ape.FourierBasis import IntXPhimPhin
 from decimal import Decimal as D
 from decimal import getcontext
 getcontext().prec = 15
+import multiprocessing as mp
 
 hbar1 = constants.hbar / constants.E_h # in hartree*s
 hbar2 = constants.hbar * 10 ** 20 / constants.amu # in amu*angstrom^2/s
@@ -89,16 +90,32 @@ def Hmn(m, n, polynomial_dict, mode_dict, energy_dict, mode, is_tors):
     return result
 
 def SetAnharmonicH(polynomial_dict, mode_dict, energy_dict, mode, size, N_prev, H_prev):
-    H = np.zeros((size, size), np.float64)
+    H_ind = []
     is_tors = True if mode_dict[mode]['mode'] == 'tors' else False
-    for m in range(size):
-        for n in range(m+1):
-            if m < N_prev and n < N_prev:
-                Hmn_val = H_prev[m][n]
-            else:
-                Hmn_val = Hmn(m, n, polynomial_dict, mode_dict, energy_dict, mode, is_tors)
-            H[m][n] = Hmn_val
-            H[n][m] = Hmn_val
+    pool = mp.Pool(mp.cpu_count())
+    H = np.zeros((size, size), np.float64)
+    if N_prev == 0:
+        for m in range(size):
+            for n in range(m+1):
+                H_ind.append((m,n))
+        H_temp = pool.starmap(Hmn, [(m, n, polynomial_dict, mode_dict, energy_dict, mode, is_tors) for m,n in H_ind])
+        i = 0
+        for m in range(size):
+            for n in range(m+1):
+                H[m][n] = H_temp[i]
+                i+=1
+        pool.close()
+    elif size>N_prev:
+        for m in range(N_prev):
+            for n in range(m+1):
+                H[m][n] = H_prev[m][n]
+        m = size-1
+        for n in range(size):
+            H_ind.append((m,n))
+        H_temp = pool.starmap(Hmn, [(m, n, polynomial_dict, mode_dict, energy_dict, mode, is_tors) for m,n in H_ind])
+        for n in range(size):
+            H[m][n] = H_temp[n]
+    pool.close()
     return H
 
 def check_negative_energy(coeff, x1, x2):
