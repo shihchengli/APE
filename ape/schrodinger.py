@@ -103,18 +103,21 @@ def SetAnharmonicH(polynomial_dict, mode_dict, energy_dict, mode, size, N_prev, 
         for m in range(size):
             for n in range(m+1):
                 H[m][n] = H_temp[i]
-                i+=1
+                H[n][m] = H_temp[i]
+                i += 1
         pool.close()
     elif size>N_prev:
         for m in range(N_prev):
             for n in range(m+1):
                 H[m][n] = H_prev[m][n]
-        m = size-1
+                H[n][m] = H_prev[n][m]
+        m = size - 1
         for n in range(size):
             H_ind.append((m,n))
         H_temp = pool.starmap(Hmn, [(m, n, polynomial_dict, mode_dict, energy_dict, mode, is_tors) for m,n in H_ind])
         for n in range(size):
             H[m][n] = H_temp[n]
+            H[n][m] = H_temp[n]
     pool.close()
     return H
 
