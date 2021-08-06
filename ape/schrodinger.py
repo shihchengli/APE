@@ -13,6 +13,7 @@ from ape.FourierBasis import IntXPhimPhin
 from decimal import Decimal as D
 from decimal import getcontext
 getcontext().prec = 15
+
 import multiprocessing as mp
 
 hbar1 = constants.hbar / constants.E_h # in hartree*s
@@ -106,7 +107,7 @@ def SetAnharmonicH(polynomial_dict, mode_dict, energy_dict, mode, size, N_prev, 
                 H[n][m] = H_temp[i]
                 i += 1
         pool.close()
-    elif size>N_prev:
+    elif size > N_prev:
         for m in range(N_prev):
             for n in range(m+1):
                 H[m][n] = H_prev[m][n]
