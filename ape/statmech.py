@@ -31,6 +31,7 @@ class Statmech(object):
     def load_save(self):
         self.sampling = SamplingJob(self.label, self.input_file, ncpus=self.ncpus)
         self.sampling.parse()
+        self.is_QM_MM_INTERFACE = self.sampling.is_QM_MM_INTERFACE
         self.conformer = self.sampling.conformer
         self.csv_path = os.path.join(self.output_directory, '{}_samping_result.csv'.format(self.label))
         self.mode_dict, self.energy_dict, self.min_elect = from_sampling_result(self.csv_path)

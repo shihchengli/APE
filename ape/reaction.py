@@ -34,6 +34,11 @@ class Reaction(object):
                 if isinstance(mode, HarmonicOscillator):
                     frequencies = mode.frequencies.value_si
                     mode.frequencies = (frequencies * self.frequency_scale_factor, "cm^-1")
+            # only leave HarmonicOscillator in QM/MM calculation
+            if thermo.is_QM_MM_INTERFACE:
+                for mode in spec.conformer.modes:
+                    if isinstance(mode, HarmonicOscillator):
+                        spec.conformer.modes = [mode]
         rxn = rmg_Reaction(label=self.label, reactants=self.reactants, products=self.products, transition_state=self.transition_state)
         return rxn
     
@@ -46,7 +51,11 @@ class Reaction(object):
             thermo = ThermoJob(spec.label, spec.path, output_directory=self.output_directory, P=P, frequency_scale_factor=self.frequency_scale_factor)
             thermo.ncpus = self.ncpus
             thermo.load_save()
-            E0, E, S, F, Q, Cv = thermo.calcThermo(T, print_HOhf_result=False)
+            # only leave HarmonicOscillator in QM/MM calculation
+            if thermo.is_QM_MM_INTERFACE:
+                E0, E, S, F, Q, Cv = thermo.calcQMMMThermo(T, print_HOhf_result=False)
+            else:
+                E0, E, S, F, Q, Cv = thermo.calcThermo(T, print_HOhf_result=False)
             self.thermo_dict[T][spec.label]['E0'] = E0
             self.thermo_dict[T][spec.label]['E'] = E
             self.thermo_dict[T][spec.label]['S'] = S

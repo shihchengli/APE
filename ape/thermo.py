@@ -113,7 +113,7 @@ class ThermoJob(Statmech):
         E_int = 0
         S_int = 0
         # F_int = 0
-        # Q_int = 1
+        Q_int = 1
         Cv_int = 0
 
         S_trans = conformer.modes[0].get_entropy(T) / 4.184 - constants.R * math.log(P / 101325) / 4.184
@@ -127,15 +127,13 @@ class ThermoJob(Statmech):
             E_int += E
             S_int += S
             # F_int += F
-            # Q_int *= Q_vib
+            Q_int *= Q_vib
             Cv_int += Cv
 
         self.result_info.append("\n# \t********** Final results **********\n#\n")
         self.result_info.append("# Temperature (K): %.2f" % (T))
         self.result_info.append("# Pressure (Pa): %.0f" % (P))
         self.result_info.append("# Zero point vibrational energy (kcal/mol): %.10f" % (ZPE))
-        self.result_info.append("# Translational entropy (cal/mol/K): %.10f" % (S_trans))
-        self.result_info.append("# Rotational entropy (cal/mol/K): %.10f" % (S_rot))
         self.result_info.append("# Internal (rot+vib) energy (kcal/mol): %.10f" % (E_int))
         self.result_info.append("# Internal (tor+vib) entropy (cal/mol/K): %.10f" % (S_int))
         self.result_info.append("# Internal (tor+vib) Cv (cal/mol/K): %.10f" % (Cv_int))
@@ -149,10 +147,16 @@ class ThermoJob(Statmech):
             self.result_info.append("\n# \t********** HOhf results **********\n\n")
             self.result_info.append("# Vibrational energy (kcal/mol): %.10f" % (E_vib))
             self.result_info.append("# Vibrational entropy (cal/mol/K): %.10f" % (S_vib))
-            self.result_info.append("# Translational entropy (cal/mol/K): %.10f" % (S_trans))
-            self.result_info.append("# Rotational entropy (cal/mol/K): %.10f" % (S_rot))
         
         self.result_info.append('\n\n\n')
+
+        E0 = (self.conformer.E0.value_si - self.zpe_of_Hohf) * 0.001 / 4.184  + ZPE # in kcal/mol
+        E = E_int # in kcal/mol
+        S = S_int # in cal/mol/K
+        F = (E + constants.R * T / 4184 - ZPE) - T * S * 0.001 + E0 # in kcal/mol
+        Q = Q_int * self.spin_multiplicity * self.optical_isomers
+        Cv = Cv_int # in cal/mol/K
+        return  E0, E, S, F, Q, Cv
 
     
     def write_output(self):
