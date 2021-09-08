@@ -159,7 +159,7 @@ class SamplingJob(object):
 
         # Create RedundantCoords object
         if self.is_ts and self.addcart is None and self.addtr is None and self.add_interfragment_bonds is None: self.addcart = True
-        self.internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, self.bond_factor, nHcap=self.nHcap, add_hrdrogen_bonds=True,
+        self.internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, self.bond_factor, nHcap=self.nHcap, add_hrdrogen_bonds=False,
                                             addcart=self.addcart, addtr=self.addtr, add_interfragment_bonds=self.add_interfragment_bonds)
         
         # Create RedundantCoords object for torsional mode
