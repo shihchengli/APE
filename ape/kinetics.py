@@ -88,6 +88,50 @@ class KineticsJob(object):
         self.reaction.ncpus = self.ncpus
         
         self.rmg_reaction = self.reaction.rmg_Reaction()
+
+        if self.reaction.transition_state is None:
+            logging.warning("Could not calculate rate constants due to lack of transition state")
+            self.K_eq_units = {2: 'mol^2/cm^6', 1: 'mol/cm^3', 0: '       ', -1: 'cm^3/mol', -2: 'cm^6/mol^2'}[
+                len(self.reaction.products) - len(self.reaction.reactants)]           
+            # Initialize Object for Converting Units
+            if self.K_eq_units != '       ':
+                keq_unit_converter = quantity.Units(self.K_eq_units).get_conversion_factor_from_si()
+            else:
+                keq_unit_converter = 1
+            
+            self.Keq_list = np.zeros_like(self.Tlist.value_si)
+            for i, T in enumerate(self.Tlist.value_si):
+                self.Keq_list[i] = keq_unit_converter * self.reaction.get_equilibrium_constant(T) # returns SI units
+            logging.info('Saving kinetics for {0}...'.format(self.reaction.label))
+            f = open(os.path.join(output_directory, 'output.py'), 'a')
+            f.write('#   By using APE algorithm\n')
+            f.write('#   ======= ============ ===========\n')
+            f.write('#   Temp.    Kc (eq)        Units   \n')
+            f.write('#   ======= ============ ===========\n')
+            for i, T in enumerate(self.Tlist.value_si):
+                K_eq = self.Keq_list[i]
+                f.write('#    {0:4g} K {1:11.3e}   {2}\n'.format(
+                    T, K_eq, self.K_eq_units))
+            f.write('#   ======= ============ ===========\n')
+            f.write('\n\n')
+            
+            if print_HOhf_result:
+                f.write('\n#   By using harmonic approximation method\n')
+                self.Keq_HOhf_list = np.zeros_like(self.Tlist.value_si)
+                for i, T in enumerate(self.Tlist.value_si):
+                    self.Keq_HOhf_list[i] = keq_unit_converter * self.rmg_reaction.get_equilibrium_constant(T) # returns SI units
+                f.write('#   ======= ============ ===========\n')
+                f.write('#   Temp.    Kc (eq)        Units   \n')
+                f.write('#   ======= ============ ===========\n')
+                for i, T in enumerate(self.Tlist.value_si):
+                    K_eq = self.Keq_HOhf_list[i]
+                    f.write('#    {0:4g} K {1:11.3e}   {2}\n'.format(
+                        T, K_eq, self.K_eq_units))
+                f.write('#   ======= ============ ===========\n')
+                f.write('\n\n')
+            f.close()          
+            return
+
         self.generate_kinetics()
         if output_directory is not None:
             try:

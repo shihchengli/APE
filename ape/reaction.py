@@ -24,7 +24,10 @@ class Reaction(object):
         self.ncpus = ncpus
     
     def rmg_Reaction(self):
-        specs = self.reactants + self.products + [self.transition_state]
+        if self.transition_state is None:
+            specs = self.reactants + self.products
+        else:
+            specs = self.reactants + self.products + [self.transition_state]
         for spec in specs:
             thermo = ThermoJob(spec.label, spec.path, output_directory=self.output_directory, frequency_scale_factor=self.frequency_scale_factor)
             thermo.ncpus = self.ncpus
@@ -44,7 +47,10 @@ class Reaction(object):
     
     def calcThermo(self, T, P=101325):
         self.thermo_dict[T] = {}
-        specs = set(self.reactants + self.products + [self.transition_state])
+        if self.transition_state is None:
+            specs = set(self.reactants + self.products)
+        else:
+            specs = set(self.reactants + self.products + [self.transition_state])
         for spec in specs:
             logging.debug('    Calculating thermodynamics properties for {0} at {1} K'.format(spec.label, T))
             self.thermo_dict[T][spec.label] = {}
