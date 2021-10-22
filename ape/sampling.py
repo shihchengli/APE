@@ -265,7 +265,7 @@ class SamplingJob(object):
             logging.debug('{:4d}:{:13.2f} cm**-1 '.format(i+1+len(int_freqs), freq))
         
         # Optimizing vibrational coordinates to modulate intermode coupling
-        if self.coordinate_system != 'Normal Mode':
+        if self.coordinate_system != 'Normal Mode' and self.natom != 2:
             logging.debug('\nVibrational coordinates setting...')
             # Modify the rem variables for OptVib job
             optvib_rem_dict = self.rem_variables_dict.copy()
