@@ -24,15 +24,11 @@ Add APE to your local path in .bashrc (make sure to change ~/Path/to/APE/ accord
 
 - Install the latest DEVELOPER version of RMG (which has Arkane). It is recommended to follow RMG’s [Developer installation by source using Anaconda](http://reactionmechanismgenerator.github.io/RMG-Py/users/rmg/installation/index.html#for-developers-installation-by-source-using-anaconda-environment) instructions. Make sure to add RMG-Py to your PATH and PYTHONPATH variables as explained in RMG’s documentation. 
 
-- Clone [ARC](https://reactionmechanismgenerator.github.io/ARC/installation.html) and [pysisyphus](https://github.com/eljost/pysisyphus) in a separate folder and add it to your PYTHONPATH just as well.
+- Clone [ARC](https://reactionmechanismgenerator.github.io/ARC/installation.html) in a separate folder and add it to your PYTHONPATH just as well.
 
   `git clone https://github.com/ReactionMechanismGenerator/ARC.git`
   
   `export PYTHONPATH=$PYTHONPATH:~/Path/to/ARC/`
-
-  `git clone https://github.com/eljost/pysisyphus.git`
-  
-  `export PYTHONPATH=$PYTHONPATH:~/Path/to/pysisyphus/`
 
 - Create an Anaconda environment for APE:
 
@@ -76,6 +72,14 @@ To run APE, make sure to first activate the APE environment.
 ## How to give feedback
   
 If you are having issues, please post to our <a href="https://github.com/shihchengli/APE/issues">Issues</a> page. We will do our best to assist.
+
+## Licence notifications
+
+This project contains source material from the geomeTRIC package.
+
+Copyright 2016-2020 Regents of the University of California and the Authors
+
+Authors: Lee-Ping Wang, Chenchen Song\ https://github.com/leeping/geomeTRIC/blob/master/LICENSE
 
 ## Credits
 
