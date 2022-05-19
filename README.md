@@ -22,11 +22,11 @@ Add APE to your local path in .bashrc (make sure to change ~/Path/to/APE/ accord
 
 ## Install dependencies
 
-- Install the latest DEVELOPER version of RMG (which has Arkane). It is recommended to follow RMG’s [Developer installation by source using Anaconda](http://reactionmechanismgenerator.github.io/RMG-Py/users/rmg/installation/index.html#for-developers-installation-by-source-using-anaconda-environment) instructions. Make sure to add RMG-Py to your PATH and PYTHONPATH variables as explained in RMG’s documentation. 
+- Install the v3.1.0 version of RMG (which has Arkane). It is recommended to follow RMG’s [Developer installation by source using Anaconda](http://reactionmechanismgenerator.github.io/RMG-Py/users/rmg/installation/index.html#for-developers-installation-by-source-using-anaconda-environment) instructions. Make sure to add RMG-Py to your PATH and PYTHONPATH variables as explained in RMG’s documentation.
 
-- Clone [ARC](https://reactionmechanismgenerator.github.io/ARC/installation.html) in a separate folder and add it to your PYTHONPATH just as well.
+- Clone the forked repo of [ARC](https://reactionmechanismgenerator.github.io/ARC/installation.html) from my github page in a separate folder and add it to your PYTHONPATH just as well.
 
-  `git clone https://github.com/ReactionMechanismGenerator/ARC.git`
+  `git clone https://github.com/shihchengli/ARC.git`
   
   `export PYTHONPATH=$PYTHONPATH:~/Path/to/ARC/`
 
