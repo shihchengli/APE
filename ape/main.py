@@ -65,9 +65,6 @@ class APE(object):
         # Extract the log verbosity
         self.verbose = args.verbose
 
-        # Extract the APE running version (serial or parallel) 
-        self.run_in_parallel = args.run_in_parallel
-
         # Extract the plot settings
         self.plot = args.plot
 
@@ -100,7 +97,7 @@ class APE(object):
         initialize_log(self.verbose, os.path.join(self.output_directory, 'ape.log'))
 
         # Print some information to the beginning of the log
-        log_header(run_in_parallel=self.run_in_parallel, ncpus=self.ncpus)
+        log_header(ncpus=self.ncpus)
 
         # Load the input file for the job
         self.job_list = self.load_input_file(self.input_file)
@@ -170,14 +167,12 @@ def initialize_log(verbose=logging.INFO, log_file=None):
         logger.addHandler(fh)
 
 
-def log_header(level=logging.INFO, run_in_parallel=None, ncpus=None):
+def log_header(level=logging.INFO, ncpus=None):
     """
     Output a header containing identifying information about APE to the log.
     """
     logging.log(level, 'APE execution initiated at {0}'.format(time.asctime()))
-    if run_in_parallel and ncpus is not None:
-        logging.log(level, 'Parallel version, running on {0} processors'.format(ncpus))
-    elif ncpus is not None:
+    if ncpus is not None:
         logging.log(level, 'Serial version, running on {0} processors'.format(ncpus))
     logging.log(level, '')
     logging.log(level, '################################################################')

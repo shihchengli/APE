@@ -8,16 +8,11 @@ import os
 import logging
 
 from ape.main import APE
-from parallel_ape.parallel_main import Parallel_APE
 
 ape = APE()
 
 # Parse and validate the command-line arguments
 args = ape.parse_command_line_arguments()
-
-# Check whether this job running in parallel or not
-if args.run_in_parallel:
-    ape = Parallel_APE()
 
 # Execute the job
 ape.execute()
