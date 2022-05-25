@@ -1,0 +1,286 @@
+                  Welcome to Q-Chem
+     A Quantum Leap Into The Future Of Chemistry
+
+
+ Q-Chem 5.3 (devel), Q-Chem, Inc., Pleasanton, CA (2020)
+
+ Yihan Shao,  Zhengting Gan,  E. Epifanovsky,  A. T. B. Gilbert,  M. Wormit,  
+ J. Kussmann,  A. W. Lange,  A. Behn,  Jia Deng,  Xintian Feng,  D. Ghosh,  
+ M. Goldey,  P. R. Horn,  L. D. Jacobson,  I. Kaliman,  T. Kus,  A. Landau,  
+ Jie Liu,  E. I. Proynov,  R. M. Richard,  R. P. Steele,  E. J. Sundstrom,  
+ H. L. Woodcock III,  P. M. Zimmerman,  D. Zuev,  B. Alam,  B. Albrecht,  
+ E. Alguire,  S. A. Baeppler,  D. Barton,  Z. Benda,  Y. A. Bernard,  
+ E. J. Berquist,  K. B. Bravaya,  H. Burton,  K. Carter-Fenk,  D. Casanova,  
+ Chun-Min Chang,  Yunqing Chen,  A. Chien,  K. D. Closser,  M. P. Coons,  
+ S. Coriani,  S. Dasgupta,  A. L. Dempwolff,  M. Diedenhofen,  Hainam Do,  
+ R. G. Edgar,  Po-Tung Fang,  S. Faraji,  S. Fatehi,  Qingguo Feng,  
+ J. Fosso-Tande,  J. Gayvert,  Qinghui Ge,  A. Ghysels,  G. Gidofalvi,  
+ J. Gomes,  J. Gonthier,  A. Gunina,  D. Hait,  M. W. D. Hanson-Heine,  
+ P. H. P. Harbach,  A. W. Hauser,  M. F. Herbst,  J. E. Herr,  
+ E. G. Hohenstein,  Z. C. Holden,  Kerwin Hui,  B. C. Huynh,  T.-C. Jagau,  
+ Hyunjun Ji,  B. Kaduk,  K. Khistyaev,  Jaehoon Kim,  P. Klunzinger,  K. Koh,  
+ D. Kosenkov,  L. Koulias,  T. Kowalczyk,  C. M. Krauter,  A. Kunitsa,  
+ Ka Un Lao,  A. Laurent,  K. V. Lawler,  Joonho Lee,  D. Lefrancois,  
+ S. Lehtola,  D. S. Levine,  Yi-Pei Li,  You-Sheng Lin,  Fenglai Liu,  
+ Kuan-Yu Liu,  E. Livshits,  M. Loipersberger,  A. Luenser,  P. Manohar,  
+ E. Mansoor,  S. F. Manzer,  Shan-Ping Mao,  Yuezhi Mao,  N. Mardirossian,  
+ A. V. Marenich,  T. Markovich,  L. A. Martinez-Martinez,  S. A. Maurer,  
+ N. J. Mayhall,  S. C. McKenzie,  J.-M. Mewes,  P. Morgante,  A. F. Morrison,  
+ J. W. Mullinax,  K. Nanda,  T. S. Nguyen-Beck,  R. Olivares-Amaya,  
+ K. J. Oosterbaan,  J. A. Parkhill,  S. K. Paul,  F. Pavosevic,  Zheng Pei,  
+ T. M. Perrine,  F. Plasser,  P. Pokhilko,  S. Prager,  A. Prociuk,  
+ E. Ramos,  B. Rana,  D. R. Rehn,  F. Rob,  M. Scheurer,  M. Schneider,  
+ N. Sergueev,  S. M. Sharada,  S. Sharma,  D. W. Small,  T. Stauch,  
+ C. J. Stein,  T. Stein,  Yu-Chuan Su,  S. P. Veccham,  Zhen Tao,  
+ A. J. W. Thom,  A. Tkatchenko,  T. Tsuchimochi,  N. M. Tubman,  L. Vogt,  
+ M. L. Vidal,  O. Vydrov,  M. A. Watson,  J. Wenzel,  M. de Wergifosse,  
+ T. A. Wesolowski,  A. White,  J. Witte,  A. Yamada,  Jun Yang,  K. Yao,  
+ S. Yeganeh,  S. R. Yost,  Zhi-Qiang You,  A. Zech,  Igor Ying Zhang,  
+ Xing Zhang,  Yan Zhao,  Ying Zhu,  B. R. Brooks,  G. K. L. Chan,  
+ C. J. Cramer,  M. S. Gordon,  W. J. Hehre,  A. Klamt,  M. W. Schmidt,  
+ C. D. Sherrill,  D. G. Truhlar,  A. Aspuru-Guzik,  R. Baer,  A. T. Bell,  
+ N. A. Besley,  Jeng-Da Chai,  A. E. DePrince, III,  R. A. DiStasio Jr.,  
+ A. Dreuw,  B. D. Dunietz,  T. R. Furlani,  Chao-Ping Hsu,  Yousung Jung,  
+ Jing Kong,  D. S. Lambrecht,  WanZhen Liang,  C. Ochsenfeld,  
+ V. A. Rassolov,  L. V. Slipchenko,  J. E. Subotnik,  T. Van Voorhis,  
+ J. M. Herbert,  A. I. Krylov,  P. M. W. Gill,  M. Head-Gordon
+
+ Contributors to earlier versions of Q-Chem not listed above: 
+ R. D. Adamson,  B. Austin,  J. Baker,  G. J. O. Beran,  K. Brandhorst,  
+ S. T. Brown,  E. F. C. Byrd,  A. K. Chakraborty,  C.-L. Cheng,  
+ Siu Hung Chien,  D. M. Chipman,  D. L. Crittenden,  H. Dachsel,  
+ R. J. Doerksen,  A. D. Dutoi,  L. Fusti-Molnar,  W. A. Goddard III,  
+ A. Golubeva-Zadorozhnaya,  S. R. Gwaltney,  G. Hawkins,  A. Heyden,  
+ S. Hirata,  G. Kedziora,  F. J. Keil,  C. Kelley,  Jihan Kim,  R. A. King,  
+ R. Z. Khaliullin,  P. P. Korambath,  W. Kurlancheek,  A. M. Lee,  M. S. Lee,  
+ S. V. Levchenko,  Ching Yeh Lin,  D. Liotard,  R. C. Lochan,  I. Lotan,  
+ P. E. Maslen,  N. Nair,  D. P. O'Neill,  D. Neuhauser,  E. Neuscamman,  
+ C. M. Oana,  R. Olson,  B. Peters,  R. Peverati,  P. A. Pieniazek,  
+ Y. M. Rhee,  J. Ritchie,  M. A. Rohrdanz,  E. Rosta,  N. J. Russ,  
+ H. F. Schaefer III,  N. E. Schultz,  N. Shenvi,  A. C. Simmonett,  A. Sodt,  
+ D. Stuck,  K. S. Thanthiriwatte,  V. Vanovschi,  Tao Wang,  A. Warshel,  
+ C. F. Williams,  Q. Wu,  X. Xu,  W. Zhang
+
+ Please cite Q-Chem as follows:
+ Y. Shao et al., Mol. Phys. 113, 184-215 (2015)
+ DOI: 10.1080/00268976.2014.952696
+
+ Q-Chem 5.3.0 for Intel X86 EM64T Linux
+
+ Parts of Q-Chem use Armadillo 9.800.1 (Horizon Scraper).
+ http://arma.sourceforge.net/
+
+ Q-Chem begins on Mon Sep 14 08:29:07 2020  
+
+Host: centos77-c6
+0
+
+     Scratch files written to /tmp/37584.centos77-h1/qchem115787//
+Processing $rem in /opt/qchem-5.3.0-intel2020u1//config/preferences:
+Processing $rem in /home/victor/.qchemrc:
+
+Checking the input file for inconsistencies... 	...done.
+
+--------------------------------------------------------------
+User input:
+--------------------------------------------------------------
+$molecule
+0 1
+Cl      -6.3214699591      1.1344300000      0.0000000000                 
+H       -5.0438300409      1.1344300000      0.0000000000                 
+$end
+
+$rem
+   JOBTYPE         freq
+   EXCHANGE omegaB97X-D
+   BASIS 6-311+G(2df,2pd)
+   SYM_IGNORE=TRUE
+   XC_GRID 000075000302
+   SCF_ALGORITHM DIIS
+   MAX_SCF_CYCLES 150
+   SCF_CONVERGENCE 8
+   WAVEFUNCTION_ANALYSIS FALSE
+   SYMMETRY FALSE
+$end     
+
+--------------------------------------------------------------
+ ----------------------------------------------------------------
+             Standard Nuclear Orientation (Angstroms)
+    I     Atom           X                Y                Z
+ ----------------------------------------------------------------
+    1      Cl     -6.3214699591     1.1344300000     0.0000000000
+    2      H      -5.0438300409     1.1344300000     0.0000000000
+ ----------------------------------------------------------------
+ Nuclear Repulsion Energy =           7.04111531 hartrees
+ There are        9 alpha and        9 beta electrons
+ Requested basis set is 6-311+G(2df,2pd)
+ There are 21 shells and 56 basis functions
+
+ Total QAlloc Memory Limit   2000 MB
+ Mega-Array Size       188 MB
+ MEM_STATIC part       192 MB
+
+                       Distance Matrix (Angstroms)
+             Cl(  1)
+   H (  2)  1.277640
+ 
+ A cutoff of  1.0D-11 yielded    231 shell pairs
+ There are      1674 function pairs (      2070 Cartesian)
+ Smallest overlap matrix eigenvalue = 4.00E-03
+ Guess from superposition of atomic densities
+ Warning:  Energy on first SCF cycle will be non-variational
+ SAD guess density has 18.000000 electrons
+
+ -----------------------------------------------------------------------
+  General SCF calculation program by
+  Eric Jon Sundstrom, Paul Horn, Yuezhi Mao, Dmitri Zuev, Alec White,
+  David Stuck, Shaama M.S., Shane Yost, Joonho Lee, David Small,
+  Daniel Levine, Susi Lehtola, Hugh Burton, Evgeny Epifanovsky,
+  Bang C. Huynh
+ -----------------------------------------------------------------------
+ Exchange:     0.2220 Hartree-Fock + 1.0000 wB97X-D + LR-HF
+ Correlation:  1.0000 wB97X-D
+ Using Euler-Maclaurin-Lebedev (75,302) quadrature formula
+ Dispersion:   Grimme D
+ using 16 threads for integral computing
+ -------------------------------------------------------
+ OpenMP Integral computing Module                
+ Release: version 1.0, May 2013, Q-Chem Inc. Pittsburgh 
+ -------------------------------------------------------
+ using 16 threads for integral computing
+ -------------------------------------------------------
+ OpenMP Integral computing Module                
+ Release: version 1.0, May 2013, Q-Chem Inc. Pittsburgh 
+ -------------------------------------------------------
+ A restricted SCF calculation will be
+ performed using DIIS
+ SCF converges when DIIS error is below 1.0e-08
+ ---------------------------------------
+  Cycle       Energy         DIIS error
+ ---------------------------------------
+    1    -460.7808746266      4.00e-02  
+    2    -460.8062787308      4.83e-03  
+    3    -460.8146687338      3.46e-03  
+    4    -460.8190030497      2.18e-04  
+    5    -460.8190326456      4.93e-05  
+    6    -460.8190353970      6.61e-06  
+    7    -460.8190354306      1.70e-06  
+    8    -460.8190354317      3.41e-07  
+    9    -460.8190354318      3.58e-08  
+   10    -460.8190354318      2.96e-09  Convergence criterion met
+ ---------------------------------------
+ SCF time:   CPU 11.99s  wall 1.00s 
+ SCF   energy in the final basis set =     -460.8190354318
+ Total energy in the final basis set =     -460.8190354318
+ No wavefunction analysis requested
+ Calculating MO derivatives via CPSCF
+    1     0     9    0.0518855  
+    2     0     9    0.0102336  
+    3     0     9    0.0019987  
+    4     0     9    0.0001801  
+    5     0     9    0.0000232  
+    6     4     5    0.0000021  
+    7     9     0    0.0000002  Converged
+ Time for AOints: 0.6 s (CPU) 0.0 s (wall)
+ ------------------------------------------------------------------------------
+                     AOints        : Timing summary (seconds)
+ ------------------------------------------------------------------------------
+     job step          cpu (% of tot)      sys (% of tot)     wall (% of tot)
+ ------------------------------------------------------------------------------
+  AOints            0.5750E+00 ( 3.4)   0.1000E-05 ( 0.6)   0.3602E-01 ( 2.7)
+ ------------------------------------------------------------------------------
+   Grand Totals     0.1677E+02          0.1780E-03          0.1323E+01
+ ------------------------------------------------------------------------------
+ Polarizability Matrix (a.u.)
+            1           2           3
+    1 -15.0806330  -0.0000000   0.0000000
+    2  -0.0000000 -12.0308991   0.0000000
+    3   0.0000000   0.0000000 -12.0308991
+ Calculating analytic Hessian of the SCF energy
+atom: 0 element: 17
+atom: 1 element: 1
+ 
+ Direct stationary perturbation theory relativistic correction:
+ 
+ rels  =       0.777857633811
+ relv  =      -2.708936588452
+ rel2e =       0.000000000000
+ E_rel =      -1.931078954640
+ 
+ Hessian of the SCF Energy
+            1           2           3           4           5           6
+    1   0.3282806   0.0000000  -0.0000000  -0.3282806  -0.0000000   0.0000000
+    2   0.0000000  -0.0009250  -0.0000000  -0.0000000   0.0009250   0.0000000
+    3  -0.0000000  -0.0000000  -0.0009250   0.0000000   0.0000000   0.0009250
+    4  -0.3282806  -0.0000000   0.0000000   0.3282806   0.0000000  -0.0000000
+    5  -0.0000000   0.0009250   0.0000000   0.0000000  -0.0009250  -0.0000000
+    6   0.0000000   0.0000000   0.0009250  -0.0000000  -0.0000000  -0.0009250
+ **********************************************************************
+ **                                                                  **
+ **                       VIBRATIONAL ANALYSIS                       **
+ **                       --------------------                       **
+ **                                                                  **
+ **        VIBRATIONAL FREQUENCIES (CM**-1) AND NORMAL MODES         **
+ **     FORCE CONSTANTS (mDYN/ANGSTROM) AND REDUCED MASSES (AMU)     **
+ **                  INFRARED INTENSITIES (KM/MOL)                   **
+ **                                                                  **
+ **********************************************************************
+ 
+
+ Mode:                 1
+ Frequency:      2975.81
+ Force Cnst:      5.4054
+ Red. Mass:       1.0360
+ IR Active:          YES
+ IR Intens:       51.440
+ Raman Active:       YES
+               X      Y      Z        X      Y      Z        X      Y      Z
+ Cl        -0.029 -0.000  0.000
+ H          1.000  0.000  0.000
+ TransDip   0.230 -0.000  0.000
+
+ STANDARD THERMODYNAMIC QUANTITIES AT   298.15 K  AND     1.00 ATM
+
+   This Molecule has  0 Imaginary Frequencies
+   Zero point vibrational energy:        4.254 kcal/mol
+
+
+ Q-Chem warning in module 0, line  389:
+
+  SYM_IGNORE is turned on for a linear molecule
+
+    We detect a C*h symmetry
+   Atom    1 Element Cl Has Mass   34.96885
+   Atom    2 Element H  Has Mass    1.00783
+   Molecular Mass:    35.976680 amu
+   Principal axes and moments of inertia in amu*Bohr^2:
+                             1           2           3
+    Eigenvalues --        0.00000     5.71034     5.71034
+          X               1.00000     0.00000     0.00000
+          Y               0.00000     1.00000     0.00000
+          Z               0.00000     0.00000     1.00000
+   Rotational Symmetry Number is   1
+   The Molecule is a Symmetric Top
+   Translational Enthalpy:        0.889 kcal/mol
+   Rotational Enthalpy:           0.889 kcal/mol
+   Vibrational Enthalpy:          4.254 kcal/mol
+   gas constant (RT):             0.592 kcal/mol
+   Translational Entropy:        36.671  cal/mol.K
+   Rotational Entropy:            7.906  cal/mol.K
+   Vibrational Entropy:           0.000  cal/mol.K
+
+   Total Enthalpy:                6.624 kcal/mol
+   Total Entropy:                44.576  cal/mol.K
+Archival summary:
+1\1\centos77-c6\FREQ\ProcedureUnspecified\BasisUnspecified\l11\victor\MonSep1408:29:122020MonSep1408:29:122020\0\\#,FREQ,ProcedureUnspecified,BasisUnspecified,\\0,1\Cl\H,1,1.27764\\\@
+
+ Total job time:  4.72s(wall), 44.21s(cpu) 
+ Mon Sep 14 08:29:12 2020
+
+        *************************************************************
+        *                                                           *
+        *  Thank you very much for using Q-Chem.  Have a nice day.  *
+        *                                                           *
+        *************************************************************
+
+
