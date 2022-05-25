@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 # APE variables
 
-coordinate_system = "Normal Mode"
-cut_off_energy = 0.05
-step_size_factor = 1
-number_of_natural_length = 4
-coordinate_type = "DLC"
+coordinate_system = "Normal Mode" # coordinate_system include "Normal Mode", "E-Optimized" and "E'-Optimized"
+cut_off_energy = 0.05 # Use 0.05 hartrees as cut_off_energy to ensure each mode sample to 4 natural lengths in each direction
+step_size_factor = 1 # step_size = step_size_factor * natural_length
+number_of_natural_length = 4 # sample till number_of_natural_length * natural_length in each direction of each mode
+coordinate_type = "DLC" # coordinate type include "DLC", "HDLC" and "TRIC" 
 
 # QChem rem variables
 exchange = 'omegaB97X-D'

@@ -23,5 +23,4 @@ pop_mulliken = False
 
 species('1-propanol', './1-propanol.q.out', protocol='UMN')
 
-
 thermo('1-propanol', Tlist=[298.15])
