@@ -267,12 +267,12 @@ def load_input_file(path, output_path=None):
     nnl = local_context.get('number_of_natural_length', None)
     # coordinate_system include "Normal Mode", "E-Optimized" and "E'-Optimized"
     coordinate_system = local_context.get('coordinate_system', 'Normal Mode')
-    # coordinate_type include "DLC" "HDLC" and "TRIC"
+    # coordinate_type include "RIC" "HDLC" and "TRIC"
     coordinate_type = local_context.get('coordinate_type', None)
     addcart = local_context.get('addcart', None)
     addtr = local_context.get('addtr', None)
     add_interfragment_bonds = local_context.get('add_interfragment_bonds', None)
-    if coordinate_type == "DLC":
+    if coordinate_type == "RIC":
         add_interfragment_bonds = True
     elif coordinate_type == "HDLC":
         addcart = True
@@ -284,8 +284,8 @@ def load_input_file(path, output_path=None):
             rem_variables_dict[key.upper()] = local_context.get(key)
     if coordinate_system not in ["Normal Mode", "E-Optimized", "E'-Optimized"]:
         raise InputError("The value of coordinate_system should be Normal Mode, E-Optimized or E'-Optimized.")
-    if coordinate_type not in [None, "DLC", "HDLC", "TRIC"]:
-        raise InputError("The value of coordinate_type should be DLC, HDLC or TRIC.")
+    if coordinate_type not in [None, "RIC", "HDLC", "TRIC"]:
+        raise InputError("The value of coordinate_type should be RIC, HDLC or TRIC.")
     frequency_scale_factor = local_context.get('frequency_scale_factor', 1)
 
     # Save job variables to log file
