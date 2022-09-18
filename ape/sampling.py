@@ -6,6 +6,7 @@ import os
 import csv
 import logging
 import numpy as np
+from copy import deepcopy
 from time import gmtime, strftime
 
 import rmgpy.constants as constants
@@ -65,6 +66,7 @@ class SamplingJob(object):
 
         # Create conformer class
         self.conformer, unscaled_frequencies = Log.load_conformer()
+        self.raw_conformer = deepcopy(self.conformer)
 
         # Define the sampling protocol
         if self.protocol is None:
@@ -127,7 +129,7 @@ class SamplingJob(object):
         self.linearity = is_linear(self.conformer.coordinates.value)
 
         # Determine hindered rotors information
-        if self.protocol == 'UMVT':
+        if self.protocol in ['UMVT', 'UMT']:
             if self.rotors is not None:
                 logging.info('Find user defined rotors...')
                 self.rotors_dict = self.rotors
@@ -163,7 +165,7 @@ class SamplingJob(object):
                                             addcart=self.addcart, addtr=self.addtr, add_interfragment_bonds=self.add_interfragment_bonds)
         
         # Create RedundantCoords object for torsional mode
-        if self.protocol == 'UMVT':
+        if self.protocol in ['UMVT', 'UMT']:
             self.torsion_internal = get_RedundantCoords(self.label, self.symbols, self.cart_coords/BOHR2ANG, self.bond_factor, self.rotors_dict, self.nHcap,
                                                         add_hrdrogen_bonds=False, addcart=False, addtr=False, add_interfragment_bonds=True)
         
@@ -226,7 +228,7 @@ class SamplingJob(object):
         # Determine the vibrational frequency and directional vector of each vibrational normal mode
         int_freqs = []
         new_rotors = []
-        if self.protocol == 'UMVT' and self.n_rotors != 0:
+        if self.protocol in ['UMVT', 'UMT'] and self.n_rotors != 0:
             logging.info(self.torsion_internal.get_intco_log())
             rotors = [[rotor['pivots'], rotor['top']] for rotor in self.rotors_dict.values()]
             
@@ -263,9 +265,15 @@ class SamplingJob(object):
             logging.info('{:4d}:{:13.2f} cm**-1 ***projected rotor***'.format(i+1, freq))
         for i, freq in enumerate(vib_freq):
             logging.debug('{:4d}:{:13.2f} cm**-1 '.format(i+1+len(int_freqs), freq))
+        if self.protocol == 'UMT':
+            self.only_vib_conformer = deepcopy(self.conformer)
+            self.conformer.modes[2].frequencies = (int_freqs + vib_freq.tolist(), "cm^-1")
+            self.only_vib_conformer.modes[2].frequencies = (vib_freq, "cm^-1")
+        else:
+            self.only_vib_conformer = None
         
         # Optimizing vibrational coordinates to modulate intermode coupling
-        if self.coordinate_system != 'Normal Mode' and self.natom != 2:
+        if self.protocol != 'UMT' and self.coordinate_system != 'Normal Mode' and self.natom != 2:
             logging.debug('\nVibrational coordinates setting...')
             # Modify the rem variables for OptVib job
             optvib_rem_dict = self.rem_variables_dict.copy()
@@ -296,6 +304,7 @@ class SamplingJob(object):
         # Sample points along the 1-D PES of each vibration motion
         logging.info('Starting vibrational motions sampling...')
         for i in range(self.nmode):
+            if self.protocol == 'UMT': break
             if i in range(self.n_rotors): continue
             mode = i + 1
             vector = unweighted_v[i - self.n_rotors]

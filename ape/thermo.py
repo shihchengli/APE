@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import math
+from copy import deepcopy
 import numpy as np
 import logging
 
@@ -53,6 +54,16 @@ class ThermoJob(Statmech):
             Q_int *= Q_vib
             Cv_int += Cv
 
+        if self.protocol == 'UMT':
+            conformer = self.only_vib_conformer
+            for freq in conformer.modes[2].frequencies.value_si:
+                ZPE +=  0.5 * freq * constants.h * constants.c * 100 * constants.Na / 4184
+                E_int += 0.5 * freq * constants.h * constants.c * 100 * constants.Na / 4184
+            E_int += (conformer.modes[2].get_enthalpy(T)) / 4184
+            S_int += conformer.modes[2].get_entropy(T) / 4.184
+            Q_int *= conformer.modes[2].get_partition_function(T)
+            Cv_int += conformer.modes[2].get_heat_capacity(T) / 4.184
+
         self.result_info.append("\n# \t********** Final results **********\n\n")
         self.result_info.append("# Temperature (K): %.2f" % (T))
         self.result_info.append("# Pressure (Pa): %.0f" % (P))
@@ -75,6 +86,7 @@ class ThermoJob(Statmech):
         self.result_info.append("# Overall partition function: %.10f" % (Q_trans * Q_rot * Q_int * self.spin_multiplicity * self.optical_isomers))
 
         if print_HOhf_result:
+            conformer = self.raw_conformer
             # compare to HOhf model
             E_vib = (conformer.modes[2].get_enthalpy(T) + self.zpe_of_Hohf) / 4184
             # E_vib should be calculated by freq...
@@ -139,6 +151,7 @@ class ThermoJob(Statmech):
         self.result_info.append("# Internal (tor+vib) Cv (cal/mol/K): %.10f" % (Cv_int))
 
         if print_HOhf_result:
+            conformer = self.raw_conformer
             # compare to HOhf model
             E_vib = (conformer.modes[2].get_enthalpy(T) + self.zpe_of_Hohf) / 4184
             # E_vib should be calculated by freq...
