@@ -304,7 +304,7 @@ class SamplingJob(object):
         # Sample points along the 1-D PES of each vibration motion
         logging.info('Starting vibrational motions sampling...')
         for i in range(self.nmode):
-            if self.protocol == 'UMT': break
+            if self.protocol == 'UMT' and self.n_rotors != 0: break
             if i in range(self.n_rotors): continue
             mode = i + 1
             vector = unweighted_v[i - self.n_rotors]
@@ -324,6 +324,7 @@ class SamplingJob(object):
                 XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode,
                 self.internal, qj, freq, reduced_mass, step_size, path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict,
                 self.gen_basis, max_nloop=self.max_nloop)
+            if self.protocol == 'UMT': break
             xyz_dict[mode] = XyzDictOfEachMode
             energy_dict[mode] = EnergyDictOfEachMode
             mode_dict[mode] = ModeDictOfEachMode
