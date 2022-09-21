@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import csv
 import numpy as np
-
+import ast
 import rmgpy.constants as constants
 
 def from_sampling_result(csv_path):
@@ -10,6 +10,7 @@ def from_sampling_result(csv_path):
     """
     mode_dict = {}
     energy_dict = {}
+    rotors = {}
     with open(csv_path, 'r') as f:
         reader = csv.reader(f, dialect='excel')
         for row in reader:
@@ -21,6 +22,7 @@ def from_sampling_result(csv_path):
                 energy_dict[nmode] = {}
             elif row[0] == 'min_elect': min_elect = float(row[1])
             elif row[0] == 'symmetry_number': mode_dict[nmode]['symmetry_number'] = int(row[1])
+            elif row[0] == 'rotor': mode_dict[nmode]['rotor'] = ast.literal_eval(row[1]); rotors[nmode] = ast.literal_eval(row[1])
             elif row[0] == 'M': mode_dict[nmode]['M'] = float(row[1])
             elif row[0] == 'K': mode_dict[nmode]['K'] = float(row[1])
             elif row[0] == 'step_size': mode_dict[nmode]['step_size'] = float(row[1])
@@ -28,7 +30,7 @@ def from_sampling_result(csv_path):
             else:
                 ind, e_elect = int(row[0]), float(row[1])
                 energy_dict[nmode][ind] = e_elect
-    return mode_dict, energy_dict, min_elect
+    return mode_dict, energy_dict, min_elect, rotors
 
 def get_is_tors_list(mode_dict):
     """

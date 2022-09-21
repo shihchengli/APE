@@ -326,6 +326,7 @@ def sampling_along_torsion(symbols, cart_coords, mode, internal_object, conforme
 
     # Save information of this mode
     ModeDictOfEachMode['mode'] = 'tors'
+    ModeDictOfEachMode['rotor'] = rotors_dict[mode]
     ModeDictOfEachMode['M'] = conformer.get_internal_reduced_moment_of_inertia(pivots, top) * constants.Na * 1e23 # in amu*angstrom^2
     ModeDictOfEachMode['K'] = (int_freq * (2 * np.pi * constants.c * 100)) ** 2 # in 1/s^2
     ModeDictOfEachMode['step_size'] = step_size # in radian

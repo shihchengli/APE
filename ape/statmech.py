@@ -30,7 +30,7 @@ class Statmech(object):
     
     def load_save(self):
         self.csv_path = os.path.join(self.output_directory, '{}_samping_result.csv'.format(self.label))
-        self.mode_dict, self.energy_dict, self.min_elect = from_sampling_result(self.csv_path)
+        self.mode_dict, self.energy_dict, self.min_elect, self.rotors = from_sampling_result(self.csv_path)
         n_rotors, n_vibs = 0, 0
         for mode in self.mode_dict.values():
             if mode['mode'] == 'tors': n_rotors += 1
@@ -41,7 +41,7 @@ class Statmech(object):
             self.protocol = 'UMT'
         else:
             self.protocol = 'UMN'
-        self.sampling = SamplingJob(self.label, self.input_file, output_directory=self.output_directory, protocol=self.protocol, ncpus=self.ncpus)
+        self.sampling = SamplingJob(self.label, self.input_file, output_directory=self.output_directory, protocol=self.protocol, ncpus=self.ncpus, rotors=self.rotors)
         logging.disable(50)
         self.sampling.parse()
         self.sampling.sampling(save_result=False)

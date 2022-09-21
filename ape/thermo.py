@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
 import math
-from copy import deepcopy
 import numpy as np
 import logging
 
@@ -9,8 +8,6 @@ import rmgpy.constants as constants
 
 from arkane.output import prettify
 
-from ape.FitPES import from_sampling_result, cubic_spline_interpolations
-from ape.schrodinger import SetAnharmonicH
 from ape.statmech import Statmech
 
 class ThermoJob(Statmech):

@@ -366,6 +366,7 @@ class SamplingJob(object):
                 writer.writerow([name])
                 if is_tors:
                     writer.writerow(['symmetry_number', mode_dict[mode]['symmetry_number']])
+                    writer.writerow(['rotor', mode_dict[mode]['rotor']])
                 writer.writerow(['M', mode_dict[mode]['M']])
                 writer.writerow(['K', mode_dict[mode]['K']])
                 writer.writerow(['step_size', mode_dict[mode]['step_size']])
