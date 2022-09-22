@@ -356,6 +356,8 @@ class SamplingJob(object):
             writer = csv.writer(f)
             if write_min_elect:
                 writer.writerow(['min_elect', self.e_elect])
+            job_keys = {'rem_variables_dict': self.rem_variables_dict, 'gen_basis': self.gen_basis, 'thresh': self.thresh, 'bond_factor': self.bond_factor, 'step_size_factor': self.step_size_factor, 'coordinate_system': self.coordinate_system, 'nnl': self.nnl, 'addcart': self.addcart, 'addtr': self.addtr, 'add_interfragment_bonds': self.add_interfragment_bonds}
+            writer.writerow(['job_keys', job_keys])
             for mode in mode_dict.keys():
                 if mode_dict[mode]['mode'] == 'tors':
                     is_tors = True
