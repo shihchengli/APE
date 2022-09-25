@@ -35,13 +35,7 @@ class Statmech(object):
         for mode in self.mode_dict.values():
             if mode['mode'] == 'tors': n_rotors += 1
             else: n_vibs += 1
-        if n_rotors != 0 and n_vibs != 0:
-            self.protocol = 'UMVT'
-        elif n_rotors != 0 and n_vibs == 0:
-            self.protocol = 'UMT'
-        else:
-            self.protocol = 'UMN'
-        self.sampling = SamplingJob(self.label, self.input_file, output_directory=self.output_directory, protocol=self.protocol, ncpus=self.ncpus, rotors=self.rotors, **job_keys)
+        self.sampling = SamplingJob(self.label, self.input_file, output_directory=self.output_directory, ncpus=self.ncpus, rotors=self.rotors, **job_keys)
         logging.disable(50)
         self.sampling.parse()
         self.sampling.sampling(save_result=False)
