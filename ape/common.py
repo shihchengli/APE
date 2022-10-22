@@ -537,11 +537,24 @@ def sampling_along_vibration(symbols, cart_coords, mode, internal_object, intern
 
     return XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect
 
+def get_reference_energy(symbols, cart_coords, path, ncpus, charge=None, multiplicity=None, rem_variables_dict=None,
+                         gen_basis="", is_QM_MM_INTERFACE=None, QM_USER_CONNECT=None, QM_ATOMS=None, 
+                         force_field_params=None, fixed_molecule_string=None, opt=None):
+    """Calculate electronic energy of the reference point, and save the result"""
+    xyz = getXYZ(symbols, cart_coords)
+    file_name = 'reference'
+    if is_QM_MM_INTERFACE:
+        e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, rem_variables_dict,
+                                       gen_basis, is_QM_MM_INTERFACE, QM_USER_CONNECT, QM_ATOMS, force_field_params,
+                                       fixed_molecule_string, opt)
+    else:
+        e_elec = get_electronic_energy(xyz, path, file_name, ncpus, charge, multiplicity, rem_variables_dict, gen_basis)
+    return e_elec
+
 def get_electronic_energy(xyz, path, file_name, ncpus, charge=None, multiplicity=None,
                           rem_variables_dict=None, gen_basis="", is_QM_MM_INTERFACE=None,
                           QM_USER_CONNECT=None, QM_ATOMS=None, force_field_params=None,
                           fixed_molecule_string=None, opt=None):
-    # file_name = 'output'
     if is_QM_MM_INTERFACE:
         # Create geometry format of QM/MM system 
         # <Atom> <X> <Y> <Z> <MM atom type> <Bond 1> <Bond 2> <Bond 3> <Bond 4>

@@ -19,7 +19,7 @@ from arc.species.species import ARCSpecies
 
 from ape.intcoords.constants import BOHR2ANG
 from ape.qchem import QChemLog
-from ape.common import diagonalize_projected_hessian, get_internal_rotation_freq, sampling_along_torsion, sampling_along_vibration
+from ape.common import diagonalize_projected_hessian, get_internal_rotation_freq, sampling_along_torsion, sampling_along_vibration, get_reference_energy
 from ape.intcoords.InternalCoordinates import get_RedundantCoords, getXYZ
 from ape.OptimalVibrations import OptVib
 from ape.exceptions import InputError
@@ -304,7 +304,21 @@ class SamplingJob(object):
         # Sample points along the 1-D PES of each vibration motion
         logging.info('Starting vibrational motions sampling...')
         for i in range(self.nmode):
-            if self.protocol == 'UMT' and self.n_rotors != 0: break
+            if self.protocol == 'UMT':
+                # Calculate min_elect
+                if self.n_rotors != 0:
+                    # Already be calculated in torsional sampling
+                    # TODO: The energy of stationary point is calculated too many times, which is redundant and not good.
+                    break
+                else:
+                    if self.is_QM_MM_INTERFACE:
+                        min_elect = get_reference_energy(self.symbols, self.cart_coords, path, self.ncpus, self.charge, self.spin_multiplicity,
+                                                         self.rem_variables_dict, self.gen_basis, self.is_QM_MM_INTERFACE, self.QM_USER_CONNECT,
+                                                         self.QM_ATOMS, self.force_field_params, self.fixed_molecule_string, self.opt)
+                    else:
+                        min_elect = get_reference_energy(self.symbols, self.cart_coords, path, self.ncpus, self.charge, self.spin_multiplicity,
+                                                         self.rem_variables_dict, self.gen_basis)
+                    break
             if i in range(self.n_rotors): continue
             mode = i + 1
             vector = unweighted_v[i - self.n_rotors]
@@ -324,7 +338,6 @@ class SamplingJob(object):
                 XyzDictOfEachMode, EnergyDictOfEachMode, ModeDictOfEachMode, min_elect = sampling_along_vibration(self.symbols, self.cart_coords, mode,
                 self.internal, qj, freq, reduced_mass, step_size, path, thresh, self.ncpus, self.charge, self.spin_multiplicity, self.rem_variables_dict,
                 self.gen_basis, max_nloop=self.max_nloop)
-            if self.protocol == 'UMT': break
             xyz_dict[mode] = XyzDictOfEachMode
             energy_dict[mode] = EnergyDictOfEachMode
             mode_dict[mode] = ModeDictOfEachMode
