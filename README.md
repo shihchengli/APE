@@ -6,7 +6,7 @@
 
 Currently, APE can estimate the thermodynamic property of a given molecule and the kinetics properties of a given elementary reaction in gas-phase.
 
-**This software is still work in progress to develop more functions.**
+Please check out our published paper of [Comparative Analysis of Uncoupled Mode Approximations for Molecular Thermochemistry and Kinetics](https://doi.org/10.1021/acs.jctc.2c00664) in the Journal of Chemical Theory and Computation.
 
 ## Clone and setup path
 
@@ -80,6 +80,11 @@ This project contains source material from the geomeTRIC package.
 Copyright 2016-2020 Regents of the University of California and the Authors
 
 Authors: Lee-Ping Wang, Chenchen Song\ https://github.com/leeping/geomeTRIC/blob/master/LICENSE
+
+## How to cite
+Please include the following citation if APE was used for an academic study:
+
+- Shih-Cheng Li, Yen-Chun Lin, Yi-Pei Li, Comparative Analysis of Uncoupled Mode Approximations for Molecular Thermochemistry and Kinetics, J. Chem. Theory Comput. 2022, XXXX, XXX, XXX-XXX (DOI: [10.1021/acs.jctc.2c00664](https://doi.org/10.1021/acs.jctc.2c00664))
 
 ## Credits
 
