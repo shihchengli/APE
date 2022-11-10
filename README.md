@@ -84,7 +84,7 @@ Authors: Lee-Ping Wang, Chenchen Song\ https://github.com/leeping/geomeTRIC/blob
 ## How to cite
 Please include the following citation if APE was used for an academic study:
 
-- Shih-Cheng Li, Yen-Chun Lin, Yi-Pei Li, Comparative Analysis of Uncoupled Mode Approximations for Molecular Thermochemistry and Kinetics, J. Chem. Theory Comput. 2022, XXXX, XXX, XXX-XXX (DOI: [10.1021/acs.jctc.2c00664](https://doi.org/10.1021/acs.jctc.2c00664))
+- Shih-Cheng Li, Yen-Chun Lin, Yi-Pei Li, Comparative Analysis of Uncoupled Mode Approximations for Molecular Thermochemistry and Kinetics, J. Chem. Theory Comput. 2022, 18, 11, 6866–6877 (DOI: [10.1021/acs.jctc.2c00664](https://doi.org/10.1021/acs.jctc.2c00664))
 
 ## Credits
 
