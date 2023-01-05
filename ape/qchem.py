@@ -294,6 +294,21 @@ class QChemLog(ESSAdapter):
                         # Matrix element rows
                         for j in range(n_rows):  # for j in range(i*6, Nrows):
                             data = f.readline().split()
+                            if len(data) < 7: 
+                                # Deal with force constant < -100
+                                # ex. of problematic data format : ['188', '-3.2133792-113.3627774', '-3.2133576', '-0.0000014', '-0.0000053', '0.0000079']
+                                temp = []
+                                for j in range(len(data)):
+                                    if (j == 0 and '-' in data[j]) or (j>0 and len(data[j]) > 12):
+                                        idx1 = 0
+                                        for idx2, k in enumerate(data[j]):
+                                            if k == '-' and idx2 != 0:
+                                                temp += [data[j][idx1:idx2],]
+                                                idx1 = idx2
+                                        temp += [data[j][idx1:],]
+                                    else:
+                                        temp += [data[j],]
+                                data = temp                            
                             for k in range(len(data) - 1):
                                 force[j, i * 6 + k] = float(data[k + 1])
                                 # F[i*5+k,j] = F[j,i*5+k]
