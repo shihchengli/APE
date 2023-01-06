@@ -29,12 +29,21 @@ class Statmech(object):
         self.result_info = list()
     
     def load_save(self):
-        self.sampling = SamplingJob(self.label, self.input_file, ncpus=self.ncpus)
+        self.csv_path = os.path.join(self.output_directory, '{}_samping_result.csv'.format(self.label))
+        self.mode_dict, self.energy_dict, self.min_elect, self.rotors, job_keys = from_sampling_result(self.csv_path)
+        n_rotors, n_vibs = 0, 0
+        for mode in self.mode_dict.values():
+            if mode['mode'] == 'tors': n_rotors += 1
+            else: n_vibs += 1
+        self.sampling = SamplingJob(self.label, self.input_file, output_directory=self.output_directory, ncpus=self.ncpus, rotors=self.rotors, **job_keys)
+        logging.disable(50)
         self.sampling.parse()
+        self.sampling.sampling(save_result=False)
+        logging.disable(logging.NOTSET)
         self.is_QM_MM_INTERFACE = self.sampling.is_QM_MM_INTERFACE
         self.conformer = self.sampling.conformer
-        self.csv_path = os.path.join(self.output_directory, '{}_samping_result.csv'.format(self.label))
-        self.mode_dict, self.energy_dict, self.min_elect = from_sampling_result(self.csv_path)
+        self.raw_conformer = self.sampling.raw_conformer
+        self.only_vib_conformer = self.sampling.only_vib_conformer
         self.zpe_of_Hohf = self.sampling.zpe
         e0 = self.min_elect * constants.E_h * constants.Na + self.sampling.zpe
         self.conformer.E0 = (e0, "J/mol")
