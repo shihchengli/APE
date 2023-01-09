@@ -308,7 +308,7 @@ class QChemLog(ESSAdapter):
                                         temp += [data[j][idx1:],]
                                     else:
                                         temp += [data[j],]
-                                data = temp                            
+                                data = temp                                                        
                             for k in range(len(data) - 1):
                                 force[j, i * 6 + k] = float(data[k + 1])
                                 # F[i*5+k,j] = F[j,i*5+k]
@@ -474,12 +474,11 @@ class QChemLog(ESSAdapter):
                             frequencies = []
                             while 'STANDARD THERMODYNAMIC QUANTITIES AT' not in line:
                                 if ' Frequency:' in line:
-                                    if len(line.split()) == 4:
-                                        frequencies.extend([float(d) for d in line.split()[-3:]])
-                                    elif len(line.split()) == 3:
-                                        frequencies.extend([float(d) for d in line.split()[-2:]])
-                                    elif len(line.split()) == 2:
-                                        frequencies.extend([float(d) for d in line.split()[-1:]])
+                                    frequency = line.split()[1:]
+                                    if '********' in frequency:
+                                        pass 
+                                    else:
+                                        frequencies.extend([float(d) for d in frequency])
                                 line = f.readline()
                             line = f.readline()
                             # If there is an imaginary frequency, remove it
