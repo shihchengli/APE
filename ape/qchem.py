@@ -293,7 +293,9 @@ class QChemLog(ESSAdapter):
                         line = f.readline()
                         # Matrix element rows
                         for j in range(n_rows):  # for j in range(i*6, Nrows):
-                            data = f.readline().split()
+                            data = f.readline().replace("-", " -").split()
+                            # Deal with force constant < -100 using replace()
+                            # ex. of problematic data format : ['188', '-3.2133792-113.3627774', '-3.2133576', '-0.0000014', '-0.0000053', '0.0000079']                     
                             for k in range(len(data) - 1):
                                 force[j, i * 6 + k] = float(data[k + 1])
                                 # F[i*5+k,j] = F[j,i*5+k]
@@ -459,12 +461,11 @@ class QChemLog(ESSAdapter):
                             frequencies = []
                             while 'STANDARD THERMODYNAMIC QUANTITIES AT' not in line:
                                 if ' Frequency:' in line:
-                                    if len(line.split()) == 4:
-                                        frequencies.extend([float(d) for d in line.split()[-3:]])
-                                    elif len(line.split()) == 3:
-                                        frequencies.extend([float(d) for d in line.split()[-2:]])
-                                    elif len(line.split()) == 2:
-                                        frequencies.extend([float(d) for d in line.split()[-1:]])
+                                    frequency = line.split()[1:]
+                                    if '********' in frequency:
+                                        pass 
+                                    else:
+                                        frequencies.extend([float(d) for d in frequency])
                                 line = f.readline()
                             line = f.readline()
                             # If there is an imaginary frequency, remove it
